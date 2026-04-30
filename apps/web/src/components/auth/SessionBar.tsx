@@ -72,6 +72,12 @@ export const SessionBar = (): JSX.Element => {
         <span className="text-zinc-300">
           Signed in as <span className="font-mono text-zinc-100">{user.displayName}</span>
         </span>
+        <Link
+          href="/menu"
+          className="rounded-md border border-realm-aetheric bg-realm-aetheric/10 px-2 py-1 text-xs text-zinc-100 hover:bg-realm-aetheric/20"
+        >
+          Open menu
+        </Link>
         <button
           type="button"
           onClick={() => void onLogout()}

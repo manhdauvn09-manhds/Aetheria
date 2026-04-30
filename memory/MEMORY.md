@@ -280,7 +280,25 @@ games/Aetheria/
     - **`@aetheria/game-assets`** retrofit: `levels.ts` switched from `readFileSync` to **static JSON imports** (`import lv01 from "../levels/01-….json" with { type: "json" }`) so the package works inside Next/webpack with no runtime FS access. Validation against `levelSchema` runs once on first call to `loadAllLevels()`.
     - **`apps/web/next.config.mjs`**: added `webpack` override that registers `extensionAlias: { ".js": [".ts", ".tsx", ".js"], ".mjs": [".mts", ".mjs"] }` so transpiled workspace packages whose source uses `.js` extensions resolve to their `.ts` files. Without this, `import "./levels.js"` from a transpiled package's `.ts` file failed Next's webpack resolver. `@aetheria/game-assets` added to `transpilePackages`.
     - **Smoke** (30 Apr 2026): typecheck 24/24, lint 13/13, build 12/12. Web build now lists `○ /play` (static index) + `ƒ /play/[levelNumber]` (dynamic detail). Live: `/play` HTML enumerates all 8 levels (Forest Trail, Cinder Pass, Cloudbridge, Tideglass Reef, Voidstep Atrium, Hidden Glade, Spire Trial, Mirror Rift); `/play/1` shows "Forest Trail" + "drag = pan" + "wheel = zoom"; `/play/3` shows "Cloudbridge" + boss `"stormcaller"`; `/play/999` → 404.
-22. **NEXT — Step 4.20**: state-machine flow (MainMenu → Realm picker → Level picker → InGame) matching `docs/02_FLOWS.md` §10. Closes Phase 4-C.
+22. ~~Step 4.20: state-machine flow~~ ✅ done 30 Apr 2026 — closes Phase 4-C.
+    - Mapped `docs/02_FLOWS.md` §10 onto Next routes:
+      - `/menu`            ↔ MainMenu (Continue / New Journey / Codex / Shop / Multiplayer / Settings — only the first two are wired; the rest are visible-but-disabled placeholders).
+      - `/realms`          ↔ RealmPicker (5 cards, calls `world.realms` via tRPC; left-border colour comes from each realm's `colorHex`).
+      - `/realms/[realmId]` ↔ LevelPicker (calls `world.levelsForRealm(realmId)` + cross-references `world.realms` for the header label).
+      - `/play/[levelNumber]` ↔ InGame (rewritten as a client component on top of the renderer from 4.19).
+    - **`apps/web/src/store/gameFlow.ts`** — Zustand store: `scene ∈ {splash, main_menu, realm_picker, level_picker, in_game, pause}`, `selectedRealmId`, `activeRun`. Pages call `setScene` on mount; the store survives in-page transitions (e.g. pause overlay) without URL churn.
+    - **`apps/web/src/lib/auth/useHydratedSession.ts`** — hook returning `"loading" | "authenticated" | "unauthenticated"`. On mount calls `/api/auth/refresh` if the in-memory access token is missing/expired; updates the session store with the result. Used by both `SessionBar` and the new auth gate.
+    - **`apps/web/src/components/auth/RequireAuth.tsx`** — wraps protected pages; renders "Checking your session…" while loading, redirects to `/login` on `unauthenticated`. Works as a leaf wrapper because Next 15 RSC requires page files to remain default exports.
+    - **`/play/[levelNumber]` retrofit** (now `"use client"`):
+      - Fires `world.startLevel.mutate({levelNumber})` on first mount; on success records the active run in `gameFlow` and renders `<HexMapRenderer />` against `data.level.map`.
+      - Skips the start mutation if `gameFlow.activeRun.levelNumber` already matches (fast-path Continue).
+      - Pause toggle overlays a "Paused" card on top of the canvas + sets `scene = "pause"`. Resume → `scene = "in_game"`.
+      - Abandon button calls `world.abandonRun.mutate({runId})`, clears `activeRun`, and routes back to `/realms`.
+      - Footer shows runId / tile count / wave count / last clicked tile.
+    - **Login + Signup pages** post-redirect changed from `/` → `/menu`. **`SessionBar`** adds an "Open menu" link when authenticated, alongside the existing "Sign out" button.
+    - **Smoke** (30 Apr 2026): typecheck 24/24, lint 13/13, build 12/12. Web build now lists `○ /menu`, `○ /realms`, `ƒ /realms/[realmId]` alongside the existing routes. Live (no session): `/menu`, `/realms`, `/realms/3`, `/play/1` all render "Checking your session…" via the gate — exactly the pre-redirect state. Login → `/menu` redirect verified by code path.
+    - **Phase 4-C is now closed.** Single-player playable shell: login → menu → realm → level → in-game (hex map, pause, abandon). 4.21+ kicks off Phase 4-D (Combat engine).
+23. **NEXT — Step 4.21**: kick off Phase 4-D — `packages/domain-combat` with types `BattleState / Action / Event / Actor / Tile` and a deterministic seeded RNG. Pure-domain package: no DB, no I/O — reusable by client (prediction) and server (authority).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

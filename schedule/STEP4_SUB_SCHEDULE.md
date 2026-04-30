@@ -56,7 +56,7 @@
 | 4.17 | Save service (server): `snapshot/list/load/delete/autosaveTick/reconcile` with slot 0–3 + version check | vertical | L | 4.7, 4.4 | ✅ |
 | 4.18 | Sync engine (client): drain `sync_queue` → tRPC `sync.push`; pull catalog patches via `sync.pull`; record in `sync_meta` | horizontal | L | 4.4, 4.17 | ✅ |
 | 4.19 | Web: hex map renderer (PixiJS 8) reading `levels.map` JSON; camera + tile click events             | vertical | L | 4.8, 4.15 | ✅ |
-| 4.20 | Web: MainMenu → Realm picker → Level picker → InGame state machine (matches `02_FLOWS.md` §10)    | vertical | M | 4.19, 4.16 | ⬜ |
+| 4.20 | Web: MainMenu → Realm picker → Level picker → InGame state machine (matches `02_FLOWS.md` §10)    | vertical | M | 4.19, 4.16 | ✅ |
 
 ## Phase 4-D · Combat Engine (pure domain)
 *Goal: a deterministic, pure-TS combat engine reusable by client (prediction) and server (authority).*

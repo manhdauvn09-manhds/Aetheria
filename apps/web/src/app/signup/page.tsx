@@ -41,7 +41,7 @@ const SignupPage = (): JSX.Element => {
       });
       setSession(res.user, res.access);
       await bootstrapLocalQuiet(res.access.value);
-      router.push("/");
+      router.push("/menu");
     } catch (e) {
       setError(e instanceof AuthApiError ? e.body.message : "Signup failed");
     } finally {
