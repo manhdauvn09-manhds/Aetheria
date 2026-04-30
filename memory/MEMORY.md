@@ -321,7 +321,20 @@ games/Aetheria/
       - 10-call stream from `seedFromString("aetheria:test")` looks well-distributed.
       - `nextInt(_,1,6)` over 6000 rolls: face counts 914..1068 (≈ uniform).
       - `pick`, `rollDice(3d6)`, `chance(0.5)` all work; `hexDistance({q:0,r:0},{q:2,r:-1}) = 2`; `HEX_DIRS.length = 6`.
-24. **NEXT — Step 4.22**: combat helpers — `apCost`, `lineOfSight`, `rangeReachable`, `elementAdvantage`, `resonanceCheck` + unit tests. Then 4.23 (`createBattle` + `applyAction` w/ event emission), 4.24 (`endTurn` + `checkVictory` + status ticking), and the rest of Phase 4-D.
+24. ~~Step 4.22: combat helpers + unit tests~~ ✅ done 30 Apr 2026.
+    - `domain-combat/src/helpers.ts`:
+      - `apCost(state, action)` — `end_turn`=0, `defend`/`attack`=1, `use_skill` looks up `SKILL_AP_COST` (default 2), `move` walks the path summing per-tile cost (water 2, ice 0.5, lava 2, void/wall ∞, plain/forest/stone/shrine 1) then divides by `actor.stats.move` and rounds up. Missing actor → `Infinity`.
+      - `lineOfSight(state, from, to)` — cube-lerp samples between endpoints; rejects if any intermediate hex is `wall` or `void` (or off-map). Endpoints don't themselves need to be visible terrain.
+      - `rangeReachable(state, actor, apBudget?)` — Dijkstra-lite over `HEX_DIRS` with the same per-tile costs as `apCost`. Excludes walls/void/blocked-by-other-actor. Returns sorted `{q, r, cost}[]` (cost = ceil(AP)).
+      - `elementAdvantage(attacker, defender)` — wheel-based: same → 1.0, attacker-strong (next on wheel) → 1.25, attacker-weak (previous) → 0.75, opposite (3 steps) → 1.0. Unknown elements fall back to 1.0.
+      - `resonanceCheck(state, {lookback?})` — scans the tail of `state.log` (default last 4 events) for `damage_dealt`s by player-side actors with the same element from ≥ 2 distinct attackers. Returns `{element, actors, bonusMultiplier: 1.5}` or `null`.
+    - **Tests** — first vitest workspace.
+      - `packages/domain-combat/vitest.config.ts` (globals, `src/**/*.test.ts`).
+      - `eslint.config.mjs` now layers the `test` overlay so test-file rules relax `no-explicit-any` etc.
+      - 10 RNG tests (determinism across instances, `[0,1)` bound, d6 fairness over 6000 rolls, range-validation throws, `pick` covers all items, `rollDice` sum bounds, `chance` short-circuits + balanced 0.5, `seedFromString` stability + collision-resistance).
+      - 23 helpers tests (apCost: end_turn/defend/attack/skills/move + water/ice/missing actor; lineOfSight: clear/wall/void/same-coord/missing tile; rangeReachable: 0-AP, plain expansion, walls + actor blockers; elementAdvantage: same/strong/weak/opposite/unknown; resonanceCheck: empty log, two-attacker trigger, single-attacker no-trigger, enemy ignored, lookback window).
+    - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 33/33 passing in 174 ms**, build 13/13.
+25. **NEXT — Step 4.23**: `combat.createBattle(input)` + `combat.applyAction(state, action)` returning `{state, events}` — wire the helpers into a deterministic engine. After that 4.24 closes the engine core (endTurn / checkVictory / status ticking).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

@@ -10,6 +10,16 @@ export {
 } from "./rng.js";
 
 export {
+  apCost,
+  lineOfSight,
+  rangeReachable,
+  elementAdvantage,
+  resonanceCheck,
+  type ReachableTile,
+  type ResonanceMatch,
+} from "./helpers.js";
+
+export {
   // Enums
   Elements,
   Statuses,

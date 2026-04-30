@@ -1,3 +1,4 @@
-import config from "@aetheria/config/eslint/node";
+import nodeConfig from "@aetheria/config/eslint/node";
+import testOverlay from "@aetheria/config/eslint/test";
 
-export default config;
+export default [...nodeConfig, ...testOverlay];
