@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../../tsconfig.base.json",
+  "_comment": "Re-export of repo-root base. Workspaces extend this so a future move of the root file is one edit."
+}

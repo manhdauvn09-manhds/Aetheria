@@ -45,7 +45,12 @@ games/Aetheria/
    - Root files: `package.json` (pnpm@9.12 + Node 22 + scripts), `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json` (strict + `paths` for every workspace), `eslint.config.mjs` (flat config, ESLint 9 + typescript-eslint 8), `.prettierrc.json`/`.prettierignore`, `.gitignore`, `.editorconfig`, `.nvmrc`, `.npmrc`, `.env.example`.
    - Empty `apps/` + `packages/` (with `.gitkeep`) ready for sub-task 4.3 onward.
    - **Not yet run**: `pnpm install` — deferred to first dev's local env (no lockfile committed yet; will be committed when 4.3 lands first real workspace package).
-5. **NEXT — Step 4.3**: scaffold `packages/config` (shared eslint/tsconfig/tailwind preset) + `packages/shared-types` skeleton. After 4.3 lands a real workspace, run `pnpm install` once and commit `pnpm-lock.yaml`.
+5. ~~Step 4.3: scaffold `packages/config` + `packages/shared-types`~~ ✅ done 30 Apr 2026.
+   - `packages/config`: tsconfig presets (`base/library/node/nextjs/test`), eslint presets (`node/react/test`), Tailwind preset with realm + tier color tokens.
+   - `packages/shared-types`: branded id types (`UserId`, `LevelId`, …), domain enum literals mirroring the DB discriminators, `Result<T,E>` helper, typed `ErrorCode` + HTTP-status map (runtime `AppError` class deferred to 4.6).
+   - `pnpm install` ran successfully (Node 22.22, pnpm 9.12.3); `pnpm-lock.yaml` committed.
+   - Smoke checks: `pnpm typecheck`, `pnpm lint`, `pnpm build` all green via Turborepo.
+6. **NEXT — Step 4.4**: `packages/schema-db` — relocate `prisma/{mysql,sqlite}` under it, export typed Prisma clients + a `dbFactory(userId)` that opens the per-user SQLite file.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

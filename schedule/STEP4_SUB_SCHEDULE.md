@@ -27,7 +27,7 @@
 | #   | Task                                                     | Slice | Size | Dep | Status |
 |-----|----------------------------------------------------------|-------|------|-----|--------|
 | 4.2 | Monorepo bootstrap: pnpm workspaces + Turborepo, root `package.json`, `tsconfig.base.json`, eslint/prettier config | horizontal | M | — | ✅ |
-| 4.3 | `packages/config` — shared eslint/tsconfig/tailwind preset + `packages/shared-types` skeleton | horizontal | S | 4.2 | ⬜ |
+| 4.3 | `packages/config` — shared eslint/tsconfig/tailwind preset + `packages/shared-types` skeleton | horizontal | S | 4.2 | ✅ |
 | 4.4 | `packages/schema-db` — wrap `prisma/mysql` + `prisma/sqlite`; export typed clients + a `dbFactory` that opens SQLite per user | horizontal | M | 4.2 | ⬜ |
 | 4.5 | `packages/schema-api` — tRPC root router skeleton + Zod helpers + error codes (`AppError`) | horizontal | M | 4.3 | ⬜ |
 | 4.6 | Cross-cutting utilities: `audit.write`, `featureFlag.isOn`, `i18n.t` stub, `errors` codes | horizontal | S | 4.5, 4.4 | ⬜ |
