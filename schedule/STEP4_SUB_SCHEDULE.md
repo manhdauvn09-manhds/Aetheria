@@ -63,7 +63,7 @@
 
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
-| 4.21 | `packages/domain-combat` — types: `BattleState`, `Action`, `Event`, `Actor`, `Tile`, deterministic seeded RNG | horizontal | M | 4.3 | ⬜ |
+| 4.21 | `packages/domain-combat` — types: `BattleState`, `Action`, `Event`, `Actor`, `Tile`, deterministic seeded RNG | horizontal | M | 4.3 | ✅ |
 | 4.22 | Combat helpers: `apCost`, `lineOfSight`, `rangeReachable`, `elementAdvantage`, `resonanceCheck` (+ unit tests) | horizontal | M | 4.21 | ⬜ |
 | 4.23 | `combat.createBattle` + `combat.applyAction(state, action)` with event emission             | horizontal | L | 4.22 | ⬜ |
 | 4.24 | `combat.endTurn`, `combat.checkVictory`, status-effect ticking                              | horizontal | M | 4.23 | ⬜ |

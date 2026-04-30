@@ -298,7 +298,30 @@ games/Aetheria/
     - **Login + Signup pages** post-redirect changed from `/` → `/menu`. **`SessionBar`** adds an "Open menu" link when authenticated, alongside the existing "Sign out" button.
     - **Smoke** (30 Apr 2026): typecheck 24/24, lint 13/13, build 12/12. Web build now lists `○ /menu`, `○ /realms`, `ƒ /realms/[realmId]` alongside the existing routes. Live (no session): `/menu`, `/realms`, `/realms/3`, `/play/1` all render "Checking your session…" via the gate — exactly the pre-redirect state. Login → `/menu` redirect verified by code path.
     - **Phase 4-C is now closed.** Single-player playable shell: login → menu → realm → level → in-game (hex map, pause, abandon). 4.21+ kicks off Phase 4-D (Combat engine).
-23. **NEXT — Step 4.21**: kick off Phase 4-D — `packages/domain-combat` with types `BattleState / Action / Event / Actor / Tile` and a deterministic seeded RNG. Pure-domain package: no DB, no I/O — reusable by client (prediction) and server (authority).
+23. ~~Step 4.21: domain-combat types + seeded RNG~~ ✅ done 30 Apr 2026 — Phase 4-D kickoff.
+    - **New package** `@aetheria/domain-combat`. Pure-domain: only depends on `@aetheria/shared-types`, no DB, no I/O — reusable by both client (prediction) and server (authority).
+    - **`src/rng.ts`** — deterministic seeded RNG (mulberry32, 32-bit). API is purely functional: every call threads `RngState` through, so two runs from the same seed produce identical event streams (foundation for replay + anti-cheat).
+      - `makeRng(seed)`, `seedFromString(s)` (FNV-1a → 32-bit, same hash as `core/feature-flag` so callers can derive RNGs from `${runId}:${turn}`).
+      - `next(state)` → `{state, value ∈ [0,1)}` (52-bit fraction).
+      - `nextInt(state, lo, hi)` (inclusive both sides).
+      - `pick(state, items)` → uniform choice over a non-empty array.
+      - `rollDice(state, n, sides)` — sum of n d-sided rolls.
+      - `chance(state, p)` — Bernoulli; short-circuits on `p ≤ 0` / `p ≥ 1` to avoid burning entropy.
+    - **`src/types.ts`** — combat domain shapes:
+      - **Enums**: `Elements` (verdant/ember/frost/tide/sky/void per spec wheel), `Statuses` (burn/freeze/poison/stagger/aether_surge), `Sides` (player/enemy/neutral), `BattleTerrains` (plain/forest/stone/water/ice/lava/void/shrine/wall), `BattlePhases` (setup/player_turn/enemy_turn/resolving/victory/defeat/draw).
+      - **`Coord` (axial q,r)**, **`Tile`** (terrain + elev + optional element/tag).
+      - **`StatusEffect`** (kind, turns, potency, source).
+      - **`ActorStats`** (hp/maxHp/ap/apRegen/atk/def/spd/move) and **`Actor`** (id, side, unit, element, stats, pos, facing, statuses, skills, cooldowns, defeated).
+      - **`BattleConfig`** (width, height, turnLimit, defaultApRegen) + **`BattleState`** (battleId, config, tiles, actors, turn, phase, activeActorId, rng, log).
+      - **Actions** discriminated union: `move | attack | use_skill | defend | end_turn`.
+      - **Events** discriminated union (10 variants): actor_moved / damage_dealt / healed / status_applied / status_expired / actor_defeated / resonance_triggered / turn_started / turn_ended / battle_ended. Every event carries a monotonic `t` index + optional `cause` for trace/dedup.
+      - **Helpers**: `sameCoord`, `hexDistance` (axial L1/2 norm), `HEX_DIRS` (6 unit offsets), `ELEMENT_WHEEL` (canonical order; 4.22 will derive strong/weak relations).
+    - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, build 13/13. Standalone runtime smoke confirmed:
+      - Two RNGs from `seed=42` produce the same first value (deterministic ✅).
+      - 10-call stream from `seedFromString("aetheria:test")` looks well-distributed.
+      - `nextInt(_,1,6)` over 6000 rolls: face counts 914..1068 (≈ uniform).
+      - `pick`, `rollDice(3d6)`, `chance(0.5)` all work; `hexDistance({q:0,r:0},{q:2,r:-1}) = 2`; `HEX_DIRS.length = 6`.
+24. **NEXT — Step 4.22**: combat helpers — `apCost`, `lineOfSight`, `rangeReachable`, `elementAdvantage`, `resonanceCheck` + unit tests. Then 4.23 (`createBattle` + `applyAction` w/ event emission), 4.24 (`endTurn` + `checkVictory` + status ticking), and the rest of Phase 4-D.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
