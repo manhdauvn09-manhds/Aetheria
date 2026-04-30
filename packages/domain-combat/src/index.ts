@@ -36,6 +36,16 @@ export {
 } from "./turn.js";
 
 export {
+  serializeState,
+  hydrate,
+  stringifyState,
+  parseState,
+  HydrateError,
+  SCHEMA_VERSION,
+  type SerializedState,
+} from "./persistence.js";
+
+export {
   // Enums
   Elements,
   Statuses,

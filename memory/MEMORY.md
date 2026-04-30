@@ -366,7 +366,24 @@ games/Aetheria/
     - **Engine wiring**: `applyAction({kind:"end_turn"})` now emits `turn_ended` and **calls `endTurn` internally**, so consumers get a fully rotated state in one call (`{events: [turn_ended, …rotation events]}`). External callers that prefer to drive their own rotation can still `import { endTurn }` and pass the outgoing actor id directly.
     - **Tests** — 14 new in `__tests__/turn.test.ts`: checkVictory all 4 outcomes; rotation player→enemy in same round; round wrap with turn bump and AP refill; AP banking caps at +1; cooldown decrement on the outgoing actor; victory + battle_ended on enemy wipe; draw at turn limit; burn DOT + status decrement; turns=1 expiry → status_expired; DOT can kill (actor_defeated + phase=defeat); direct `endTurn(state, actorId)` invocation. Existing engine "end_turn" test updated to assert turn_started on rotation.
     - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 64/64 passing in ~235 ms**, build 13/13.
-27. **NEXT — Step 4.25**: server-side combat router (`combat.start`, `combat.applyAction`, `combat.replay`) — wraps the engine in a tRPC surface, persists run state in per-user SQLite + audit log, runs the engine *server-authoritative* with replay verification.
+27. ~~Step 4.25: combat.serializeState / combat.hydrate (stable JSON, schema_version)~~ ✅ done 30 Apr 2026.
+    - **`domain-combat/src/persistence.ts`** with `SCHEMA_VERSION = 1`. The persisted shape is the contract used by `runs.snapshot`, `save_states.payload`, the anti-cheat replay worker (4.26), and the network. Bumping `SCHEMA_VERSION` lets us migrate forward.
+    - **`serializeState(state) → SerializedState`** projects `BattleState` into a plain-data object. Every key is emitted in a fixed order and `cooldowns` records are sorted alphabetically so `JSON.stringify(serializeState(s))` is byte-stable across runs/machines (foundation for replay-hash comparisons).
+    - **`hydrate(json) → BattleState`** validates via Zod (`serializedSchema`) and rebuilds the typed shape; rejects unknown `schemaVersion` with a typed `HydrateError` carrying issue paths. exactOptionalPropertyTypes-safe: optional fields (`Tile.element`, `Tile.tag`, `StatusEffect.source`, `Event.cause`) are omitted from the rebuilt objects when the zod-parsed input has them as `undefined`.
+    - **`stringifyState(state)`** + **`parseState(json)`** convenience round-trippers. `parseState` wraps invalid JSON in `HydrateError` so callers can surface a single error type.
+    - Added `zod ^3.23.8` to `domain-combat`.
+    - **Tests** — 10 new in `__tests__/persistence.test.ts`:
+      - serializeState carries `schemaVersion` + the state.
+      - byte-stable JSON for the same input.
+      - cooldown keys sorted (two authoring orders → identical JSON).
+      - round-trip equality on a fresh state and on one with a populated log.
+      - **replay determinism after hydrate**: `hydrate(serializeState(stateA))` followed by 3 attacks produces identical `state.log` and `state.actors` to driving the same actions on the original state.
+      - rejects `schemaVersion: 999` with `path: "schemaVersion"`.
+      - rejects malformed shape with detailed issues.
+      - `parseState("{not json")` throws `HydrateError`.
+      - `parseState(stringifyState(s))` round-trip.
+    - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 74/74 in ~227 ms**, build 13/13.
+28. **NEXT — Step 4.26**: combat replay — `replayActions(action_log) → finalState` for the anti-cheat worker. Hash-compare server reconstruction against the client-submitted final state.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

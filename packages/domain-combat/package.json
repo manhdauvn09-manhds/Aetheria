@@ -20,7 +20,8 @@
     "clean":     "rimraf dist .turbo"
   },
   "dependencies": {
-    "@aetheria/shared-types": "workspace:*"
+    "@aetheria/shared-types": "workspace:*",
+    "zod":                    "^3.23.8"
   },
   "devDependencies": {
     "@aetheria/config": "workspace:*",
