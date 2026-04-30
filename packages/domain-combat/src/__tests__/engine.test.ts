@@ -203,13 +203,24 @@ describe("applyAction", () => {
   });
 
   describe("end_turn / defend / use_skill", () => {
-    it("end_turn emits turn_ended and clears activeActorId", () => {
-      const a = mkActor({ id: "a", side: "player", element: "ember" });
-      const state = createBattle({ battleId: "et", tiles: linearTiles(2), actors: [a] });
+    it("end_turn rotates from player to enemy and emits turn_started", () => {
+      const a = mkActor({ id: "a", side: "player", element: "ember", stats: { ...baseStats, spd: 80 } });
+      const e = mkActor({
+        id: "e",
+        side: "enemy",
+        element: "frost",
+        pos: { q: 1, r: 0 },
+        stats: { ...baseStats, spd: 50 },
+      });
+      const state = createBattle({ battleId: "et", tiles: linearTiles(3), actors: [a, e] });
+      // a is active (highest spd). End its turn → next is e (enemy).
       const result = applyAction(state, { kind: "end_turn", actorId: "a" });
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0]?.type).toBe("turn_ended");
-      expect(result.state.activeActorId).toBeNull();
+      const types = result.events.map((ev) => ev.type);
+      expect(types[0]).toBe("turn_ended");
+      expect(types).toContain("turn_started");
+      expect(result.state.activeActorId).toBe("e");
+      expect(result.state.phase).toBe("enemy_turn");
+      expect(result.state.turn).toBe(1); // round didn't wrap yet
     });
 
     it("defend consumes AP and stamps a one-turn aether_surge buff", () => {

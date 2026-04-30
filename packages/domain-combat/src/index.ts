@@ -29,6 +29,13 @@ export {
 } from "./engine.js";
 
 export {
+  endTurn,
+  checkVictory,
+  type EndTurnResult,
+  type Outcome,
+} from "./turn.js";
+
+export {
   // Enums
   Elements,
   Statuses,

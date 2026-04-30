@@ -10,7 +10,7 @@
 | 1 | Game scenario + guideline (md+pdf)         | ✅     | 100| name=Aetheria, guideline + lore done             |
 | 2 | Architecture / Tech-stack / DB design      | ✅     | 100| 5 docs (arch, stack, db, fn, flows) + 5 PDFs     |
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
-| 4 | Coding (sub-schedule below)                | 🟨     | 35 | 4.1–4.23 done; Phase 4-D engine wired (50/50 tests)|
+| 4 | Coding (sub-schedule below)                | 🟨     | 36 | 4.1–4.24 done; combat engine core complete (64/64) |
 | 5 | Code review                                | ⬜     | 0  |                                                  |
 | 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |

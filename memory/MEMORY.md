@@ -349,7 +349,24 @@ games/Aetheria/
     - `EngineError` carries a typed `code` field (`ACTOR_NOT_FOUND` / `TARGET_NOT_FOUND` / `WRONG_TURN` / `INSUFFICIENT_AP` / `INVALID_PATH` / `OUT_OF_RANGE` / `NO_LINE_OF_SIGHT` / `ALREADY_DEFEATED` / `BATTLE_OVER`) so the server can pattern-match on it (Step 4.27 wires combat over tRPC).
     - **Tests** — added `src/__tests__/engine.test.ts` (17 tests) on top of the existing 33: createBattle determinism + first-turn ordering + override seed; applyAction front gates (wrong turn, battle over); move (happy path, non-adjacent rejected, blocker rejected, wall rejected); attack (damage applied, out-of-range rejected, target killed → defeated event); end_turn / defend / use_skill happy paths; **replay determinism** — same battleId + seed + action sequence produces identical `state.log` and `state.actors`.
     - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 50/50 passing in ~240 ms**, build 13/13.
-26. **NEXT — Step 4.24**: `combat.endTurn` (full rotation: side switch + per-actor AP regen + turn limit), `combat.checkVictory` (party-wipe / boss-down / draw), and status-effect ticking (burn dot, freeze skip-turn, poison dot, stagger -1 AP, aether_surge resonance trigger).
+26. ~~Step 4.24: combat.endTurn + checkVictory + status ticking~~ ✅ done 30 Apr 2026.
+    - **`domain-combat/src/turn.ts`** — three exports:
+      - `checkVictory(state)` returns `"victory"` (every enemy defeated), `"defeat"` (every player defeated), `"draw"` (`state.turn > config.turnLimit` when `> 0`), or `null`. Pure peek.
+      - `endTurn(state, outgoingActorId)` runs the full rotation cycle and returns `{state, events}`.
+      - `Outcome` + `EndTurnResult` types.
+    - **Rotation cycle** in order:
+      1. **Tick statuses** on the outgoing actor: `burn`/`poison` apply DOT damage = `potency` (max 1) and emit a synthetic `damage_dealt` (element ember/void); every status counter decrements; statuses with `turns=0` expire and emit `status_expired`. If the DOT brings HP to 0, mark `defeated` and emit `actor_defeated`.
+      2. **Decrement cooldowns** by 1 (clamped to 0).
+      3. **Pick the next actor** by initiative (`spd` desc, `id` asc among live actors). Already-acted set is rebuilt from `log.filter(turn_ended where turn === state.turn)` rather than walking-and-breaking, since same-round `turn_started` events sit between consecutive `turn_ended`s.
+      4. **Wrap detection**: if every initiative entry has acted, bump `state.turn`, reset acted set; if `turn > turnLimit` → declare a draw (`battle_ended`).
+      5. **AP refresh** on the new active actor: `ap = min(apRegen + 1, apRegen + clamp(prev.ap, 0, 1))` — banking caps at +1.
+      6. **Set `activeActorId` + `phase`** based on the new actor's side (`player_turn` / `enemy_turn`).
+      7. **Emit `turn_started`** with the new turn / side / actor.
+      8. **Final victory check** (status DOTs may have wiped a side; turn-wrap may have crossed the limit) → `battle_ended` if so.
+    - **Engine wiring**: `applyAction({kind:"end_turn"})` now emits `turn_ended` and **calls `endTurn` internally**, so consumers get a fully rotated state in one call (`{events: [turn_ended, …rotation events]}`). External callers that prefer to drive their own rotation can still `import { endTurn }` and pass the outgoing actor id directly.
+    - **Tests** — 14 new in `__tests__/turn.test.ts`: checkVictory all 4 outcomes; rotation player→enemy in same round; round wrap with turn bump and AP refill; AP banking caps at +1; cooldown decrement on the outgoing actor; victory + battle_ended on enemy wipe; draw at turn limit; burn DOT + status decrement; turns=1 expiry → status_expired; DOT can kill (actor_defeated + phase=defeat); direct `endTurn(state, actorId)` invocation. Existing engine "end_turn" test updated to assert turn_started on rotation.
+    - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 64/64 passing in ~235 ms**, build 13/13.
+27. **NEXT — Step 4.25**: server-side combat router (`combat.start`, `combat.applyAction`, `combat.replay`) — wraps the engine in a tRPC surface, persists run state in per-user SQLite + audit log, runs the engine *server-authoritative* with replay verification.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

@@ -18,6 +18,7 @@ import {
   resonanceCheck,
 } from "./helpers.js";
 import { chance, makeRng, nextInt, rollDice, seedFromString, type RngState } from "./rng.js";
+import { endTurn } from "./turn.js";
 import {
   HEX_DIRS,
   hexDistance,
@@ -381,20 +382,24 @@ const applyEndTurn = (
   actor: Actor,
   _action: EndTurnAction,
 ): ApplyResult => {
-  // The active-side rotation + per-side AP regen is owned by 4.24
-  // (`endTurn` orchestrator). Here we just emit the event and clear
-  // `activeActorId`; the orchestrator picks the next actor.
-  const events: Event[] = [
-    {
-      type: "turn_ended",
-      t: state.log.length,
-      turn: state.turn,
-      side: actor.side,
-      actorId: actor.id,
-    },
-  ];
-  const next: BattleState = { ...state, activeActorId: null };
-  return { state: appendLog(next, events), events };
+  // 1. Emit `turn_ended` and clear the active pointer.
+  const turnEnded: Event = {
+    type: "turn_ended",
+    t: state.log.length,
+    turn: state.turn,
+    side: actor.side,
+    actorId: actor.id,
+  };
+  const working: BattleState = appendLog({ ...state, activeActorId: null }, [turnEnded]);
+
+  // 2. Hand off to the rotation/status orchestrator which ticks the
+  //    outgoing actor's statuses, picks the next actor, refreshes AP,
+  //    and may declare victory/defeat/draw.
+  const rotated = endTurn(working, actor.id);
+  return {
+    state: rotated.state,
+    events: [turnEnded, ...rotated.events],
+  };
 };
 
 // ── Internals ─────────────────────────────────────────────────────────
