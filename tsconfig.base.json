@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "incremental": true,
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@aetheria/shared-types":     ["packages/shared-types/src"],
+      "@aetheria/config":           ["packages/config/src"],
+      "@aetheria/schema-db":        ["packages/schema-db/src"],
+      "@aetheria/schema-api":       ["packages/schema-api/src"],
+      "@aetheria/domain-combat":    ["packages/domain-combat/src"],
+      "@aetheria/domain-progression":["packages/domain-progression/src"],
+      "@aetheria/domain-economy":   ["packages/domain-economy/src"],
+      "@aetheria/domain-social":    ["packages/domain-social/src"],
+      "@aetheria/ui-kit":           ["packages/ui-kit/src"],
+      "@aetheria/game-assets":      ["packages/game-assets/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", "build", "coverage", ".turbo"]
+}

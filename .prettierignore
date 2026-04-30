@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+coverage
+.next
+.turbo
+.prisma
+**/generated/**
+**/migrations/**/migration.sql
+db/**/*.sql
+pnpm-lock.yaml
+*.md.pdf
+docs/*.pdf

@@ -1,0 +1,54 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build output
+dist
+build
+.next
+out
+.turbo
+*.tsbuildinfo
+
+# generated
+**/generated
+.prisma
+**/.prisma
+prisma/**/dev.db
+prisma/**/dev.db-journal
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-wal
+*.db-shm
+
+# coverage / testing
+coverage
+.nyc_output
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+!/.env.example
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea
+.DS_Store
+Thumbs.db
+
+# misc
+.cache
+.eslintcache
+.prettiercache
+.parcel-cache

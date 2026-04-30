@@ -41,7 +41,11 @@ games/Aetheria/
    Baseline import committed at `f5aeb93` on branch `claude/create-project-structure-3uMmU`.
 2. ~~Execute Step 3 (DB scripts)~~ ✅ done 30 Apr 2026 — see "Step 3 Outcome" below.
 3. ~~Step 4.1: write the coding sub-schedule~~ ✅ done 30 Apr 2026 — see `schedule/STEP4_SUB_SCHEDULE.md` (65 sub-tasks 4.2–4.66 across 11 phases).
-4. **NEXT — Step 4.2**: monorepo bootstrap (pnpm workspaces + Turborepo, root tsconfig/eslint/prettier).
+4. ~~Step 4.2: monorepo bootstrap~~ ✅ done 30 Apr 2026.
+   - Root files: `package.json` (pnpm@9.12 + Node 22 + scripts), `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json` (strict + `paths` for every workspace), `eslint.config.mjs` (flat config, ESLint 9 + typescript-eslint 8), `.prettierrc.json`/`.prettierignore`, `.gitignore`, `.editorconfig`, `.nvmrc`, `.npmrc`, `.env.example`.
+   - Empty `apps/` + `packages/` (with `.gitkeep`) ready for sub-task 4.3 onward.
+   - **Not yet run**: `pnpm install` — deferred to first dev's local env (no lockfile committed yet; will be committed when 4.3 lands first real workspace package).
+5. **NEXT — Step 4.3**: scaffold `packages/config` (shared eslint/tsconfig/tailwind preset) + `packages/shared-types` skeleton. After 4.3 lands a real workspace, run `pnpm install` once and commit `pnpm-lock.yaml`.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
