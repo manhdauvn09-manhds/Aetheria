@@ -16,3 +16,8 @@ export {
   SqlitePrismaClient,
   SqlitePrisma,
 } from "./sqlite.js";
+
+export {
+  applyInitSchema,
+  splitSqliteStatements,
+} from "./sqlite-bootstrap.js";

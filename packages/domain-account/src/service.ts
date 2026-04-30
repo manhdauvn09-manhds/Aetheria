@@ -5,6 +5,8 @@
 //   - updateProfile     (displayName / avatar / country / language / prefs)
 //   - deleteAccount     (GDPR-compliant: status=deleted, PII scrubbed,
 //                        sessions revoked)
+//   - bootstrapLocal    (open / migrate the user's per-player SQLite file
+//                        and seed `local_profile` from the server profile)
 //
 // AccountService re-uses the same `AuthMysqlClient` shape as AuthService
 // plus a `RefreshTokenStore` reference (so deleteAccount can revoke all
@@ -19,6 +21,11 @@ import type {
 } from "@aetheria/domain-auth";
 import { AppError } from "@aetheria/schema-api";
 import type { MysqlPrisma } from "@aetheria/schema-db/mysql";
+import {
+  applyInitSchema,
+  sqliteFor,
+  sqlitePathFor,
+} from "@aetheria/schema-db";
 
 export interface AccountDeps {
   readonly mysql: AuthMysqlClient;
@@ -74,6 +81,21 @@ export interface DeleteAccountInput {
   readonly currentPassword?: string;
   readonly ip?: string | null;
   readonly userAgent?: string | null;
+}
+
+export interface BootstrapLocalResult {
+  readonly ok: true;
+  /** Absolute path of the per-player SQLite file. */
+  readonly sqlitePath: string;
+  /** Local profile row (mirror of the server profile + last_login_at = now). */
+  readonly localProfile: {
+    readonly remoteUserId: string;
+    readonly displayName: string;
+    readonly email: string;
+    readonly accountLevel: number;
+    readonly accountXp: number;
+    readonly lastLoginAt: string;
+  };
 }
 
 export class AccountService {
@@ -282,6 +304,79 @@ export class AccountService {
     });
 
     return { ok: true };
+  }
+
+  /**
+   * Open / create the user's per-player SQLite file, run the schema, and
+   * upsert `local_profile` (singleton) from the canonical MySQL profile.
+   * Idempotent — safe to call on every login. The web client is expected
+   * to call this right after `auth.loginWithEmail` / `auth.refreshToken`.
+   */
+  async bootstrapLocal(userId: bigint): Promise<BootstrapLocalResult> {
+    const profile = await this.getProfile(userId);
+
+    const db = await sqliteFor(userId);
+    await applyInitSchema(db);
+
+    const remoteUserId = BigInt(profile.user.id);
+    const lastLoginAtIso = (profile.user.lastLoginAt ?? new Date()).toISOString();
+
+    // Use a parameterised raw upsert — the Prisma model would be defined
+    // in prisma/sqlite/schema.prisma but the migration table-name is
+    // `local_profile`. Hand-rolled SQL keeps this independent of the
+    // generated client's shape (which currently has no `localProfile`
+    // model exposed).
+    await db.$executeRawUnsafe(
+      `INSERT INTO local_profile (
+         id, remote_user_id, email, display_name, avatar_url, country, language,
+         account_level, account_xp, preferences, last_login_at, updated_at
+       ) VALUES (
+         1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       )
+       ON CONFLICT(id) DO UPDATE SET
+         remote_user_id = excluded.remote_user_id,
+         email          = excluded.email,
+         display_name   = excluded.display_name,
+         avatar_url     = excluded.avatar_url,
+         country        = excluded.country,
+         language       = excluded.language,
+         account_level  = excluded.account_level,
+         account_xp     = excluded.account_xp,
+         preferences    = excluded.preferences,
+         last_login_at  = excluded.last_login_at,
+         updated_at     = strftime('%Y-%m-%dT%H:%M:%fZ','now');`,
+      remoteUserId,
+      profile.user.email,
+      profile.profile.displayName,
+      profile.profile.avatarUrl,
+      profile.profile.country,
+      profile.profile.language,
+      profile.profile.accountLevel,
+      profile.profile.accountXp,
+      JSON.stringify(profile.profile.preferences),
+      lastLoginAtIso,
+    );
+
+    await audit.write({
+      actor: userId,
+      action: "account.local.bootstrap",
+      targetType: "user",
+      targetId: userId,
+      payload: {},
+    });
+
+    return {
+      ok: true,
+      sqlitePath: sqlitePathFor(userId),
+      localProfile: {
+        remoteUserId: profile.user.id,
+        displayName: profile.profile.displayName,
+        email: profile.user.email,
+        accountLevel: profile.profile.accountLevel,
+        accountXp: profile.profile.accountXp,
+        lastLoginAt: lastLoginAtIso,
+      },
+    };
   }
 }
 

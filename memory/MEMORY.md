@@ -178,7 +178,22 @@ games/Aetheria/
     - **`SessionBar`** (client component on the landing page). On mount calls `/api/auth/refresh`; if it succeeds, drops the user into `setSession`, otherwise `clearSession`. Renders display-name + sign-out button when logged in, sign-in / create-account links otherwise.
     - **Smoke** (30 Apr 2026): typecheck 16/16, lint 9/9, build 8/8. Web build adds 7 `ƒ /api/auth/*` routes + 5 `○ /(login|signup|forgot-password|reset-password|verify-email)` pages. Live: `/login` HTML contains "Welcome back" + "Sign in" button; `POST /api/auth/login {foo:"bar"}` → 400 VALIDATION_FAILED with field-level Zod issues; `POST /api/auth/refresh` (no cookie) → 401 `UNAUTHENTICATED` "No refresh cookie"; `POST /api/auth/login` with valid input but no DB → 500 INTERNAL (expected). All five pages render their headings.
     - **Phase 4-B is now closed end-to-end.** Auth-domain server (4.9–4.12) + OAuth (4.10) + UI (4.13) all online.
-16. **NEXT — Step 4.14**: client SQLite bootstrap — open `player_<userId>.db` per logged-in user, run migrations, seed `local_profile` from the server profile. Last task in Phase 4-B / first taste of the offline-first sync layer.
+16. ~~Step 4.14: client SQLite bootstrap~~ ✅ done 30 Apr 2026 — closes Phase 4-B.
+    - Architecture clarification: "client" = the API server, opening one SQLite file per user (`/.dev/sqlite/player_<id>.db` by default, override via `AETHERIA_SQLITE_DIR`). Browser-side WASM SQLite is out of scope — Prisma can't run there. The bootstrap endpoint primes the per-user file the API uses to back personal play state.
+    - **`packages/schema-db/src/sqlite-bootstrap.ts`** (new):
+      - `splitSqliteStatements(src)` — BEGIN/END-aware splitter so the trigger blocks in `db/sqlite/01_init.sql` survive intact. Strips `--` line comments while respecting `'…'` literals (with `''` escapes); tracks `BEGIN…END` depth via whole-word keyword match; only splits on `;` at depth 0.
+      - `loadSqlOnce()` reads + caches `db/sqlite/01_init.sql` and `db/sqlite/02_seed.sql` from the monorepo root. Walks up from `import.meta.url` until it finds a `db/` directory.
+      - `applyInitSchema(db)` — sets `PRAGMA foreign_keys=ON`, `journal_mode=WAL`, `synchronous=NORMAL` (uses `$queryRawUnsafe` because `journal_mode` returns a row, which `$executeRawUnsafe` rejects); then executes every non-PRAGMA statement from init + seed. All DDL is `CREATE … IF NOT EXISTS`, so re-running is a no-op.
+      - Re-exported from `@aetheria/schema-db` index + new `./sqlite-bootstrap` subpath.
+    - **`packages/domain-account/src/service.ts`**: `AccountService.bootstrapLocal(userId)` opens the per-user SQLite via `sqliteFor(userId)`, runs `applyInitSchema(db)`, then `INSERT … ON CONFLICT(id) DO UPDATE` upserts the singleton `local_profile` row from the canonical MySQL profile (mirrors `email`, `display_name`, `avatar_url`, `country`, `language`, `account_level`, `account_xp`, `preferences`, `last_login_at`). Audits `account.local.bootstrap`. Returns `{ok, sqlitePath, localProfile}`.
+    - **tRPC**: `account.bootstrapLocal` (protected mutation, no input — uses `ctx.auth.userId`).
+    - **Web**: `apps/web/src/lib/auth/bootstrap.ts` exposes `bootstrapLocalQuiet(accessToken)` — a fire-and-forget POST to `/trpc/account.bootstrapLocal` with the access token in the Authorization header. Wired into the post-login paths: `/signup` page, `/login` page, and `SessionBar` (after the cookie-driven refresh on landing-page mount). Failure logs to console — never blocks the user.
+    - **Smoke** (30 Apr 2026):
+      - Standalone: `applyInitSchema(db)` against a fresh file → 19 tables (local_profile + catalog cache + per-user state + sync_queue + sync_meta + sqlite_sequence) + 3 triggers (`trg_user_characters_updated`, `trg_inventory_updated`, `trg_save_states_updated`). Re-apply is a no-op. `local_profile` upsert verified via $queryRawUnsafe.
+      - Splitter: `db/sqlite/01_init.sql` produces 32 statements; all 3 triggers come out well-formed (`END` is the last token of each trigger statement).
+      - Repo: typecheck 16/16, lint 9/9, build 8/8.
+    - **Phase 4-B is now fully complete** (4.9–4.14 + OAuth in 4.10 + UI in 4.13). Auth, account, and offline-first user storage are all online.
+17. **NEXT — Step 4.15**: kick off Phase 4-C (World, Save, Sync). First task: sample levels JSON files (single-player content) so the next slices have data to work against. Then 4.16 world service (`realms()`, `levelsForRealm`, `startLevel`, `resumeRun`, …) and 4.17 save service.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
