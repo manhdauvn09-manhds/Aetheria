@@ -50,7 +50,14 @@ games/Aetheria/
    - `packages/shared-types`: branded id types (`UserId`, `LevelId`, …), domain enum literals mirroring the DB discriminators, `Result<T,E>` helper, typed `ErrorCode` + HTTP-status map (runtime `AppError` class deferred to 4.6).
    - `pnpm install` ran successfully (Node 22.22, pnpm 9.12.3); `pnpm-lock.yaml` committed.
    - Smoke checks: `pnpm typecheck`, `pnpm lint`, `pnpm build` all green via Turborepo.
-6. **NEXT — Step 4.4**: `packages/schema-db` — relocate `prisma/{mysql,sqlite}` under it, export typed Prisma clients + a `dbFactory(userId)` that opens the per-user SQLite file.
+6. ~~Step 4.4: `packages/schema-db`~~ ✅ done 30 Apr 2026.
+   - Moved `prisma/{mysql,sqlite}` → `packages/schema-db/prisma/{mysql,sqlite}` (`git mv`, history preserved).
+   - Generator outputs now land at `packages/schema-db/src/generated/{mysql,sqlite}` (gitignored via `**/generated`).
+   - `src/mysql.ts`: HMR-safe singleton (`globalThis` cache) + `disconnectMysql()`.
+   - `src/sqlite.ts`: `sqliteFor(userId)` / `openSqliteAt(path)` / `closeSqliteFor(userId)` / `closeAllSqlite()`. Per-user files default to `.dev/sqlite/player_<userId>.db` (override via `AETHERIA_SQLITE_DIR`).
+   - Root scripts now delegate: `pnpm db:generate / db:migrate:mysql / db:migrate:sqlite / db:studio:*`.
+   - Smoke: `pnpm install` + `pnpm db:generate` + `pnpm typecheck` + `pnpm lint` + `pnpm build` all green.
+7. **NEXT — Step 4.5**: `packages/schema-api` — tRPC root router skeleton + Zod helpers + the runtime `AppError` class (whose surface types already live in `shared-types/errors.ts`).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

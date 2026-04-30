@@ -50,13 +50,19 @@ db/
 └── sqlite/
     ├── 01_init.sql                    DDL + indexes
     └── 02_seed.sql                    catalog cache placeholder
-prisma/
-├── mysql/
-│   ├── schema.prisma
-│   └── migrations/0001_init/migration.sql
-└── sqlite/
-    ├── schema.prisma
-    └── migrations/0001_init/migration.sql
+packages/schema-db/
+├── package.json                              `@aetheria/schema-db`
+├── src/
+│   ├── mysql.ts                              singleton client + HMR cache
+│   ├── sqlite.ts                             per-user factory (open/close)
+│   └── index.ts                              barrel
+└── prisma/
+    ├── mysql/
+    │   ├── schema.prisma
+    │   └── migrations/0001_init/migration.sql
+    └── sqlite/
+        ├── schema.prisma
+        └── migrations/0001_init/migration.sql
 ```
 
 ## 4. Quick start
@@ -66,18 +72,18 @@ prisma/
 mysql -u root -p < db/mysql/00_create_database.sql
 mysql -u aetheria_migrator -p aetheria < db/mysql/01_init.sql
 mysql -u aetheria_migrator -p aetheria < db/mysql/02_seed.sql
-# OR via Prisma:
-DATABASE_URL="mysql://aetheria_migrator:***@localhost:3306/aetheria" \
-  npx prisma migrate deploy --schema=prisma/mysql/schema.prisma
+# OR via Prisma (from repo root):
+DATABASE_URL_MYSQL="mysql://aetheria_migrator:***@localhost:3306/aetheria" \
+  pnpm db:migrate:mysql
 ```
 
 ### SQLite (per-user, generated at first launch)
 ```bash
 sqlite3 ./player_<userId>.db < db/sqlite/01_init.sql
 sqlite3 ./player_<userId>.db < db/sqlite/02_seed.sql
-# OR via Prisma:
-DATABASE_URL="file:./player_<userId>.db" \
-  npx prisma migrate deploy --schema=prisma/sqlite/schema.prisma
+# OR via Prisma (from repo root):
+DATABASE_URL_SQLITE="file:./player_<userId>.db" \
+  pnpm db:migrate:sqlite
 ```
 
 ## 5. Sync contract (high level — full code in Step 4)

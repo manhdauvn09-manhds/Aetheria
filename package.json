@@ -18,9 +18,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "turbo run clean && rimraf .turbo node_modules",
-    "db:generate": "pnpm --filter @aetheria/schema-db generate",
-    "db:migrate:mysql":  "prisma migrate deploy --schema=prisma/mysql/schema.prisma",
-    "db:migrate:sqlite": "prisma migrate deploy --schema=prisma/sqlite/schema.prisma"
+    "db:generate":       "pnpm --filter @aetheria/schema-db generate",
+    "db:migrate:mysql":  "pnpm --filter @aetheria/schema-db migrate:mysql",
+    "db:migrate:sqlite": "pnpm --filter @aetheria/schema-db migrate:sqlite",
+    "db:studio:mysql":   "pnpm --filter @aetheria/schema-db studio:mysql",
+    "db:studio:sqlite":  "pnpm --filter @aetheria/schema-db studio:sqlite"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
