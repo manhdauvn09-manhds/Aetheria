@@ -233,7 +233,26 @@ games/Aetheria/
       - `world.abandonRun` runId=1 → `{ok:true}`.
       - `world.resumeRun` runId=1 (post-abandon) → 422 `INVALID_ACTION` "Run is not resumable".
       - `world.startLevel` levelNumber=999 → 404 `NOT_FOUND` "level '999' not found".
-19. **NEXT — Step 4.17**: Save service (server) — `snapshot/list/load/delete/autosaveTick/reconcile` against per-user SQLite slots 0–3 with optimistic `schema_version` checks.
+19. ~~Step 4.17: Save service (server)~~ ✅ done 30 Apr 2026.
+    - **New package** `@aetheria/domain-save`. `SaveService` operates against the per-user SQLite `save_states` table (PK `slot ∈ 0..3` with check constraint). Slot 0 reserved for autosave; 1..3 for manual saves.
+    - All hot-path SQL is raw (`$executeRawUnsafe` / `$queryRawUnsafe` with `INSERT … ON CONFLICT(slot) DO UPDATE`) — same reason as 4.16: Prisma's SQLite `DateTime` mapping clashes with the hand-rolled DDL's ISO-text timestamps. Idempotent `applyInitSchema` runs once per (process, userId) so save calls work on a fresh per-user file.
+    - **Methods**:
+      - `snapshot({slot, payload, schemaVersion?})` — upsert, increments `schema_version` (next = prev+1 if not given), `dirty=1`. Audits `save.snapshot`.
+      - `autosaveTick({payload, schemaVersion?})` — same as snapshot to slot 0, but rate-limited (default 5 s, override via `autosaveThrottleMs` dep). Returns either the new summary or `{skipped:true, nextEligibleAt}`.
+      - `list(userId)` — summaries (`{slot, schemaVersion, updatedAt, payloadBytes}`) ordered by slot ASC. No payloads — keeps the response small for save selectors.
+      - `load({slot})` — full row, payload parsed to an object. `INTERNAL` if the stored JSON is corrupted.
+      - `delete({slot})` — `DELETE FROM save_states WHERE slot=?`; throws `NOT_FOUND` if no row was deleted. Audits `save.delete`.
+      - `reconcile({slot, expectedVersion, payload})` — optimistic concurrency. Compare server `schema_version` to client's `expectedVersion`; if it has moved on, returns `{status:"stale", server: {full}}` so the client refetches/merges. Otherwise upserts + bumps version, returns `{status:"ok", schemaVersion}`. Audits `save.reconcile`.
+    - **Constants**: `MAX_SLOT=3`, `AUTOSAVE_SLOT=0`, `DEFAULT_AUTOSAVE_THROTTLE_MS=5000`, `MAX_PAYLOAD_BYTES=256 KiB` (enforced in `upsertSlot`).
+    - **tRPC**: `save.snapshot / autosaveTick / list / load / delete / reconcile` (all protectedProcedure). Slot validated 0..3 at the input boundary; payload typed via `z.record(jsonValue)`; version bounded `1..9_999_999`.
+    - Mounted at `save.*` in apps/api root router.
+    - **Smoke** (30 Apr 2026): typecheck 22/22, lint 12/12, build 11/11. Live full lifecycle confirmed:
+      - `list` (empty) → `[]`; `snapshot` slot=1 → v1, slot=2 → v1; `list` → 2 summaries; `load` slot=1 → full payload `{hp:100, pos:{q:2,r:3}}`.
+      - Re-`snapshot` slot=1 → v2; `reconcile` slot=1 expectedVersion=1 → `{status:"stale", server:{...,v2}}`; `reconcile` expectedVersion=2 → `{status:"ok", v3}`.
+      - `delete` slot=2 → ok; second `delete` slot=2 → 404 `NOT_FOUND` "save_state '2' not found".
+      - `snapshot` slot=99 → 400 `VALIDATION_FAILED` "Number must be less than or equal to 3".
+      - `autosaveTick` 1st → writes slot 0 v1; 2nd within 5 s → `{skipped:true, nextEligibleAt}`.
+20. **NEXT — Step 4.18**: Sync engine (client) — drain `sync_queue` → tRPC `sync.push`; pull catalog patches via `sync.pull`; record cursor in `sync_meta`. After that 4.19 (PixiJS hex map renderer) and 4.20 (state-machine flow) close Phase 4-C.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
