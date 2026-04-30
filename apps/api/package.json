@@ -18,9 +18,10 @@
     "clean":     "rimraf dist .turbo"
   },
   "dependencies": {
-    "@aetheria/core":         "workspace:*",
-    "@aetheria/domain-auth":  "workspace:*",
-    "@aetheria/schema-api":   "workspace:*",
+    "@aetheria/core":           "workspace:*",
+    "@aetheria/domain-account": "workspace:*",
+    "@aetheria/domain-auth":    "workspace:*",
+    "@aetheria/schema-api":     "workspace:*",
     "@aetheria/schema-db":    "workspace:*",
     "@aetheria/shared-types": "workspace:*",
     "@fastify/cors":          "^10.0.1",

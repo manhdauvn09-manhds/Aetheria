@@ -142,7 +142,23 @@ games/Aetheria/
     - `apps/api/src/env.ts` extended: `RESEND_API_KEY?`, `MAIL_FROM` (default `noreply@aetheria.local`), `PASSWORD_RESET_URL`, `EMAIL_VERIFICATION_URL`.
     - `.env.example` extended with the new mailer fields.
     - **Smoke** (30 Apr 2026): typecheck 14/14, lint 8/8, build 7/7. Live: `auth.confirmPasswordReset` (junk token) → 401 `UNAUTHENTICATED` "Reset token invalid or expired"; `auth.confirmEmailVerification` (junk token) → 401 "Verification token invalid or expired"; `auth.requestEmailVerification` (no Bearer) → 401 "Authentication required" (protectedProcedure middleware kicks).
-14. **NEXT — Step 4.12**: `account.getProfile / updateProfile / deleteAccount` (GDPR-compliant). After that 4.13 wires the web auth UI (signup / login / forgot-password screens, token storage), closing Phase 4-B.
+14. ~~Step 4.12: account domain~~ ✅ done 30 Apr 2026.
+    - **New package** `@aetheria/domain-account`. Re-uses the `AuthMysqlClient` shape + `RefreshTokenStore` from `@aetheria/domain-auth`, so deleteAccount can revoke active sessions.
+    - `AccountService` methods:
+      - `getProfile(userId)` → `{ user: {id, email, emailVerifiedAt, oauthProvider, status, createdAt, lastLoginAt}, profile: {displayName, avatarUrl, country, language, accountLevel, accountXp, preferences, createdAt, updatedAt} }`. 404 on deleted users; preferences coerced to a plain object via `prefsAsObject`.
+      - `updateProfile(input)` — partial PATCH semantics. Empty patch returns current state without writing. Display-name uniqueness re-checked when changed. Builds a `MysqlPrisma.Prisma.ProfileUpdateInput` from only the supplied fields. Audits `account.profile.update` with the field list.
+      - `deleteAccount(input)` — GDPR-compliant soft delete:
+        - Validates `confirmText` against `"DELETE"` or the user's email (case-insensitive).
+        - For password-bearing accounts, requires `currentPassword` and verifies it.
+        - In a transaction: sets `users.status="deleted"`, `deletedAt=now()`, scrubs PII (`email = "deleted-{id}@aetheria.invalid"`, `passwordHash=null`, `oauthProvider=null`, `oauthSubject=null`, `emailVerifiedAt=null`); resets profile (`displayName="deleted_{id}"`, all optional fields cleared).
+        - Calls `refreshStore.revokeAllForUser(userId)` so every session dies.
+        - Audits `account.delete` with `{method: "password" | "session"}`.
+        - Hard-delete is intentionally NOT performed because too many tables FK to `user.id`; a separate offline job can purge `users.deletedAt < now() - 30d` rows.
+    - tRPC router (`createAccountRouter(service)`): `getProfile` (query, protected), `updateProfile` (mutation, protected, refines "at least one field"), `deleteAccount` (mutation, protected). Mounted at `account.*` in apps/api root router.
+    - `apps/api/src/auth/build.ts` now exposes `refreshStore` on `AuthBundle` so `apps/api/src/server.ts` can construct `AccountService` with the same store as `AuthService`.
+    - `tsconfig.base.json` paths extended for `@aetheria/domain-account`.
+    - **Smoke** (30 Apr 2026): typecheck 16/16, lint 9/9, build 8/8. Live (no DB): all three procedures gate on `protectedProcedure` → 401 "Authentication required" without a Bearer. With a self-signed access token: `account.updateProfile` empty body → 400 VALIDATION_FAILED "At least one field must be provided"; `account.deleteAccount` missing `confirmText` → 400 VALIDATION_FAILED "Required".
+15. **NEXT — Step 4.13**: web auth UI (signup / login / forgot-password screens, token storage memory + httpOnly cookie). Closes Phase 4-B end-to-end.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

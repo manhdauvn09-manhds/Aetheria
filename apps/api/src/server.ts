@@ -7,6 +7,9 @@ import { randomUUID } from "node:crypto";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
 
+import { AccountService } from "@aetheria/domain-account";
+import { mysql } from "@aetheria/schema-db/mysql";
+
 import { buildAuth } from "./auth/build.js";
 import { buildContextFactory } from "./context.js";
 import type { Env } from "./env.js";
@@ -32,7 +35,16 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
 
   const createContext = buildContextFactory(env);
   const auth = buildAuth(env);
-  const appRouter = createAppRouter({ authService: auth.service });
+  // AccountService re-uses the MySQL client + the same RefreshTokenStore
+  // as the auth bundle so deleteAccount can revoke active sessions.
+  const accountService = new AccountService({
+    mysql,
+    refreshStore: auth.refreshStore,
+  });
+  const appRouter = createAppRouter({
+    authService: auth.service,
+    accountService,
+  });
 
   app.addHook("onClose", async () => {
     if (auth.redis) await auth.redis.quit();

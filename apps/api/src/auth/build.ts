@@ -30,6 +30,8 @@ import type { Env } from "../env.js";
 export interface AuthBundle {
   readonly service: AuthService;
   readonly redis: Redis | null;
+  /** Exposed so other domains (account.deleteAccount) can revoke sessions. */
+  readonly refreshStore: RefreshTokenStore;
 }
 
 export const buildAuth = (env: Env): AuthBundle => {
@@ -75,5 +77,5 @@ export const buildAuth = (env: Env): AuthBundle => {
     emailVerification: { redirectUrl: env.EMAIL_VERIFICATION_URL },
   });
 
-  return { service, redis };
+  return { service, redis, refreshStore };
 };
