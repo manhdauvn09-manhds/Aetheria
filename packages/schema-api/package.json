@@ -1,0 +1,36 @@
+{
+  "name": "@aetheria/schema-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "tRPC root router + Zod helpers + AppError runtime for the Aetheria backend.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".":          { "types": "./src/index.ts",    "default": "./src/index.ts" },
+    "./router":   { "types": "./src/router.ts",   "default": "./src/router.ts" },
+    "./trpc":     { "types": "./src/trpc.ts",     "default": "./src/trpc.ts" },
+    "./errors":   { "types": "./src/errors.ts",   "default": "./src/errors.ts" },
+    "./zod":      { "types": "./src/zod-helpers.ts", "default": "./src/zod-helpers.ts" },
+    "./context":  { "types": "./src/context.ts",  "default": "./src/context.ts" }
+  },
+  "files": ["src"],
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "echo 'no tests yet'",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@aetheria/shared-types": "workspace:*",
+    "@trpc/server": "^10.45.2",
+    "superjson": "^2.2.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3"
+  }
+}

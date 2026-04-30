@@ -57,7 +57,16 @@ games/Aetheria/
    - `src/sqlite.ts`: `sqliteFor(userId)` / `openSqliteAt(path)` / `closeSqliteFor(userId)` / `closeAllSqlite()`. Per-user files default to `.dev/sqlite/player_<userId>.db` (override via `AETHERIA_SQLITE_DIR`).
    - Root scripts now delegate: `pnpm db:generate / db:migrate:mysql / db:migrate:sqlite / db:studio:*`.
    - Smoke: `pnpm install` + `pnpm db:generate` + `pnpm typecheck` + `pnpm lint` + `pnpm build` all green.
-7. **NEXT — Step 4.5**: `packages/schema-api` — tRPC root router skeleton + Zod helpers + the runtime `AppError` class (whose surface types already live in `shared-types/errors.ts`).
+7. ~~Step 4.5: `packages/schema-api`~~ ✅ done 30 Apr 2026.
+   - `src/errors.ts`: runtime `AppError` class with factories (`notFound`, `unauthenticated`, `forbidden`, `validation`, `conflict`, `staleVersion`, `insufficientCurrency`, `insufficientLevel`, `itemOutOfStock`, `questNotReady`, `alreadyClaimed`, `invalidAction`, `internal`, `notImplemented`, …) + `toTRPCError()` adapter mapping HTTP status → tRPC code (with 402/503 folded onto BAD_REQUEST/INTERNAL_SERVER_ERROR since tRPC's enum is narrower).
+   - `src/trpc.ts`: tRPC v10 instance with `superjson` transformer + custom `errorFormatter` that surfaces `AppError.toJSON()` payloads under `data.app` so the web client can pattern-match on `code`. Exports `router`, `mergeRouters`, `middleware`, `publicProcedure`, `protectedProcedure`, `adminProcedure`, `throwAsTrpc`.
+   - `src/context.ts`: `BaseContext` / `AuthedContext` / `RequestInfo` types — concrete factory lives in `apps/api` (4.7).
+   - `src/zod-helpers.ts`: branded-id schemas for every entity (accept `bigint|number|string`, emit branded `bigint`), email/displayName/guildTag/password validators, paginationInput, dateRangeInput, jsonValue, all 19 domain enum schemas.
+   - `src/routers/health.ts`: `ping`, `echo`, `whoami` smoke procedures.
+   - `src/router.ts`: root `appRouter` (only `health` mounted; sub-routers added in 4-B onward).
+   - **Schema fix carried over**: `shared-types/brands.ts` was switched from `unique symbol` brand to a string-tagged brand so branded types can be re-exported through Zod schemas without TS4023 declaration errors.
+   - Smoke: `pnpm typecheck`, `pnpm lint`, `pnpm build` all green.
+8. **NEXT — Step 4.6**: cross-cutting utilities — `audit.write`, `featureFlag.isOn`, `i18n.t` stub. The `AppError` runtime is already in 4.5, so 4.6 mostly wires audit/log/flags against `mysql` from `@aetheria/schema-db`.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

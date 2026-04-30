@@ -2,9 +2,12 @@
 // (e.g. passing a UserId where a CharacterId is expected).
 //
 // Construct with the `as` helpers; never widen back to the underlying primitive in app code.
+//
+// We use a string-tagged brand (not `unique symbol`) so the type is freely
+// nameable across declaration boundaries — important for emitting `.d.ts`
+// from packages that re-export branded types via Zod schemas.
 
-declare const __brand: unique symbol;
-type Brand<T, B extends string> = T & { readonly [__brand]: B };
+export type Brand<T, B extends string> = T & { readonly __brand: B };
 
 export type UserId               = Brand<bigint, "UserId">;
 export type CharacterId          = Brand<bigint, "CharacterId">;
