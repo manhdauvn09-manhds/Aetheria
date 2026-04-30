@@ -32,6 +32,16 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   DISCORD_CLIENT_ID:     z.string().optional(),
   DISCORD_CLIENT_SECRET: z.string().optional(),
+
+  // Mailer (Resend). When unset, the API uses a console mailer that
+  // logs the would-be email to stderr — fine for dev, useless for prod.
+  RESEND_API_KEY:  z.string().optional(),
+  MAIL_FROM:       z.string().email().default("noreply@aetheria.local"),
+
+  // Front-end URLs that the password-reset / email-verification emails
+  // point at. The token is appended as `?token=…`.
+  PASSWORD_RESET_URL:       z.string().url().default("http://localhost:3001/reset-password"),
+  EMAIL_VERIFICATION_URL:   z.string().url().default("http://localhost:3001/verify-email"),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -127,7 +127,22 @@ games/Aetheria/
     - **Smoke** (30 Apr 2026):
       - `pnpm typecheck` 14/14, `pnpm lint` 8/8, `pnpm build` 7/7 — `apps/web` route table now lists `ƒ /api/auth/[...nextauth]` next to `ƒ /`.
       - Live boot. `auth.loginWithGoogle` (junk JWT) → 401 `UNAUTHORIZED` "Google identity verification failed". `auth.loginWithDiscord` (junk token) → 401 `UNAUTHORIZED` "Discord identity verification failed" (after Discord's API replies 401).
-13. **NEXT — Step 4.11**: password reset + email verification (token in Redis, send via Resend stub). After that 4.12 (`account.getProfile/updateProfile/deleteAccount`) closes Phase 4-B server-side; 4.13 wires the actual web auth UI.
+13. ~~Step 4.11: password reset + email verification~~ ✅ done 30 Apr 2026.
+    - `domain-auth/token-store.ts`: `OneShotTokenStore` — `put` + atomic `take(purpose, token)` (uses Redis `GETDEL`). Two impls: `inMemoryOneShotStore()` for tests / dev, `redisOneShotStore(redis)` keyed `oneshot:{purpose}:{token}` with TTL. `generateOneShotToken()` returns 32-byte base64url (≈256 bits entropy).
+    - `domain-auth/mailer.ts`: `Mailer.send({to, subject, text})` interface with `consoleMailer()` (logs to stderr — dev default) and `resendMailer({apiKey, from})` stub (POST `https://api.resend.com/emails`, 10 s timeout, errors logged + swallowed so the originating request isn't punished for a transient mailer outage).
+    - `AuthService` extended with four flows:
+      - `requestPasswordReset({email, ip?, ua?})` — generic `{ok:true}` regardless of email existence (no enumeration). On match (active, has password) mints token (default TTL 1 h), persists, mails reset link + audits `auth.password_reset.request`.
+      - `confirmPasswordReset({token, newPassword, ip?, ua?})` — atomic `take`, hashes new password (argon2id), updates row, calls `refreshStore.revokeAllForUser(userId)` so all existing sessions die. Audits `auth.password_reset.confirm`.
+      - `requestEmailVerification({userId, ip?, ua?})` — protectedProcedure boundary. Already-verified users get a generic `{ok:true}` (idempotent). Otherwise mints token (default TTL 24 h), persists with `meta.email`, mails the link + audits `auth.email_verification.request`.
+      - `confirmEmailVerification({token})` — atomic `take`, sets `email_verified_at = now()`, audits `auth.email_verification.confirm`.
+    - Internal `resolvePasswordResetDeps()` / `resolveEmailVerificationDeps()` helpers narrow optional deps into a typed bundle in one place — surfaces `NOT_IMPLEMENTED` when the service was instantiated without the relevant deps.
+    - `appendTokenQuery(base, token)` appends `?token=…` (or `&token=…`) to the configured front-end redirect URL.
+    - tRPC: `auth.requestPasswordReset` / `auth.confirmPasswordReset` / `auth.requestEmailVerification` (protected) / `auth.confirmEmailVerification` mutations.
+    - `apps/api/src/auth/build.ts`: wires the new deps. Picks `redisOneShotStore` if `REDIS_URL`, else in-memory. Picks `resendMailer` if `RESEND_API_KEY`, else `consoleMailer` (dev). Reads `PASSWORD_RESET_URL` / `EMAIL_VERIFICATION_URL` (defaults to `localhost:3001/{reset-password,verify-email}`).
+    - `apps/api/src/env.ts` extended: `RESEND_API_KEY?`, `MAIL_FROM` (default `noreply@aetheria.local`), `PASSWORD_RESET_URL`, `EMAIL_VERIFICATION_URL`.
+    - `.env.example` extended with the new mailer fields.
+    - **Smoke** (30 Apr 2026): typecheck 14/14, lint 8/8, build 7/7. Live: `auth.confirmPasswordReset` (junk token) → 401 `UNAUTHENTICATED` "Reset token invalid or expired"; `auth.confirmEmailVerification` (junk token) → 401 "Verification token invalid or expired"; `auth.requestEmailVerification` (no Bearer) → 401 "Authentication required" (protectedProcedure middleware kicks).
+14. **NEXT — Step 4.12**: `account.getProfile / updateProfile / deleteAccount` (GDPR-compliant). After that 4.13 wires the web auth UI (signup / login / forgot-password screens, token storage), closing Phase 4-B.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

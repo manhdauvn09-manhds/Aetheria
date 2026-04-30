@@ -23,11 +23,28 @@ export {
   verifyDiscordAccessToken,
 } from "./oauth.js";
 export {
+  type OneShotPurpose,
+  type OneShotRecord,
+  type OneShotTokenStore,
+  generateOneShotToken,
+  inMemoryOneShotStore,
+  redisOneShotStore,
+} from "./token-store.js";
+export {
+  type Mailer,
+  type MailMessage,
+  type ResendOptions,
+  consoleMailer,
+  resendMailer,
+} from "./mailer.js";
+export {
   AuthService,
   type AuthDeps,
   type AuthMysqlClient,
   type AuthSessionResult,
   type OAuthConfig,
+  type PasswordResetConfig,
+  type EmailVerificationConfig,
   type SignupInput,
   type LoginInput,
   type OAuthLoginInput,
@@ -35,5 +52,9 @@ export {
   type OAuthDiscordInput,
   type RefreshInput,
   type LogoutInput,
+  type RequestPasswordResetInput,
+  type ConfirmPasswordResetInput,
+  type RequestEmailVerificationInput,
+  type ConfirmEmailVerificationInput,
 } from "./service.js";
 export { createAuthRouter, type AuthRouter } from "./router.js";

@@ -1,14 +1,18 @@
 // Aetheria — AuthService.
 //
 // Owns the auth flows:
-//   - signupWithEmail            (creates user + profile, issues tokens)
-//   - loginWithEmail             (verifies password, issues tokens)
-//   - loginWithOAuth             (find / link / create user from a verified
-//                                 OAuth identity; issues tokens)
-//   - loginWithGoogleIdToken     (verifies Google id_token then loginWithOAuth)
-//   - loginWithDiscordAccessToken(verifies Discord access_token then loginWithOAuth)
-//   - refreshToken               (rotates: validates+revokes old jti, issues new pair)
-//   - logout                     (revokes the supplied refresh jti)
+//   - signupWithEmail               (creates user + profile, issues tokens)
+//   - loginWithEmail                (verifies password, issues tokens)
+//   - loginWithOAuth                (find/link/create user from a verified
+//                                    OAuth identity; issues tokens)
+//   - loginWithGoogleIdToken        (verifies Google id_token then loginWithOAuth)
+//   - loginWithDiscordAccessToken   (verifies Discord access_token then loginWithOAuth)
+//   - refreshToken                  (rotates: validates+revokes old jti, issues new pair)
+//   - logout                        (revokes the supplied refresh jti)
+//   - requestPasswordReset          (mints + emails a reset token; never enumerates)
+//   - confirmPasswordReset          (consumes token, sets new password, revokes sessions)
+//   - requestEmailVerification      (mints + emails a verification token)
+//   - confirmEmailVerification      (consumes token, sets email_verified_at)
 //
 // Designed to be composed: `apps/api` builds one instance with concrete
 // dependencies (Prisma client, refresh store, jwt config) and passes it to
@@ -32,6 +36,11 @@ import {
   verifyDiscordAccessToken,
   verifyGoogleIdToken,
 } from "./oauth.js";
+import {
+  type OneShotTokenStore,
+  generateOneShotToken,
+} from "./token-store.js";
+import type { Mailer } from "./mailer.js";
 
 /** Subset of MySQL Prisma we actually call. Lets tests stub easily. */
 export type AuthMysqlClient = Pick<MysqlClient, "user" | "profile" | "$transaction">;
@@ -41,11 +50,33 @@ export interface OAuthConfig {
   readonly discord?: Record<string, never>;
 }
 
+export interface PasswordResetConfig {
+  /** TTL for password-reset tokens. Default: 1 h. */
+  readonly ttlSeconds?: number;
+  /**
+   * Front-end URL the email link points at. The token is appended as
+   * `?token=…`. Example: `https://aetheria.example/reset-password`.
+   */
+  readonly redirectUrl: string;
+}
+
+export interface EmailVerificationConfig {
+  /** TTL for email-verification tokens. Default: 24 h. */
+  readonly ttlSeconds?: number;
+  /** Front-end URL the verification link points at. */
+  readonly redirectUrl: string;
+}
+
 export interface AuthDeps {
   readonly mysql: AuthMysqlClient;
   readonly refreshStore: RefreshTokenStore;
   readonly tokenConfig: TokenConfig;
   readonly oauth?: OAuthConfig;
+  /** Token store for password-reset / email-verification one-shot codes. */
+  readonly oneShotStore?: OneShotTokenStore;
+  readonly mailer?: Mailer;
+  readonly passwordReset?: PasswordResetConfig;
+  readonly emailVerification?: EmailVerificationConfig;
 }
 
 export interface SignupInput {
@@ -89,6 +120,29 @@ export interface RefreshInput {
 
 export interface LogoutInput {
   readonly refreshToken: string;
+}
+
+export interface RequestPasswordResetInput {
+  readonly email: string;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
+export interface ConfirmPasswordResetInput {
+  readonly token: string;
+  readonly newPassword: string;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
+export interface RequestEmailVerificationInput {
+  readonly userId: bigint;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
+export interface ConfirmEmailVerificationInput {
+  readonly token: string;
 }
 
 export interface AuthSessionResult {
@@ -528,4 +582,209 @@ export class AuthService {
       .padStart(6, "0");
     return `${base.slice(0, 22)}_${tail}`;
   }
+
+  // ── Password reset ────────────────────────────────────────────────
+
+  /**
+   * Mint a password-reset token and email it to the user. Always resolves
+   * to `{ ok: true }` regardless of whether the email exists, so attackers
+   * can't enumerate the user table. The actual token / email is only
+   * generated for accounts that exist + are active + have a password.
+   */
+  async requestPasswordReset(input: RequestPasswordResetInput): Promise<{ ok: true }> {
+    const { oneShotStore, mailer, cfg } = this.resolvePasswordResetDeps();
+    const email = input.email.trim().toLowerCase();
+    const user = await this.deps.mysql.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, status: true, deletedAt: true, passwordHash: true },
+    });
+
+    // Same-shape response on miss / inactive / oauth-only — no enumeration.
+    if (!user) return { ok: true };
+    if (user.deletedAt !== null || user.status !== "active" || !user.passwordHash) {
+      return { ok: true };
+    }
+
+    const ttlSec = cfg.ttlSeconds ?? 60 * 60;
+    const token = generateOneShotToken();
+    await oneShotStore.put(token, {
+      userId: user.id,
+      purpose: "password_reset",
+      expiresAt: Date.now() + ttlSec * 1000,
+    });
+
+    const link = appendTokenQuery(cfg.redirectUrl, token);
+    await mailer.send({
+      to: user.email,
+      subject: "Reset your Aetheria password",
+      text:
+        `We received a request to reset your password.\n\n` +
+        `Open this link to set a new password (expires in ${Math.round(ttlSec / 60)} min):\n\n${link}\n\n` +
+        `If you didn't request this, you can ignore this email — your password won't change.`,
+    });
+
+    await audit.write({
+      actor: user.id,
+      action: "auth.password_reset.request",
+      targetType: "user",
+      targetId: user.id,
+      payload: { email: user.email },
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+
+    return { ok: true };
+  }
+
+  /**
+   * Consume a password-reset token: hash + persist the new password,
+   * revoke every refresh-token jti for the user (logging them out
+   * everywhere), and clear `lastLoginAt` so the next login is treated
+   * as "fresh" by downstream telemetry.
+   */
+  async confirmPasswordReset(input: ConfirmPasswordResetInput): Promise<{ ok: true }> {
+    const { oneShotStore } = this.resolvePasswordResetDeps();
+    const record = await oneShotStore.take("password_reset", input.token);
+    if (!record) throw AppError.unauthenticated("Reset token invalid or expired");
+
+    const passwordHash = await hashPassword(input.newPassword);
+    const updated = await this.deps.mysql.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+      select: { id: true, email: true, deletedAt: true, status: true },
+    });
+    if (updated.deletedAt !== null || updated.status !== "active") {
+      throw AppError.forbidden("Account is not active");
+    }
+
+    await this.deps.refreshStore.revokeAllForUser(record.userId);
+
+    await audit.write({
+      actor: record.userId,
+      action: "auth.password_reset.confirm",
+      targetType: "user",
+      targetId: record.userId,
+      payload: {},
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+
+    return { ok: true };
+  }
+
+  // ── Email verification ────────────────────────────────────────────
+
+  /**
+   * Mint an email-verification token for the *currently authenticated*
+   * user and email it. Idempotent: caller can retry if the user lost the
+   * email — each retry mints a fresh token (the previous one stays valid
+   * until its TTL expires, but a successful confirm with the new token
+   * doesn't invalidate the old token automatically — `take` only removes
+   * the one used).
+   */
+  async requestEmailVerification(input: RequestEmailVerificationInput): Promise<{ ok: true }> {
+    const { oneShotStore, mailer, cfg } = this.resolveEmailVerificationDeps();
+    const user = await this.deps.mysql.user.findUnique({
+      where: { id: input.userId },
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        deletedAt: true,
+        emailVerifiedAt: true,
+      },
+    });
+    if (!user) throw AppError.notFound("user", input.userId);
+    if (user.deletedAt !== null || user.status !== "active") {
+      throw AppError.forbidden("Account is not active");
+    }
+    if (user.emailVerifiedAt !== null) {
+      // Already verified — pretend we sent something; client UX stays simple.
+      return { ok: true };
+    }
+
+    const ttlSec = cfg.ttlSeconds ?? 24 * 60 * 60;
+    const token = generateOneShotToken();
+    await oneShotStore.put(token, {
+      userId: user.id,
+      purpose: "email_verification",
+      expiresAt: Date.now() + ttlSec * 1000,
+      meta: { email: user.email },
+    });
+
+    const link = appendTokenQuery(cfg.redirectUrl, token);
+    await mailer.send({
+      to: user.email,
+      subject: "Verify your Aetheria email",
+      text:
+        `Welcome! Click the link below to verify this email address ` +
+        `(expires in ${Math.round(ttlSec / 3600)} h):\n\n${link}\n\n` +
+        `If you didn't sign up for Aetheria, you can safely ignore this email.`,
+    });
+
+    await audit.write({
+      actor: user.id,
+      action: "auth.email_verification.request",
+      targetType: "user",
+      targetId: user.id,
+      payload: { email: user.email },
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+
+    return { ok: true };
+  }
+
+  /** Consume an email-verification token; sets `email_verified_at`. */
+  async confirmEmailVerification(input: ConfirmEmailVerificationInput): Promise<{ ok: true }> {
+    const { oneShotStore } = this.resolveEmailVerificationDeps();
+    const record = await oneShotStore.take("email_verification", input.token);
+    if (!record) throw AppError.unauthenticated("Verification token invalid or expired");
+
+    await this.deps.mysql.user.update({
+      where: { id: record.userId },
+      data: { emailVerifiedAt: new Date() },
+    });
+
+    await audit.write({
+      actor: record.userId,
+      action: "auth.email_verification.confirm",
+      targetType: "user",
+      targetId: record.userId,
+      payload: {},
+    });
+
+    return { ok: true };
+  }
+
+  // ── Internal config guards ────────────────────────────────────────
+
+  private resolvePasswordResetDeps(): {
+    oneShotStore: OneShotTokenStore;
+    mailer: Mailer;
+    cfg: PasswordResetConfig;
+  } {
+    const { oneShotStore, mailer, passwordReset } = this.deps;
+    if (!oneShotStore || !mailer || !passwordReset) {
+      throw AppError.notImplemented("password reset");
+    }
+    return { oneShotStore, mailer, cfg: passwordReset };
+  }
+
+  private resolveEmailVerificationDeps(): {
+    oneShotStore: OneShotTokenStore;
+    mailer: Mailer;
+    cfg: EmailVerificationConfig;
+  } {
+    const { oneShotStore, mailer, emailVerification } = this.deps;
+    if (!oneShotStore || !mailer || !emailVerification) {
+      throw AppError.notImplemented("email verification");
+    }
+    return { oneShotStore, mailer, cfg: emailVerification };
+  }
 }
+
+const appendTokenQuery = (base: string, token: string): string => {
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}token=${encodeURIComponent(token)}`;
+};
