@@ -12,10 +12,15 @@ import {
   createAccountRouter,
   type AccountService,
 } from "@aetheria/domain-account";
+import {
+  createWorldRouter,
+  type WorldService,
+} from "@aetheria/domain-world";
 
 export interface AppDeps {
   readonly authService: AuthService;
   readonly accountService: AccountService;
+  readonly worldService: WorldService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -23,6 +28,7 @@ export const createAppRouter = (deps: AppDeps) =>
     health: healthRouter,
     auth: createAuthRouter(deps.authService),
     account: createAccountRouter(deps.accountService),
+    world: createWorldRouter(deps.worldService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

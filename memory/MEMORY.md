@@ -216,7 +216,24 @@ games/Aetheria/
       - L08 hollow-mirror-rift (rift, 24 tiles, 2 waves + boss "the_mirror", `mirror_party_at_75_50_25`)
     - `src/levels.ts` — `loadAllLevels()` reads + parses every `*.json` (sorted), validates against `levelSchema`, asserts uniqueness of `levelNumber` + `slug`, freezes the result. Plus `findLevelByNumber`, `findLevelBySlug`, `levelsForRealm` lookups.
     - **Smoke** (30 Apr 2026): typecheck 17/17, lint 10/10, build 9/9. `loadAllLevels()` against the 8 files: 16–24 tiles each, 1–2 waves each, 3 of 8 levels carry a boss, 3 carry hidden discoverySecrets, total xp 50→600 across difficulty 1→7. All round-trip through the validator without errors.
-18. **NEXT — Step 4.16**: World service (`realms()`, `levelsForRealm`, `startLevel`, `resumeRun`, `abandonRun`). Reads catalog from MySQL (or `@aetheria/game-assets` as a dev fallback) + writes runs/save_state to per-user SQLite. Then 4.17 save service, 4.18 sync engine.
+18. ~~Step 4.16: World service~~ ✅ done 30 Apr 2026.
+    - **New package** `@aetheria/domain-world`. `WorldService.{realms, levelsForRealm, startLevel, resumeRun, abandonRun}` + `createWorldRouter(service)` factory. Mounted at `world.*` in the apps/api root.
+    - **Catalog source with dev fallback**: `realms()` and `levelsForRealm(id)` first try MySQL via Prisma. If the call throws (host unreachable) OR returns 0 rows, `tolerateDbMiss(...)` returns null and the service falls back to `@aetheria/game-assets` (the 5 hardcoded realms + the 8 sample level JSONs from Step 4.15). This keeps the single-player shell playable on a fresh dev machine without spinning up MySQL.
+    - **Run state** lives in the user's per-player SQLite (`sqliteFor(userId)`). Idempotent self-bootstrap: `openUserDb` calls `applyInitSchema(db)` once per (process, userId) so `world.startLevel` works on the very first request — no manual `account.bootstrapLocal` is required first.
+    - **`startLevel`**: `loadLevelDetail` (MySQL → assets fallback) → `ensureLevelCacheRow` (raw `INSERT OR IGNORE` against `realms`+`levels` because Prisma's SQLite `DateTime` mapping clashes with our ISO-text `cached_at` default) → raw `INSERT INTO runs … RETURNING id`. Audits `world.run.start`. Returns `{run, level}` where `run` is the freshly-created `runs` row + `level` is the full level detail (map/encounter/rewards) ready for the renderer.
+    - **`resumeRun`**: raw `SELECT runs JOIN levels` (raw to dodge the same DateTime mapping issue). Throws `INVALID_ACTION` if the run isn't `in_progress`. Returns the same `{run, level}` shape so the client can re-mount the scene from `run.snapshot`.
+    - **`abandonRun`**: raw `UPDATE runs SET status='abandoned', ended_at=…, dirty=1`. Audits `world.run.abandon`.
+    - Helper `parseSqliteDate` accepts both ISO text and (legacy) epoch strings so older rows survive a schema retrofit.
+    - tRPC validators accept `bigint | number | string` for `realmId` / `runId` and transform to `bigint`.
+    - **Smoke** (30 Apr 2026): typecheck 20/20, lint 11/11, build 10/10.
+      - `world.realms` (no MySQL) → 5 fallback realms.
+      - `world.levelsForRealm` realmId=1 → 2 verdant levels (Forest Trail, Hidden Glade); realmId=5 → 2 hollow levels (Voidstep Atrium, Mirror Rift).
+      - `world.startLevel` levelNumber=1 → `run.id=1 status=in_progress level=verdant-forest-trail tiles=16` on a fresh per-user SQLite (schema auto-applied).
+      - `world.resumeRun` runId=1 → returns same run with `status=in_progress`.
+      - `world.abandonRun` runId=1 → `{ok:true}`.
+      - `world.resumeRun` runId=1 (post-abandon) → 422 `INVALID_ACTION` "Run is not resumable".
+      - `world.startLevel` levelNumber=999 → 404 `NOT_FOUND` "level '999' not found".
+19. **NEXT — Step 4.17**: Save service (server) — `snapshot/list/load/delete/autosaveTick/reconcile` against per-user SQLite slots 0–3 with optimistic `schema_version` checks.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

@@ -38,6 +38,7 @@
       "@aetheria/schema-api":       ["packages/schema-api/src"],
       "@aetheria/domain-auth":      ["packages/domain-auth/src"],
       "@aetheria/domain-account":   ["packages/domain-account/src"],
+      "@aetheria/domain-world":     ["packages/domain-world/src"],
       "@aetheria/domain-combat":    ["packages/domain-combat/src"],
       "@aetheria/domain-progression":["packages/domain-progression/src"],
       "@aetheria/domain-economy":   ["packages/domain-economy/src"],

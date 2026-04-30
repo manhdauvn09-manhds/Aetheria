@@ -21,6 +21,8 @@
     "@aetheria/core":           "workspace:*",
     "@aetheria/domain-account": "workspace:*",
     "@aetheria/domain-auth":    "workspace:*",
+    "@aetheria/domain-world":   "workspace:*",
+    "@aetheria/game-assets":    "workspace:*",
     "@aetheria/schema-api":     "workspace:*",
     "@aetheria/schema-db":    "workspace:*",
     "@aetheria/shared-types": "workspace:*",
