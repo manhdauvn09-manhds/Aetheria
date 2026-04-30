@@ -267,7 +267,20 @@ games/Aetheria/
       - `sync.pull` `tableName="zzz"` → 501 `NOT_IMPLEMENTED`.
       - `sync.push` `tableName="runs"` (no MySQL) → cleanly rejected with the upstream Prisma error captured in `reason`.
       - `sync.tick` (no MySQL) → 500 INTERNAL on the pull leg (expected; real deployment has MySQL up).
-21. **NEXT — Step 4.19**: PixiJS 8 hex map renderer in apps/web — reads `levels.map` JSON, renders the hex grid + camera + tile click events. After 4.19 + 4.20 (state-machine flow) Phase 4-C is closed.
+21. ~~Step 4.19: PixiJS hex map renderer~~ ✅ done 30 Apr 2026.
+    - **`apps/web/src/lib/hex/`**: `math.ts` (axial↔pixel conversion for pointy-top hexes, cube-rounding for click→tile, 6-corner geometry, axial bounds for camera centring) + `terrain.ts` (terrain → fill+outline color palette, fx tints, spawn/exit colors).
+    - **`apps/web/src/components/game/HexMapRenderer.tsx`** (client component, dynamic-import Pixi so SSR stays clean):
+      - Mounts `Pixi.Application` with `width × height` canvas (default 800 × 480), background `#0a0a0f`, antialias on, devicePixelRatio honoured.
+      - Draws each tile as a pointy-top hex polygon (`Graphics.poly`) with terrain fill + outline, optional fx overlay (alpha 0.18), white top-edge stripe for `elev > 0`.
+      - Spawn dots (player/enemy/npc colours) + exit stars rendered above tiles.
+      - **Camera**: drag-to-pan tracks `pointerdown→pointermove→pointerup` on the stage; **zoom**: wheel events on the canvas, scale clamped to `[0.4, 3]`, zoom centres around the cursor.
+      - **Click**: a `pointertap` whose start/end stay within 4 px is treated as a tap. Pixel→axial via `pixelToAxial` (cube-rounded); only fires if the resulting `(q, r)` is a real tile in the map. Forwards to `onTileClick(axial)` and shows the last clicked coord in the footer.
+      - Hover footer mirrors the cursor's current tile (`q=…, r=…` or "—").
+    - **`apps/web/src/app/play/page.tsx`** + **`apps/web/src/app/play/[levelNumber]/page.tsx`**: index lists all 8 bundled levels by realm + name; detail page server-loads via `findLevelByNumber()` and mounts `<HexMapRenderer map={level.map} />` plus map/encounter/rewards summary cards.
+    - **`@aetheria/game-assets`** retrofit: `levels.ts` switched from `readFileSync` to **static JSON imports** (`import lv01 from "../levels/01-….json" with { type: "json" }`) so the package works inside Next/webpack with no runtime FS access. Validation against `levelSchema` runs once on first call to `loadAllLevels()`.
+    - **`apps/web/next.config.mjs`**: added `webpack` override that registers `extensionAlias: { ".js": [".ts", ".tsx", ".js"], ".mjs": [".mts", ".mjs"] }` so transpiled workspace packages whose source uses `.js` extensions resolve to their `.ts` files. Without this, `import "./levels.js"` from a transpiled package's `.ts` file failed Next's webpack resolver. `@aetheria/game-assets` added to `transpilePackages`.
+    - **Smoke** (30 Apr 2026): typecheck 24/24, lint 13/13, build 12/12. Web build now lists `○ /play` (static index) + `ƒ /play/[levelNumber]` (dynamic detail). Live: `/play` HTML enumerates all 8 levels (Forest Trail, Cinder Pass, Cloudbridge, Tideglass Reef, Voidstep Atrium, Hidden Glade, Spire Trial, Mirror Rift); `/play/1` shows "Forest Trail" + "drag = pan" + "wheel = zoom"; `/play/3` shows "Cloudbridge" + boss `"stormcaller"`; `/play/999` → 404.
+22. **NEXT — Step 4.20**: state-machine flow (MainMenu → Realm picker → Level picker → InGame) matching `docs/02_FLOWS.md` §10. Closes Phase 4-C.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
