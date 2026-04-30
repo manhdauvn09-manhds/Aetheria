@@ -252,7 +252,22 @@ games/Aetheria/
       - `delete` slot=2 → ok; second `delete` slot=2 → 404 `NOT_FOUND` "save_state '2' not found".
       - `snapshot` slot=99 → 400 `VALIDATION_FAILED` "Number must be less than or equal to 3".
       - `autosaveTick` 1st → writes slot 0 v1; 2nd within 5 s → `{skipped:true, nextEligibleAt}`.
-20. **NEXT — Step 4.18**: Sync engine (client) — drain `sync_queue` → tRPC `sync.push`; pull catalog patches via `sync.pull`; record cursor in `sync_meta`. After that 4.19 (PixiJS hex map renderer) and 4.20 (state-machine flow) close Phase 4-C.
+20. ~~Step 4.18: Sync engine~~ ✅ done 30 Apr 2026.
+    - **New package** `@aetheria/domain-sync`. `SyncService` bridges per-user SQLite (primary copy of personal play state) and shared MySQL (durable backup + catalog source). Two directions:
+      - **PUSH**: `applyOne` per `tableName` upserts into MySQL. v1 supports `runs` (full upsert by `rowKey`=run id, with action_log/snapshot/started_at/ended_at field extraction) and `save_states` (upsert by `userId+slot`). Other tables surface `NOT_IMPLEMENTED`.
+      - **PULL**: `fetchOne` per `tableName` returns rows + a new cursor. v1 supports `realms` (full snapshot, immutable in v1) and `levels` (filter `updated_at > cursor`, batch 500, cursor advances to last row's `updated_at`). Other tables → `NOT_IMPLEMENTED`.
+    - **`tick(userId)` orchestrator** drains the per-user SQLite `sync_queue` into `applyOne`, deletes successfully-pushed rows, increments `attempts`+sets `last_error` for rejects, then calls `pull` per configured table and writes the rows back into the SQLite catalog cache (`realms` / `levels`) before advancing `sync_meta.cursor` + `last_pulled_at`. `last_pushed_at` is bumped per accepted table in the same tick.
+    - **`status(userId)`** returns `{queueDepth, meta: [{tableName, lastPulledAt, lastPushedAt, cursor}]}` — useful for the future sync indicator UI + the cron-tick worker (Step 4.53+).
+    - **Field-extraction helpers** (`stringField`, `numberField`, `bigintField`, `dateField`) accept both snake_case (DB column) and camelCase (JS object) keys so the queue payload format stays loose.
+    - **tRPC**: `sync.push / sync.pull / sync.tick / sync.status` (all protected). Mutations array capped at 500/request; pull tables capped at 20.
+    - Mounted at `sync.*` in apps/api root router.
+    - **Smoke** (30 Apr 2026): typecheck 24/24, lint 13/13, build 12/12. Live (no MySQL):
+      - `sync.status` (fresh user) → `queueDepth=0` + 9 seeded `sync_meta` rows (one per catalog table primed by `db/sqlite/02_seed.sql`).
+      - `sync.push` `tableName="unknown_thing"` → returns per-row reject with `reason: "sync table 'unknown_thing' is not implemented yet"` (NOT_IMPLEMENTED bubbles into the per-row reason rather than failing the whole batch).
+      - `sync.pull` `tableName="zzz"` → 501 `NOT_IMPLEMENTED`.
+      - `sync.push` `tableName="runs"` (no MySQL) → cleanly rejected with the upstream Prisma error captured in `reason`.
+      - `sync.tick` (no MySQL) → 500 INTERNAL on the pull leg (expected; real deployment has MySQL up).
+21. **NEXT — Step 4.19**: PixiJS 8 hex map renderer in apps/web — reads `levels.map` JSON, renders the hex grid + camera + tile click events. After 4.19 + 4.20 (state-machine flow) Phase 4-C is closed.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

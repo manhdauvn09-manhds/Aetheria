@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 import { AccountService } from "@aetheria/domain-account";
 import { SaveService } from "@aetheria/domain-save";
+import { SyncService } from "@aetheria/domain-sync";
 import { WorldService } from "@aetheria/domain-world";
 import { mysql } from "@aetheria/schema-db/mysql";
 
@@ -45,11 +46,13 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   });
   const worldService = new WorldService({ mysql });
   const saveService = new SaveService();
+  const syncService = new SyncService({ mysql });
   const appRouter = createAppRouter({
     authService: auth.service,
     accountService,
     worldService,
     saveService,
+    syncService,
   });
 
   app.addHook("onClose", async () => {
