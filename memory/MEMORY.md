@@ -66,7 +66,12 @@ games/Aetheria/
    - `src/router.ts`: root `appRouter` (only `health` mounted; sub-routers added in 4-B onward).
    - **Schema fix carried over**: `shared-types/brands.ts` was switched from `unique symbol` brand to a string-tagged brand so branded types can be re-exported through Zod schemas without TS4023 declaration errors.
    - Smoke: `pnpm typecheck`, `pnpm lint`, `pnpm build` all green.
-8. **NEXT — Step 4.6**: cross-cutting utilities — `audit.write`, `featureFlag.isOn`, `i18n.t` stub. The `AppError` runtime is already in 4.5, so 4.6 mostly wires audit/log/flags against `mysql` from `@aetheria/schema-db`.
+8. ~~Step 4.6: cross-cutting utilities~~ ✅ done 30 Apr 2026 — new package `@aetheria/core`.
+   - `src/audit.ts`: `audit.write({ actor, action, targetType, targetId, payload, ip, userAgent })` → INSERT into MySQL `audit_log`. Errors swallowed (logged to stderr) so a missed audit never fails the originating request.
+   - `src/feature-flag.ts`: `featureFlag.isOn(key, userId?)` → MySQL `feature_flags` with TTL cache (default 60 s, override `AETHERIA_FF_CACHE_MS`). Supports percentage rollout via `{ enabled: true, rollout: 25 }` using stable FNV-1a bucket of `${key}:${userId}`. Plus `featureFlag.invalidate(key?)` for admin / tests.
+   - `src/i18n.ts`: in-memory bundles for `en` + `vi`, dot-namespaced keys, `{var}` interpolation, fallback chain locale → default → key. `setLocale/getLocale/addBundle/locales/t`. Real i18n library deferred to Phase 4-J.
+   - Smoke: typecheck 7/7, lint 5/5, build 4/4. Phase 4-A is now 100% complete.
+9. **NEXT — Step 4.7**: `apps/api` boot — Fastify + tRPC adapter (using `@aetheria/schema-api`'s `appRouter`) + helmet + CORS + rate-limit + JWT verify hook (consumes `BaseContext` from schema-api).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

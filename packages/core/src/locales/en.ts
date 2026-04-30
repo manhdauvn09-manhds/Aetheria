@@ -1,0 +1,22 @@
+// Aetheria — English message bundle (seed). Phase 4-J expands this from .json files.
+export const en = {
+  "common.ok":            "OK",
+  "common.cancel":        "Cancel",
+  "common.retry":         "Retry",
+  "common.loading":       "Loading…",
+  "auth.signin.title":    "Sign in",
+  "auth.signup.title":    "Create account",
+  "auth.error.invalid":   "Invalid email or password.",
+  "save.resume.banner":   "Continue where you left off?",
+  "shop.purchase.success":"Purchase successful.",
+  "shop.purchase.fail":   "Purchase failed: {reason}",
+  "quest.ready":          "Quest ready to claim: {name}",
+  "level.start":          "Level {n}: {name}",
+  "combat.victory":       "Victory!",
+  "combat.defeat":        "Defeated.",
+  "milestone.unlocked":   "Milestone unlocked: {reward}",
+  "error.generic":        "Something went wrong. Please try again.",
+  "error.network":        "Network error. Check your connection.",
+  "error.unauthenticated":"Please sign in.",
+  "error.forbidden":      "You don't have permission.",
+};

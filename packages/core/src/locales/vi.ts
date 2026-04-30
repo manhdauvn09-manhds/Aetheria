@@ -1,0 +1,22 @@
+// Aetheria — Vietnamese message bundle (seed).
+export const vi = {
+  "common.ok":            "Đồng ý",
+  "common.cancel":        "Huỷ",
+  "common.retry":         "Thử lại",
+  "common.loading":       "Đang tải…",
+  "auth.signin.title":    "Đăng nhập",
+  "auth.signup.title":    "Tạo tài khoản",
+  "auth.error.invalid":   "Email hoặc mật khẩu không đúng.",
+  "save.resume.banner":   "Tiếp tục từ điểm đã chơi?",
+  "shop.purchase.success":"Mua thành công.",
+  "shop.purchase.fail":   "Mua thất bại: {reason}",
+  "quest.ready":          "Nhiệm vụ sẵn sàng nhận thưởng: {name}",
+  "level.start":          "Màn {n}: {name}",
+  "combat.victory":       "Chiến thắng!",
+  "combat.defeat":        "Thất bại.",
+  "milestone.unlocked":   "Mở khoá cột mốc: {reward}",
+  "error.generic":        "Đã xảy ra lỗi. Vui lòng thử lại.",
+  "error.network":        "Lỗi mạng. Kiểm tra kết nối của bạn.",
+  "error.unauthenticated":"Vui lòng đăng nhập.",
+  "error.forbidden":      "Bạn không có quyền truy cập.",
+};

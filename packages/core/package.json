@@ -1,0 +1,32 @@
+{
+  "name": "@aetheria/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cross-cutting runtime utilities: audit log writer, feature flags, i18n stub.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".":             { "types": "./src/index.ts",          "default": "./src/index.ts" },
+    "./audit":       { "types": "./src/audit.ts",          "default": "./src/audit.ts" },
+    "./feature-flag":{ "types": "./src/feature-flag.ts",   "default": "./src/feature-flag.ts" },
+    "./i18n":        { "types": "./src/i18n.ts",           "default": "./src/i18n.ts" }
+  },
+  "files": ["src"],
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "echo 'no tests yet'",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@aetheria/schema-db":    "workspace:*",
+    "@aetheria/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3"
+  }
+}
