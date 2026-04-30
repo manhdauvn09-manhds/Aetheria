@@ -71,7 +71,17 @@ games/Aetheria/
    - `src/feature-flag.ts`: `featureFlag.isOn(key, userId?)` → MySQL `feature_flags` with TTL cache (default 60 s, override `AETHERIA_FF_CACHE_MS`). Supports percentage rollout via `{ enabled: true, rollout: 25 }` using stable FNV-1a bucket of `${key}:${userId}`. Plus `featureFlag.invalidate(key?)` for admin / tests.
    - `src/i18n.ts`: in-memory bundles for `en` + `vi`, dot-namespaced keys, `{var}` interpolation, fallback chain locale → default → key. `setLocale/getLocale/addBundle/locales/t`. Real i18n library deferred to Phase 4-J.
    - Smoke: typecheck 7/7, lint 5/5, build 4/4. Phase 4-A is now 100% complete.
-9. **NEXT — Step 4.7**: `apps/api` boot — Fastify + tRPC adapter (using `@aetheria/schema-api`'s `appRouter`) + helmet + CORS + rate-limit + JWT verify hook (consumes `BaseContext` from schema-api).
+9. ~~Step 4.7: `apps/api` boot~~ ✅ done 30 Apr 2026 — first runnable workspace.
+   - `src/env.ts`: Zod-validated env loader (`API_HOST/PORT`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `JWT_SECRET/REFRESH_SECRET/ISSUER/AUDIENCE`, `DATABASE_URL_MYSQL`). Throws with itemised path/message on miss.
+   - `src/auth/jwt.ts`: `verifyAccessToken(token, cfg)` using `jose` (HS256, iss/aud check). Maps jose errors → `AppError.unauthenticated(...)`. Sign helpers deferred to 4.9.
+   - `src/context.ts`: `buildContextFactory(env)` returns a `(req) => BaseContext` — populates `auth` if a valid Bearer token present, else `null` (public procedures still work).
+   - `src/plugins.ts`: `@fastify/helmet` (CSP off in dev), `@fastify/cors` (configurable origin list, credentials on), `@fastify/rate-limit` (per-token-or-IP key, allowlist `/health`, app-shaped error response).
+   - `src/server.ts`: `buildServer(env)` factory — pino logger (pretty in dev), x-request-id with crypto.randomUUID, trustProxy, 1 MiB body limit, mounts `appRouter` from `@aetheria/schema-api` at `/trpc`, `/health` REST probe.
+   - `src/index.ts`: boot + SIGINT/SIGTERM graceful shutdown.
+   - `.env.example` extended with API_* / CORS / RATE_LIMIT / JWT_ISSUER / JWT_AUDIENCE.
+   - **Smoke**: typecheck 10/10, lint 6/6, build 5/5; live boot via `tsx` confirmed `GET /health`, `GET /trpc/health.ping`, `GET /trpc/health.whoami` all return 200 with superjson payloads.
+   - **Note for Step 4.8**: workspace packages still resolve to `src/*.ts` (no built dist). Running `node dist/index.js` directly fails because dependent packages are TS-source only. Dev path is `pnpm dev` (tsx). Production bundling is a 4-K concern.
+10. **NEXT — Step 4.8**: `apps/web` boot — Next.js 15 App Router + Tailwind + tRPC client + Zustand. Should consume `AppRouter` type from `@aetheria/schema-api` and exercise `health.ping` from a server component.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
