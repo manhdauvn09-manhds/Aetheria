@@ -40,7 +40,8 @@ games/Aetheria/
 1. ~~Pivot repo to `manhdauvn09-manhds/Aetheria`~~ ✅ done 30 Apr 2026.
    Baseline import committed at `f5aeb93` on branch `claude/create-project-structure-3uMmU`.
 2. ~~Execute Step 3 (DB scripts)~~ ✅ done 30 Apr 2026 — see "Step 3 Outcome" below.
-3. **NEXT — Step 4.1**: write the coding sub-schedule (split into small chunks). Start from `docs/02_FUNCTION_LIST.md` and `docs/02_FLOWS.md`.
+3. ~~Step 4.1: write the coding sub-schedule~~ ✅ done 30 Apr 2026 — see `schedule/STEP4_SUB_SCHEDULE.md` (65 sub-tasks 4.2–4.66 across 11 phases).
+4. **NEXT — Step 4.2**: monorepo bootstrap (pnpm workspaces + Turborepo, root tsconfig/eslint/prettier).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
