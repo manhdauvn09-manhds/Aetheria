@@ -1,30 +1,38 @@
-// Aetheria — session store (client-only). Holds auth tokens + the
-// authenticated user's display info. Persisted to localStorage so that
-// reloads keep the user logged in until the access token expires.
+// Aetheria — session store (client-only).
 //
-// The full hydrate-from-refresh-token flow lands in Step 4.13. For now
-// this is a typed shell wired into the providers tree so other stores
-// can compose against it.
+// Storage strategy (Step 4.13):
+//   - access token  : in memory only (Zustand state). Lost on reload, but
+//                     a Next API route refreshes it from the httpOnly
+//                     cookie before the first authed call.
+//   - refresh token : httpOnly cookie set by the Next API auth routes.
+//                     The browser JS never sees it — no XSS exfiltration.
+//   - user info     : persisted to localStorage so reloads keep an
+//                     "I appear logged in" hint until the refresh call
+//                     resolves.
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 export interface SessionUser {
-  readonly userId: string;
+  readonly id: string;
+  readonly email: string;
   readonly displayName: string;
   readonly roles: readonly string[];
+  readonly oauthProvider: "google" | "discord" | null;
 }
 
-export interface SessionTokens {
-  readonly accessToken: string;
-  readonly accessTokenExpiresAt: number; // epoch ms
-  readonly refreshToken: string;
+export interface AccessToken {
+  readonly value: string;
+  readonly expiresAt: number; // epoch ms
 }
 
 export interface SessionState {
   user: SessionUser | null;
-  tokens: SessionTokens | null;
-  setSession: (user: SessionUser, tokens: SessionTokens) => void;
+  /** Lives only in memory — never persisted to disk. */
+  access: AccessToken | null;
+  setSession: (user: SessionUser, access: AccessToken) => void;
+  setAccess: (access: AccessToken) => void;
+  setUser: (user: SessionUser | null) => void;
   clearSession: () => void;
   isAuthenticated: () => boolean;
 }
@@ -33,22 +41,29 @@ export const useSession = create<SessionState>()(
   persist(
     (set, get) => ({
       user: null,
-      tokens: null,
-      setSession: (user, tokens) => {
-        set({ user, tokens });
+      access: null,
+      setSession: (user, access) => {
+        set({ user, access });
+      },
+      setAccess: (access) => {
+        set({ access });
+      },
+      setUser: (user) => {
+        set({ user });
       },
       clearSession: () => {
-        set({ user: null, tokens: null });
+        set({ user: null, access: null });
       },
       isAuthenticated: () => {
-        const t = get().tokens;
-        return t !== null && t.accessTokenExpiresAt > Date.now();
+        const a = get().access;
+        return a !== null && a.expiresAt > Date.now();
       },
     }),
     {
-      name: "aetheria.session.v1",
+      name: "aetheria.session.v2",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ user: s.user, tokens: s.tokens }),
+      // Only persist the user hint. Access token stays in memory.
+      partialize: (s) => ({ user: s.user }),
     },
   ),
 );

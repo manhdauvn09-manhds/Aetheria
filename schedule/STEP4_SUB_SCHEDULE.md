@@ -43,7 +43,7 @@
 | 4.10 | Auth: OAuth (Google, Discord) via NextAuth on web + server-side handler                           | vertical | M | 4.9, 4.8 | ✅ |
 | 4.11 | Password reset + email verification (token in Redis, send via Resend stub)                        | vertical | M | 4.9 | ✅ |
 | 4.12 | `account.getProfile/updateProfile/deleteAccount` (GDPR-compliant)                                  | vertical | M | 4.9 | ✅ |
-| 4.13 | Web: signup / login / forgot-password screens, token storage (memory + httpOnly cookie)           | vertical | M | 4.10 | ⬜ |
+| 4.13 | Web: signup / login / forgot-password screens, token storage (memory + httpOnly cookie)           | vertical | M | 4.10 | ✅ |
 | 4.14 | Client SQLite bootstrap: open `player_<userId>.db`, run migrations, seed `local_profile` from server profile | vertical | M | 4.4, 4.12 | ⬜ |
 
 ## Phase 4-C · World, Save, Sync (vertical slice 2 — single-player playable shell)

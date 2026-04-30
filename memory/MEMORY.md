@@ -158,7 +158,27 @@ games/Aetheria/
     - `apps/api/src/auth/build.ts` now exposes `refreshStore` on `AuthBundle` so `apps/api/src/server.ts` can construct `AccountService` with the same store as `AuthService`.
     - `tsconfig.base.json` paths extended for `@aetheria/domain-account`.
     - **Smoke** (30 Apr 2026): typecheck 16/16, lint 9/9, build 8/8. Live (no DB): all three procedures gate on `protectedProcedure` → 401 "Authentication required" without a Bearer. With a self-signed access token: `account.updateProfile` empty body → 400 VALIDATION_FAILED "At least one field must be provided"; `account.deleteAccount` missing `confirmText` → 400 VALIDATION_FAILED "Required".
-15. **NEXT — Step 4.13**: web auth UI (signup / login / forgot-password screens, token storage memory + httpOnly cookie). Closes Phase 4-B end-to-end.
+15. ~~Step 4.13: web auth UI~~ ✅ done 30 Apr 2026.
+    - **Token storage**: access in memory (Zustand `access` field, never persisted); refresh in httpOnly cookie `aetheria_refresh` set by Next API routes (Path=/, HttpOnly, SameSite=Lax, Secure in production, Max-Age = TTL). User hint persists to localStorage so a reload shows "appears logged in" while the refresh round-trip resolves.
+    - **`apps/web/src/store/session.ts`** rewritten: `SessionUser = {id, email, displayName, roles, oauthProvider}`, `AccessToken = {value, expiresAt}`. Methods `setSession / setAccess / setUser / clearSession / isAuthenticated`. `partialize` only persists `user`. Storage key bumped to `aetheria.session.v2`.
+    - **`apps/web/src/lib/auth/proxy.ts`**: server-side tRPC client (`apiClient()`), `proxyErrorFor(e)` translating `TRPCClientError` → `{status, body:{code, message, details?}}`, `buildRefreshCookie(token, {expiresAt})` / `buildClearRefreshCookie()` (Secure flag toggled by `NODE_ENV`), `sessionResponseFromTrpc(trpcRes)` normalizing the API result for the browser.
+    - **`apps/web/src/lib/auth/client.ts`**: `postJSON<T>(url, body)` + `AuthApiError` (status + parsed body). Sends `credentials: "same-origin"` so the httpOnly cookie travels.
+    - **Next API routes** under `apps/web/src/app/api/auth/`:
+      - `signup/route.ts`, `login/route.ts` — call `auth.signupWithEmail` / `auth.loginWithEmail`, set the refresh cookie, return `{user, access}`.
+      - `refresh/route.ts` — reads `aetheria_refresh` cookie via `next/headers`, calls `auth.refreshToken`, rotates the cookie, returns `{user, access}` (or 401 `UNAUTHENTICATED` "No refresh cookie").
+      - `logout/route.ts` — best-effort `auth.logout` then clears the cookie regardless.
+      - `forgot-password/route.ts`, `reset-password/route.ts`, `verify-email/route.ts` — proxies that surface API errors as 4xx JSON.
+    - **Pages** (App Router, all client components except providers):
+      - `/signup` — email + displayName + password + confirm. POSTs `/api/auth/signup`, calls `setSession`, redirects to `/`.
+      - `/login` — email + password. POSTs `/api/auth/login`, sets session, redirects.
+      - `/forgot-password` — email; on success shows "if that email is registered, link is on the way" (no enumeration).
+      - `/reset-password` — reads `?token=` via `useSearchParams` (wrapped in `<Suspense>`), POSTs `/api/auth/reset-password`.
+      - `/verify-email` — auto-POSTs `/api/auth/verify-email` on mount with the URL token; renders pending/ok/error.
+    - **`AuthShell` + `Field` + `Submit` + `FormError` + `FormSuccess` primitives** in `apps/web/src/components/auth/AuthShell.tsx`. Tailwind classes only — no design system yet.
+    - **`SessionBar`** (client component on the landing page). On mount calls `/api/auth/refresh`; if it succeeds, drops the user into `setSession`, otherwise `clearSession`. Renders display-name + sign-out button when logged in, sign-in / create-account links otherwise.
+    - **Smoke** (30 Apr 2026): typecheck 16/16, lint 9/9, build 8/8. Web build adds 7 `ƒ /api/auth/*` routes + 5 `○ /(login|signup|forgot-password|reset-password|verify-email)` pages. Live: `/login` HTML contains "Welcome back" + "Sign in" button; `POST /api/auth/login {foo:"bar"}` → 400 VALIDATION_FAILED with field-level Zod issues; `POST /api/auth/refresh` (no cookie) → 401 `UNAUTHENTICATED` "No refresh cookie"; `POST /api/auth/login` with valid input but no DB → 500 INTERNAL (expected). All five pages render their headings.
+    - **Phase 4-B is now closed end-to-end.** Auth-domain server (4.9–4.12) + OAuth (4.10) + UI (4.13) all online.
+16. **NEXT — Step 4.14**: client SQLite bootstrap — open `player_<userId>.db` per logged-in user, run migrations, seed `local_profile` from the server profile. Last task in Phase 4-B / first taste of the offline-first sync layer.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

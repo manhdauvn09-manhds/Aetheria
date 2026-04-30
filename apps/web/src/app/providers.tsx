@@ -37,8 +37,8 @@ export const Providers = ({ children }: { children: React.ReactNode }): JSX.Elem
         httpBatchLink({
           url: trpcUrl(),
           headers: () => {
-            const tokens = useSession.getState().tokens;
-            return buildHeaders(tokens?.accessToken ?? null);
+            const access = useSession.getState().access;
+            return buildHeaders(access?.value ?? null);
           },
         }),
       ],
