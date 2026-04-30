@@ -6,7 +6,7 @@
 // in-process calls once SSR auth context is wired (Step 4.13+).
 
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
-import type { AppRouter } from "@aetheria/schema-api";
+import type { AppRouter } from "@aetheria/api/router";
 
 import { buildHeaders, trpcTransformer, trpcUrl } from "./shared";
 

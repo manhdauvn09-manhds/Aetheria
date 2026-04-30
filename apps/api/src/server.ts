@@ -7,11 +7,11 @@ import { randomUUID } from "node:crypto";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
 
-import { appRouter, type AppRouter } from "@aetheria/schema-api";
-
+import { buildAuth } from "./auth/build.js";
 import { buildContextFactory } from "./context.js";
 import type { Env } from "./env.js";
 import { registerPlugins } from "./plugins.js";
+import { createAppRouter, type AppRouter } from "./router.js";
 
 export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const app = Fastify({
@@ -31,6 +31,12 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   app.get("/health", () => ({ ok: true as const, ts: Date.now() }));
 
   const createContext = buildContextFactory(env);
+  const auth = buildAuth(env);
+  const appRouter = createAppRouter({ authService: auth.service });
+
+  app.addHook("onClose", async () => {
+    if (auth.redis) await auth.redis.quit();
+  });
 
   await app.register(fastifyTRPCPlugin<AppRouter>, {
     prefix: "/trpc",

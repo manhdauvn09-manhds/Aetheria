@@ -5,6 +5,9 @@
   "description": "Aetheria HTTP/tRPC API — Fastify + helmet + CORS + rate-limit + JWT.",
   "type": "module",
   "main": "./dist/index.js",
+  "exports": {
+    "./router": { "types": "./src/router.ts", "default": "./src/router.ts" }
+  },
   "scripts": {
     "dev":       "tsx watch src/index.ts",
     "start":     "node dist/index.js",
@@ -16,6 +19,7 @@
   },
   "dependencies": {
     "@aetheria/core":         "workspace:*",
+    "@aetheria/domain-auth":  "workspace:*",
     "@aetheria/schema-api":   "workspace:*",
     "@aetheria/schema-db":    "workspace:*",
     "@aetheria/shared-types": "workspace:*",
@@ -24,6 +28,7 @@
     "@fastify/rate-limit":    "^10.2.1",
     "@trpc/server":           "^10.45.2",
     "fastify":                "^5.1.0",
+    "ioredis":                "^5.4.1",
     "jose":                   "^5.9.6",
     "pino-pretty":            "^11.3.0",
     "zod":                    "^3.23.8"

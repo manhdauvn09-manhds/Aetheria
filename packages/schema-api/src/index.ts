@@ -15,5 +15,5 @@ export {
   type RequestInfo,
   emptyContext,
 } from "./context.js";
-export { appRouter, type AppRouter } from "./router.js";
+export { healthRouter } from "./routers/health.js";
 export * as zod from "./zod-helpers.js";

@@ -23,6 +23,7 @@ const envSchema = z.object({
   JWT_AUDIENCE: z.string().default("aetheria-web"),
 
   DATABASE_URL_MYSQL: z.string().url(),
+  REDIS_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

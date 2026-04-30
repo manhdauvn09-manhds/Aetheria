@@ -9,6 +9,9 @@ const config = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  // AppRouter is `import type`-only, so domain/server packages are erased at
+  // compile time and don't need transpiling. Schema-api + shared-types still
+  // ship runtime values some day, so we keep them transpiled.
   transpilePackages: [
     "@aetheria/schema-api",
     "@aetheria/shared-types",

@@ -39,7 +39,7 @@
 
 | #    | Task                                                                                              | Slice | Size | Dep         | Status |
 |------|---------------------------------------------------------------------------------------------------|-------|------|-------------|--------|
-| 4.9  | Auth domain (server): `signupWithEmail`, `loginWithEmail`, `refreshToken`, `logout` (argon2id, JWT 15 m / refresh 30 d in Redis) | vertical | L | 4.7 | ⬜ |
+| 4.9  | Auth domain (server): `signupWithEmail`, `loginWithEmail`, `refreshToken`, `logout` (argon2id, JWT 15 m / refresh 30 d in Redis) | vertical | L | 4.7 | ✅ |
 | 4.10 | Auth: OAuth (Google, Discord) via NextAuth on web + server-side handler                           | vertical | M | 4.9, 4.8 | ⬜ |
 | 4.11 | Password reset + email verification (token in Redis, send via Resend stub)                        | vertical | M | 4.9 | ⬜ |
 | 4.12 | `account.getProfile/updateProfile/deleteAccount` (GDPR-compliant)                                  | vertical | M | 4.9 | ⬜ |

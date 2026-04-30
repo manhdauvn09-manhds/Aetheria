@@ -1,0 +1,41 @@
+{
+  "name": "@aetheria/domain-auth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aetheria auth domain — argon2id password hashing, JWT issuance, refresh-token store, signup/login/refresh/logout flows.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".":          { "types": "./src/index.ts",         "default": "./src/index.ts" },
+    "./password": { "types": "./src/password.ts",      "default": "./src/password.ts" },
+    "./tokens":   { "types": "./src/tokens.ts",        "default": "./src/tokens.ts" },
+    "./store":    { "types": "./src/refresh-store.ts", "default": "./src/refresh-store.ts" },
+    "./service":  { "types": "./src/service.ts",       "default": "./src/service.ts" },
+    "./router":   { "types": "./src/router.ts",        "default": "./src/router.ts" }
+  },
+  "files": ["src"],
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "echo 'no tests yet'",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@aetheria/core":         "workspace:*",
+    "@aetheria/schema-api":   "workspace:*",
+    "@aetheria/schema-db":    "workspace:*",
+    "@aetheria/shared-types": "workspace:*",
+    "@node-rs/argon2":        "^2.0.2",
+    "ioredis":                "^5.4.1",
+    "jose":                   "^5.9.6",
+    "zod":                    "^3.23.8"
+  },
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "@types/node":      "^22.9.0",
+    "rimraf":           "^6.0.1",
+    "typescript":       "^5.6.3"
+  }
+}

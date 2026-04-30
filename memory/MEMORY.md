@@ -94,7 +94,20 @@ games/Aetheria/
     - **Important**: web's intra-app imports do NOT use `.js` extensions (Next/webpack doesn't rewrite them); workspace package imports work via `transpilePackages`.
     - `.env.example` extended with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_APP_URL`.
     - **Smoke** (30 Apr 2026): typecheck 11/11, lint 7/7, build 6/6 (web bundle: route `/` is dynamic ƒ, ~123 B + 102 kB shared JS). Live SSR confirmed: API on `:3000` + web `next start` on `:3001` → `GET /` returns 200 with rendered `/trpc/health.ping ok · 2026-04-30T07:04:40.464Z`.
-11. **NEXT — Step 4.9**: kick off Phase 4-B (Auth & Account). Begin with argon2id password hashing utilities + `users`/`profiles` CRUD via Prisma + access/refresh JWT issuance, exposed under `auth.signup` / `auth.login` tRPC procedures.
+11. ~~Step 4.9: auth domain (server)~~ ✅ done 30 Apr 2026 — first vertical slice begins.
+    - **New package** `@aetheria/domain-auth`:
+      - `src/password.ts`: argon2id via `@node-rs/argon2` (prebuilt native — no compile step). Params: m=19 MiB, t=2, p=1 (OWASP 2024 low-memory). `algorithm: 2 as const` to avoid the lib's const-enum collision with `isolatedModules`.
+      - `src/tokens.ts`: `signAccessToken` / `signRefreshToken` / `issueTokenPair` / `verifyRefreshToken` via `jose` HS256. Two distinct secrets (`JWT_SECRET` vs `JWT_REFRESH_SECRET`) — leaking either doesn't compromise the other. Refresh tokens carry a `jti` so the server can revoke them. Defaults: 15 min access / 30 d refresh.
+      - `src/refresh-store.ts`: `RefreshTokenStore` interface (`put/get/revoke/revokeAllForUser`). Two impls: `inMemoryRefreshStore()` for tests / dev (Map-backed; restarts wipe state) and `redisRefreshStore(redis)` (keys `refresh:{jti}` with TTL + `refresh:user:{uid}` SET for bulk revocation).
+      - `src/service.ts`: `AuthService` with the four flows. `signupWithEmail` runs in a Prisma transaction (email + displayName uniqueness checked, user + profile created together). `loginWithEmail` enforces generic "Invalid email or password" so attackers can't enumerate. `refreshToken` rotates: revokes old jti, issues fresh pair. `logout` is best-effort (tolerates already-invalid tokens). All flows write to `audit_log` via `@aetheria/core/audit`.
+      - `src/router.ts`: `createAuthRouter(service)` factory returning a tRPC sub-router (4 mutations: `signupWithEmail`, `loginWithEmail`, `refreshToken`, `logout`). Inputs validated with `emailSchema`/`passwordSchema`/`displayNameSchema` from `@aetheria/schema-api/zod`.
+    - **Composition shift**: dropped `appRouter`/`AppRouter` from `@aetheria/schema-api` (now exports `healthRouter` building block + `zod` helpers + tRPC primitives + AppError). Composed `appRouter` lives in `apps/api/src/router.ts` via `createAppRouter({ authService })`. `AppRouter` type is exported from `@aetheria/api/router` (new exports map entry on apps/api package.json). `apps/web` updated to `import type { AppRouter } from "@aetheria/api/router"` — type-only, so the runtime/native-binding code (jose, ioredis, @node-rs/argon2, prisma) never crosses into the browser bundle.
+    - `apps/api/src/auth/build.ts`: at boot, picks Redis store if `REDIS_URL` is set (lazy connect, retries=3), else in-memory. Returns `{ service, redis }`; server registers an `onClose` hook to `redis.quit()` on shutdown.
+    - `apps/api/src/env.ts` extended with optional `REDIS_URL`.
+    - **Smoke** (30 Apr 2026):
+      - `pnpm typecheck` 14/14, `pnpm lint` 8/8, `pnpm build` 7/7.
+      - Live boot via `tsx`. With no DB / no Redis: `GET /health` 200, `GET /trpc/health.ping` 200, `POST /trpc/auth.logout` (junk token) → `{ok:true}` (best-effort), `POST /trpc/auth.refreshToken` (bad sig) → 401 `data.app.code=UNAUTHENTICATED`, `POST /trpc/auth.signupWithEmail` (bad inputs) → 400 `data.app.code=VALIDATION_FAILED` with field-level Zod issues.
+12. **NEXT — Step 4.10**: OAuth (Google + Discord) via NextAuth on the web side, plus a server-side handler to exchange a verified OAuth identity for our own JWT pair (re-using `AuthService`).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
