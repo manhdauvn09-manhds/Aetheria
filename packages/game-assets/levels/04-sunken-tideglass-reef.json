@@ -1,0 +1,73 @@
+{
+  "slug": "sunken-tideglass-reef",
+  "realmId": 4,
+  "levelNumber": 4,
+  "name": "Tideglass Reef",
+  "type": "puzzle",
+  "difficulty": 3,
+  "minAccountLevel": 4,
+  "version": 1,
+  "map": {
+    "width": 5,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "stone" },
+      { "q": 1, "r": 0, "terrain": "water", "cost": 2, "fx": "miasma" },
+      { "q": 2, "r": 0, "terrain": "ice", "tag": "switch_a" },
+      { "q": 3, "r": 0, "terrain": "water", "cost": 2 },
+      { "q": 4, "r": 0, "terrain": "stone", "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "stone" },
+      { "q": 1, "r": 1, "terrain": "water", "cost": 2 },
+      { "q": 2, "r": 1, "terrain": "ice" },
+      { "q": 3, "r": 1, "terrain": "ruins", "tag": "key_door" },
+      { "q": 4, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "stone" },
+      { "q": 1, "r": 2, "terrain": "ice", "tag": "switch_b" },
+      { "q": 2, "r": 2, "terrain": "water", "cost": 2 },
+      { "q": 3, "r": 2, "terrain": "ice" },
+      { "q": 4, "r": 2, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 0 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 3, "q": 0, "r": 2 },
+      { "kind": "enemy", "ref": "reef-stalker", "slot": 1, "q": 3, "r": 0 },
+      { "kind": "enemy", "ref": "tide-thrall", "slot": 1, "q": 3, "r": 2 },
+      { "kind": "npc", "q": 4, "r": 1 }
+    ],
+    "exits": [{ "q": 4, "r": 0, "to": "next", "requires": "both_switches_pressed" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "reef-stalker", "unit": "reef_stalker", "level": 4, "ai": "patrol" },
+          { "id": "tide-thrall", "unit": "tide_thrall", "level": 3, "ai": "defensive" }
+        ]
+      }
+    ],
+    "scripts": ["puzzle_two_switches", "tideglass_riddle"]
+  },
+  "rewards": {
+    "xp": 90,
+    "gold": 40,
+    "items": [{ "itemId": 130, "qty": 1 }],
+    "firstClearBonus": {
+      "xp": 45,
+      "gold": 20,
+      "items": [{ "itemId": 131, "qty": 1 }]
+    }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "pearl-cache",
+        "q": 2,
+        "r": 1,
+        "reveal": "search",
+        "reward": { "xp": 25, "gold": 30, "items": [{ "itemId": 132, "qty": 2 }] }
+      }
+    ]
+  }
+}

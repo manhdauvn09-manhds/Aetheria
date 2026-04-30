@@ -193,7 +193,30 @@ games/Aetheria/
       - Splitter: `db/sqlite/01_init.sql` produces 32 statements; all 3 triggers come out well-formed (`END` is the last token of each trigger statement).
       - Repo: typecheck 16/16, lint 9/9, build 8/8.
     - **Phase 4-B is now fully complete** (4.9–4.14 + OAuth in 4.10 + UI in 4.13). Auth, account, and offline-first user storage are all online.
-17. **NEXT — Step 4.15**: kick off Phase 4-C (World, Save, Sync). First task: sample levels JSON files (single-player content) so the next slices have data to work against. Then 4.16 world service (`realms()`, `levelsForRealm`, `startLevel`, `resumeRun`, …) and 4.17 save service.
+17. ~~Step 4.15: sample levels JSON~~ ✅ done 30 Apr 2026 — Phase 4-C kicked off.
+    - **New package** `@aetheria/game-assets`. Holds the canonical JSON levels and the Zod-driven schema that gates them.
+    - `src/level-schema.ts` — single source of truth for `levels.map / encounter / rewards / discoverySecrets` shapes:
+      - `tileSchema` (axial `q,r` + `terrain` enum {grass, forest, stone, sand, ash, water, ice, lava, void, ruins, shrine, wall} + optional `elev/fx/cost/tag`).
+      - `spawnSchema` ("player" | "enemy" | "npc" + `ref`/`slot`/`facing`).
+      - `exitSchema` (next | realm_hub | `{levelNumber}` + optional `requires` flag).
+      - `mapSchema = {width, height, tiles[], spawns[], exits[]}`.
+      - `encounterSchema = {waves[], boss?, scripts?}` with wave triggers `{kind:"turn", value}` or `{kind:"clear", wave}`.
+      - `rewardsSchema = {xp, gold, items[], firstClearBonus?}`.
+      - `discoverySecretsSchema.hidden[] = {id, q, r, reveal:"walk"|"search"|"key", reward?}`.
+      - Top-level `levelSchema = {slug, realmId, levelNumber, name, type∈{story,combat,puzzle,treasure,boss,hidden,rift}, difficulty, minAccountLevel, version, map, encounter, rewards, discoverySecrets?}`.
+      - Exposes `parseLevel` / `safeParseLevel` for callers.
+    - **8 sample levels** in `packages/game-assets/levels/` (one per realm + 3 extras, levelNumbers 1–8):
+      - L01 verdant-forest-trail (story, tutorial, 16 tiles, 1 wave)
+      - L02 ashen-cinder-pass (combat, 15 tiles, 2 waves with `clear`-triggered second wave)
+      - L03 aetheric-cloudbridge (combat + boss "stormcaller", 16 tiles)
+      - L04 sunken-tideglass-reef (puzzle, 15 tiles, 1 wave + 2 switches + 1 hidden secret)
+      - L05 hollow-voidstep-atrium (boss "voidwalker", 21 tiles, 2 waves with `turn`-triggered second wave)
+      - L06 verdant-hidden-glade (treasure, 16 tiles, 3 hidden secrets)
+      - L07 aetheric-spire-trial (puzzle, 20 tiles, 2 waves, 3-switch sequence)
+      - L08 hollow-mirror-rift (rift, 24 tiles, 2 waves + boss "the_mirror", `mirror_party_at_75_50_25`)
+    - `src/levels.ts` — `loadAllLevels()` reads + parses every `*.json` (sorted), validates against `levelSchema`, asserts uniqueness of `levelNumber` + `slug`, freezes the result. Plus `findLevelByNumber`, `findLevelBySlug`, `levelsForRealm` lookups.
+    - **Smoke** (30 Apr 2026): typecheck 17/17, lint 10/10, build 9/9. `loadAllLevels()` against the 8 files: 16–24 tiles each, 1–2 waves each, 3 of 8 levels carry a boss, 3 carry hidden discoverySecrets, total xp 50→600 across difficulty 1→7. All round-trip through the validator without errors.
+18. **NEXT — Step 4.16**: World service (`realms()`, `levelsForRealm`, `startLevel`, `resumeRun`, `abandonRun`). Reads catalog from MySQL (or `@aetheria/game-assets` as a dev fallback) + writes runs/save_state to per-user SQLite. Then 4.17 save service, 4.18 sync engine.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

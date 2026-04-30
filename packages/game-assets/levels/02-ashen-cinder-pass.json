@@ -1,0 +1,64 @@
+{
+  "slug": "ashen-cinder-pass",
+  "realmId": 2,
+  "levelNumber": 2,
+  "name": "Cinder Pass",
+  "type": "combat",
+  "difficulty": 2,
+  "minAccountLevel": 2,
+  "version": 1,
+  "map": {
+    "width": 5,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "ash", "fx": "embers" },
+      { "q": 1, "r": 0, "terrain": "ash" },
+      { "q": 2, "r": 0, "terrain": "stone", "elev": 1 },
+      { "q": 3, "r": 0, "terrain": "lava", "cost": 99 },
+      { "q": 4, "r": 0, "terrain": "stone", "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "ash" },
+      { "q": 1, "r": 1, "terrain": "ash" },
+      { "q": 2, "r": 1, "terrain": "lava", "cost": 99 },
+      { "q": 3, "r": 1, "terrain": "stone", "elev": 2 },
+      { "q": 4, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "ash" },
+      { "q": 1, "r": 2, "terrain": "stone" },
+      { "q": 2, "r": 2, "terrain": "stone", "elev": 1 },
+      { "q": 3, "r": 2, "terrain": "ash" },
+      { "q": 4, "r": 2, "terrain": "ash" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 0 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 3, "q": 0, "r": 2 },
+      { "kind": "enemy", "ref": "ash-fiend-a", "slot": 1, "q": 4, "r": 1 },
+      { "kind": "enemy", "ref": "ash-fiend-b", "slot": 1, "q": 3, "r": 2 },
+      { "kind": "enemy", "ref": "ember-archer", "slot": 2, "q": 4, "r": 2 }
+    ],
+    "exits": [{ "q": 4, "r": 0, "to": "next", "requires": "all_waves_clear" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "ash-fiend-a", "unit": "ash_fiend", "level": 2, "ai": "aggressive" },
+          { "id": "ash-fiend-b", "unit": "ash_fiend", "level": 2, "ai": "aggressive" }
+        ]
+      },
+      {
+        "index": 2,
+        "trigger": { "kind": "clear", "wave": 1 },
+        "enemies": [
+          { "id": "ember-archer", "unit": "ember_archer", "level": 3, "ai": "ranged" }
+        ]
+      }
+    ]
+  },
+  "rewards": {
+    "xp": 80,
+    "gold": 35,
+    "items": [{ "itemId": 110, "qty": 2 }],
+    "firstClearBonus": { "xp": 40, "gold": 15, "items": [{ "itemId": 111, "qty": 1 }] }
+  }
+}

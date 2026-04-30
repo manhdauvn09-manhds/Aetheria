@@ -1,0 +1,99 @@
+{
+  "slug": "hollow-mirror-rift",
+  "realmId": 5,
+  "levelNumber": 8,
+  "name": "Mirror Rift",
+  "type": "rift",
+  "difficulty": 7,
+  "minAccountLevel": 12,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 5,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "shrine", "elev": 1 },
+      { "q": 1, "r": 0, "terrain": "void", "fx": "miasma" },
+      { "q": 2, "r": 0, "terrain": "stone" },
+      { "q": 3, "r": 0, "terrain": "void", "fx": "miasma" },
+      { "q": 4, "r": 0, "terrain": "stone" },
+      { "q": 5, "r": 0, "terrain": "shrine", "elev": 1, "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "stone" },
+      { "q": 1, "r": 1, "terrain": "stone" },
+      { "q": 2, "r": 1, "terrain": "ruins", "tag": "mirror_a" },
+      { "q": 3, "r": 1, "terrain": "ruins", "tag": "mirror_b" },
+      { "q": 4, "r": 1, "terrain": "stone" },
+      { "q": 5, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "void" },
+      { "q": 1, "r": 2, "terrain": "stone" },
+      { "q": 2, "r": 2, "terrain": "void", "fx": "miasma" },
+      { "q": 3, "r": 2, "terrain": "stone" },
+      { "q": 4, "r": 2, "terrain": "stone" },
+      { "q": 5, "r": 2, "terrain": "void" },
+      { "q": 0, "r": 3, "terrain": "stone" },
+      { "q": 1, "r": 3, "terrain": "stone" },
+      { "q": 2, "r": 3, "terrain": "stone" },
+      { "q": 3, "r": 3, "terrain": "stone" },
+      { "q": 4, "r": 3, "terrain": "stone" },
+      { "q": 5, "r": 3, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 0 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 3, "q": 0, "r": 3 },
+      { "kind": "player", "slot": 4, "q": 1, "r": 3 },
+      { "kind": "enemy", "ref": "mirror-shade-a", "slot": 1, "q": 2, "r": 1 },
+      { "kind": "enemy", "ref": "mirror-shade-b", "slot": 1, "q": 3, "r": 1 },
+      { "kind": "enemy", "ref": "rift-stalker", "slot": 2, "q": 4, "r": 2 },
+      { "kind": "enemy", "ref": "the-mirror", "slot": 1, "q": 5, "r": 0, "facing": 3 }
+    ],
+    "exits": [{ "q": 5, "r": 0, "to": "realm_hub", "requires": "boss_dead" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "mirror-shade-a", "unit": "mirror_shade", "level": 12, "ai": "aggressive" },
+          { "id": "mirror-shade-b", "unit": "mirror_shade", "level": 12, "ai": "ranged" }
+        ]
+      },
+      {
+        "index": 2,
+        "trigger": { "kind": "clear", "wave": 1 },
+        "enemies": [
+          { "id": "rift-stalker", "unit": "rift_stalker", "level": 14, "ai": "patrol" }
+        ]
+      }
+    ],
+    "boss": {
+      "id": "the-mirror",
+      "unit": "the_mirror",
+      "level": 16,
+      "hpMultiplier": 8.0,
+      "script": "mirror_party_at_75_50_25"
+    },
+    "scripts": ["rift_pulse_every_2_turns", "mirror_intro"]
+  },
+  "rewards": {
+    "xp": 600,
+    "gold": 280,
+    "items": [{ "itemId": 142, "qty": 1 }],
+    "firstClearBonus": {
+      "xp": 400,
+      "gold": 150,
+      "gems": 75,
+      "items": [{ "itemId": 143, "qty": 1 }]
+    }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "void-shard",
+        "q": 4,
+        "r": 1,
+        "reveal": "search",
+        "reward": { "xp": 50, "gold": 100, "items": [{ "itemId": 144, "qty": 1 }] }
+      }
+    ]
+  }
+}

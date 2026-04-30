@@ -1,0 +1,61 @@
+{
+  "slug": "verdant-forest-trail",
+  "realmId": 1,
+  "levelNumber": 1,
+  "name": "Forest Trail",
+  "type": "story",
+  "difficulty": 1,
+  "minAccountLevel": 1,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "grass" },
+      { "q": 1, "r": 0, "terrain": "grass" },
+      { "q": 2, "r": 0, "terrain": "forest", "fx": "shimmer" },
+      { "q": 3, "r": 0, "terrain": "forest" },
+      { "q": 4, "r": 0, "terrain": "stone" },
+      { "q": 5, "r": 0, "terrain": "stone", "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "grass" },
+      { "q": 1, "r": 1, "terrain": "forest" },
+      { "q": 2, "r": 1, "terrain": "grass" },
+      { "q": 3, "r": 1, "terrain": "stone", "elev": 1 },
+      { "q": 4, "r": 1, "terrain": "stone", "elev": 1 },
+      { "q": 0, "r": 2, "terrain": "water", "cost": 3 },
+      { "q": 1, "r": 2, "terrain": "grass" },
+      { "q": 2, "r": 2, "terrain": "ruins" },
+      { "q": 3, "r": 2, "terrain": "grass" },
+      { "q": 4, "r": 2, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 0 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 1 },
+      { "kind": "enemy", "ref": "wolf-a", "slot": 1, "q": 4, "r": 1 },
+      { "kind": "enemy", "ref": "wolf-b", "slot": 1, "q": 4, "r": 2 }
+    ],
+    "exits": [{ "q": 5, "r": 0, "to": "next" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "wolf-a", "unit": "dire_wolf", "level": 1, "ai": "aggressive" },
+          { "id": "wolf-b", "unit": "dire_wolf", "level": 1, "ai": "aggressive" }
+        ]
+      }
+    ],
+    "scripts": ["intro_dialog", "tutorial_arrows"]
+  },
+  "rewards": {
+    "xp": 50,
+    "gold": 20,
+    "items": [{ "itemId": 101, "qty": 1 }],
+    "firstClearBonus": {
+      "xp": 25,
+      "gold": 10,
+      "items": []
+    }
+  }
+}

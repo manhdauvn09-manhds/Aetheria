@@ -51,7 +51,7 @@
 
 | #    | Task                                                                                              | Slice | Size | Dep   | Status |
 |------|---------------------------------------------------------------------------------------------------|-------|------|-------|--------|
-| 4.15 | `packages/game-assets` — 8 sample levels (1 per realm + 3 extras) defined as JSON matching `levels.map/encounter/rewards` schemas | horizontal | L | 4.3 | ⬜ |
+| 4.15 | `packages/game-assets` — 8 sample levels (1 per realm + 3 extras) defined as JSON matching `levels.map/encounter/rewards` schemas | horizontal | L | 4.3 | ✅ |
 | 4.16 | World service: `realms()`, `levelsForRealm`, `startLevel`, `resumeRun`, `abandonRun`              | vertical | M | 4.7, 4.4 | ⬜ |
 | 4.17 | Save service (server): `snapshot/list/load/delete/autosaveTick/reconcile` with slot 0–3 + version check | vertical | L | 4.7, 4.4 | ⬜ |
 | 4.18 | Sync engine (client): drain `sync_queue` → tRPC `sync.push`; pull catalog patches via `sync.pull`; record in `sync_meta` | horizontal | L | 4.4, 4.17 | ⬜ |

@@ -1,0 +1,78 @@
+{
+  "slug": "verdant-hidden-glade",
+  "realmId": 1,
+  "levelNumber": 6,
+  "name": "Hidden Glade",
+  "type": "treasure",
+  "difficulty": 2,
+  "minAccountLevel": 2,
+  "version": 1,
+  "map": {
+    "width": 4,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "forest", "fx": "shimmer" },
+      { "q": 1, "r": 0, "terrain": "grass" },
+      { "q": 2, "r": 0, "terrain": "shrine", "tag": "altar" },
+      { "q": 3, "r": 0, "terrain": "forest" },
+      { "q": 0, "r": 1, "terrain": "grass" },
+      { "q": 1, "r": 1, "terrain": "grass" },
+      { "q": 2, "r": 1, "terrain": "ruins", "tag": "chest_a" },
+      { "q": 3, "r": 1, "terrain": "forest" },
+      { "q": 0, "r": 2, "terrain": "water", "cost": 3 },
+      { "q": 1, "r": 2, "terrain": "grass" },
+      { "q": 2, "r": 2, "terrain": "grass" },
+      { "q": 3, "r": 2, "terrain": "ruins", "tag": "chest_b" },
+      { "q": 0, "r": 3, "terrain": "stone", "tag": "exit" },
+      { "q": 1, "r": 3, "terrain": "grass" },
+      { "q": 2, "r": 3, "terrain": "forest" },
+      { "q": 3, "r": 3, "terrain": "forest", "fx": "fog" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 0 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 1 },
+      { "kind": "enemy", "ref": "treant-sprout", "slot": 1, "q": 2, "r": 2 }
+    ],
+    "exits": [{ "q": 0, "r": 3, "to": "realm_hub" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "treant-sprout", "unit": "treant_sprout", "level": 2, "ai": "defensive" }
+        ]
+      }
+    ],
+    "scripts": ["ambient_birds"]
+  },
+  "rewards": {
+    "xp": 60,
+    "gold": 25,
+    "items": [{ "itemId": 102, "qty": 1 }]
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "chest-a",
+        "q": 2,
+        "r": 1,
+        "reveal": "search",
+        "reward": { "xp": 20, "gold": 30, "items": [{ "itemId": 103, "qty": 1 }] }
+      },
+      {
+        "id": "chest-b",
+        "q": 3,
+        "r": 2,
+        "reveal": "key",
+        "reward": { "xp": 30, "gold": 50, "items": [{ "itemId": 104, "qty": 1 }] }
+      },
+      {
+        "id": "altar-blessing",
+        "q": 2,
+        "r": 0,
+        "reveal": "walk"
+      }
+    ]
+  }
+}

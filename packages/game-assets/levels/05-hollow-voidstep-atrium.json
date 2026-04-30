@@ -1,0 +1,85 @@
+{
+  "slug": "hollow-voidstep-atrium",
+  "realmId": 5,
+  "levelNumber": 5,
+  "name": "Voidstep Atrium",
+  "type": "boss",
+  "difficulty": 5,
+  "minAccountLevel": 6,
+  "version": 1,
+  "map": {
+    "width": 7,
+    "height": 5,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "shrine", "elev": 1 },
+      { "q": 1, "r": 0, "terrain": "stone", "fx": "miasma" },
+      { "q": 2, "r": 0, "terrain": "void" },
+      { "q": 3, "r": 0, "terrain": "stone" },
+      { "q": 4, "r": 0, "terrain": "void" },
+      { "q": 5, "r": 0, "terrain": "stone", "fx": "miasma" },
+      { "q": 6, "r": 0, "terrain": "shrine", "elev": 1, "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "stone" },
+      { "q": 1, "r": 1, "terrain": "stone" },
+      { "q": 2, "r": 1, "terrain": "stone", "elev": 1 },
+      { "q": 3, "r": 1, "terrain": "ruins", "elev": 1, "tag": "altar" },
+      { "q": 4, "r": 1, "terrain": "stone", "elev": 1 },
+      { "q": 5, "r": 1, "terrain": "stone" },
+      { "q": 6, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "stone" },
+      { "q": 1, "r": 2, "terrain": "void" },
+      { "q": 2, "r": 2, "terrain": "stone" },
+      { "q": 3, "r": 2, "terrain": "stone" },
+      { "q": 4, "r": 2, "terrain": "stone" },
+      { "q": 5, "r": 2, "terrain": "void" },
+      { "q": 6, "r": 2, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 0 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 3, "q": 0, "r": 2 },
+      { "kind": "player", "slot": 4, "q": 1, "r": 1 },
+      { "kind": "enemy", "ref": "void-acolyte-a", "slot": 1, "q": 4, "r": 0 },
+      { "kind": "enemy", "ref": "void-acolyte-b", "slot": 1, "q": 4, "r": 2 },
+      { "kind": "enemy", "ref": "shadehound", "slot": 2, "q": 5, "r": 1 },
+      { "kind": "enemy", "ref": "voidwalker", "slot": 1, "q": 6, "r": 1, "facing": 3 }
+    ],
+    "exits": [{ "q": 6, "r": 0, "to": "realm_hub", "requires": "boss_dead" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "void-acolyte-a", "unit": "void_acolyte", "level": 6, "ai": "ranged" },
+          { "id": "void-acolyte-b", "unit": "void_acolyte", "level": 6, "ai": "support" }
+        ]
+      },
+      {
+        "index": 2,
+        "trigger": { "kind": "turn", "value": 4 },
+        "enemies": [
+          { "id": "shadehound", "unit": "shadehound", "level": 7, "ai": "aggressive" }
+        ]
+      }
+    ],
+    "boss": {
+      "id": "voidwalker",
+      "unit": "voidwalker",
+      "level": 9,
+      "hpMultiplier": 5.0,
+      "script": "phase_at_66_and_33"
+    },
+    "scripts": ["altar_pulse_every_2_turns", "void_intro"]
+  },
+  "rewards": {
+    "xp": 250,
+    "gold": 100,
+    "items": [{ "itemId": 140, "qty": 1 }],
+    "firstClearBonus": {
+      "xp": 150,
+      "gold": 50,
+      "gems": 25,
+      "items": [{ "itemId": 141, "qty": 1 }]
+    }
+  }
+}
