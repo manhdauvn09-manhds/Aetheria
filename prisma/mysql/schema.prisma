@@ -1,0 +1,533 @@
+// Aetheria — MySQL (shared / server) schema
+// Spec: docs/02_DATABASE_DESIGN.md (translated from Postgres -> MySQL 8)
+// Engine: MySQL 8 (utf8mb4 / utf8mb4_0900_ai_ci)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/mysql-client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL_MYSQL")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.1  Identity & Profile
+// ────────────────────────────────────────────────────────────────────
+
+model User {
+  id                BigInt    @id @default(autoincrement())
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String?   @map("password_hash") @db.Text
+  oauthProvider     String?   @map("oauth_provider") @db.VarChar(32)
+  oauthSubject      String?   @map("oauth_subject") @db.VarChar(255)
+  emailVerifiedAt   DateTime? @map("email_verified_at") @db.DateTime(3)
+  status            String    @default("active") @db.VarChar(16)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @updatedAt        @map("updated_at") @db.DateTime(3)
+  lastLoginAt       DateTime? @map("last_login_at") @db.DateTime(3)
+  deletedAt         DateTime? @map("deleted_at") @db.DateTime(3)
+
+  profile               Profile?
+  userCharacters        UserCharacter[]
+  userSkills            UserSkill[]
+  inventory             Inventory[]
+  runs                  Run[]
+  saveStates            SaveState[]
+  userQuests            UserQuest[]
+  battlePassProgress    BattlePassProgress[]
+  guildLed              Guild[]                 @relation("GuildLeader")
+  guildMemberships      GuildMember[]
+  friendshipsOut        Friendship[]            @relation("FriendshipOwner")
+  friendshipsIn         Friendship[]            @relation("FriendshipFriend")
+  chatMessages          ChatMessage[]
+  pvpMatchPlayers       PvpMatchPlayer[]
+  pvpMatchesWon         PvpMatch[]              @relation("PvpWinner")
+  mmrEntries            Mmr[]
+  transactions          Transaction[]
+  auditEntries          AuditLog[]              @relation("AuditActor")
+
+  @@unique([oauthProvider, oauthSubject], map: "uq_users_oauth")
+  @@index([email], map: "ix_users_email")
+  @@map("users")
+}
+
+model Profile {
+  userId         BigInt   @id @map("user_id")
+  displayName    String   @unique @map("display_name") @db.VarChar(64)
+  avatarUrl      String?  @map("avatar_url") @db.VarChar(512)
+  country        String?  @db.VarChar(2)
+  language       String?  @db.VarChar(16)
+  accountLevel   Int      @default(1) @map("account_level")
+  accountXp      Int      @default(0) @map("account_xp")
+  preferences    Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime @updatedAt        @map("updated_at") @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.2  Characters & Skills (catalog + ownership)
+// ────────────────────────────────────────────────────────────────────
+
+model Character {
+  id                  BigInt   @id @default(autoincrement())
+  codename            String   @unique @db.VarChar(32)
+  name                String   @db.VarChar(64)
+  class               String   @db.VarChar(32)
+  role                String   @db.VarChar(32)
+  baseStats           Json     @map("base_stats")
+  artUrl              String?  @map("art_url") @db.VarChar(512)
+  lore                String?  @db.Text
+  unlockRequirement   Json?    @map("unlock_requirement")
+  version             Int      @default(1)
+  createdAt           DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt           DateTime @updatedAt        @map("updated_at") @db.DateTime(3)
+
+  skills          Skill[]
+  characterSkills CharacterSkill[]
+  userCharacters  UserCharacter[]
+
+  @@map("characters")
+}
+
+model Skill {
+  id          BigInt   @id @default(autoincrement())
+  characterId BigInt   @map("character_id")
+  name        String   @db.VarChar(64)
+  type        String   @db.VarChar(16) // active|passive
+  apCost      Int      @default(0) @map("ap_cost")
+  cooldown    Int      @default(0)
+  effect      Json
+  iconUrl     String?  @map("icon_url") @db.VarChar(512)
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  character       Character        @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterSkills CharacterSkill[]
+  userSkills      UserSkill[]
+
+  @@index([characterId], map: "ix_skills_character")
+  @@map("skills")
+}
+
+model CharacterSkill {
+  characterId BigInt @map("character_id")
+  slot        Int
+  skillId     BigInt @map("skill_id")
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, slot])
+  @@index([skillId], map: "ix_character_skills_skill")
+  @@map("character_skills")
+}
+
+model UserCharacter {
+  id                BigInt    @id @default(autoincrement())
+  userId            BigInt    @map("user_id")
+  characterId       BigInt    @map("character_id")
+  ascension         Int       @default(0)
+  xp                Int       @default(0)
+  equippedSkinId    BigInt?   @map("equipped_skin_id")
+  unlockedAt        DateTime  @default(now()) @map("unlocked_at") @db.DateTime(3)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  inventoryEquipped Inventory[] @relation("EquippedTo")
+
+  @@unique([userId, characterId], map: "uq_user_characters")
+  @@index([userId], map: "ix_user_characters_user")
+  @@map("user_characters")
+}
+
+model UserSkill {
+  userId     BigInt   @map("user_id")
+  skillId    BigInt   @map("skill_id")
+  level      Int      @default(1)
+  unlockedAt DateTime @default(now()) @map("unlocked_at") @db.DateTime(3)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+  @@map("user_skills")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.3  World Content
+// ────────────────────────────────────────────────────────────────────
+
+model Realm {
+  id         BigInt  @id @default(autoincrement())
+  name       String  @db.VarChar(64)
+  theme      String  @db.VarChar(64)
+  colorHex   String  @map("color_hex") @db.VarChar(8)
+  orderIndex Int     @map("order_index")
+
+  levels Level[]
+
+  @@map("realms")
+}
+
+model Level {
+  id                BigInt  @id @default(autoincrement())
+  realmId           BigInt  @map("realm_id")
+  levelNumber       Int     @unique @map("level_number")
+  name              String  @db.VarChar(128)
+  type              String  @db.VarChar(16) // story|combat|puzzle|treasure|boss|hidden|rift
+  map               Json
+  encounter         Json
+  rewards           Json
+  difficulty        Int     @default(1)
+  minAccountLevel   Int     @default(1) @map("min_account_level")
+  discoverySecrets  Json?   @map("discovery_secrets")
+  version           Int     @default(1)
+  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime @updatedAt        @map("updated_at") @db.DateTime(3)
+
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Restrict)
+  runs  Run[]
+
+  @@index([realmId], map: "ix_levels_realm")
+  @@map("levels")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.4  Items & Inventory
+// ────────────────────────────────────────────────────────────────────
+
+model Item {
+  id        BigInt @id @default(autoincrement())
+  name      String @db.VarChar(128)
+  tier      String @db.VarChar(16) // common|rare|epic|mythic|aetherforged
+  type      String @db.VarChar(16) // weapon|armor|relic|consumable|material
+  effect    Json
+  iconUrl   String? @map("icon_url") @db.VarChar(512)
+  maxStack  Int     @default(1) @map("max_stack")
+
+  inventory  Inventory[]
+  shopItems  ShopItem[]
+
+  @@map("items")
+}
+
+model Inventory {
+  id                            BigInt  @id @default(autoincrement())
+  userId                        BigInt  @map("user_id")
+  itemId                        BigInt  @map("item_id")
+  quantity                      Int     @default(1)
+  equippedToUserCharacterId     BigInt? @map("equipped_to_user_character_id")
+  updatedAt                     DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item            Item           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  equippedTo      UserCharacter? @relation("EquippedTo", fields: [equippedToUserCharacterId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, itemId], map: "uq_inventory_user_item")
+  @@index([userId], map: "ix_inventory_user")
+  @@map("inventory")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.5  Runs / Save states
+// ────────────────────────────────────────────────────────────────────
+
+model Run {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt    @map("user_id")
+  levelId    BigInt    @map("level_id")
+  status     String    @db.VarChar(16) // in_progress|completed|failed|abandoned
+  startedAt  DateTime  @default(now()) @map("started_at") @db.DateTime(3)
+  endedAt    DateTime? @map("ended_at") @db.DateTime(3)
+  score      Int       @default(0)
+  stars      Int       @default(0)
+  actionLog  Json      @map("action_log")
+  snapshot   Json?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level Level @relation(fields: [levelId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status], map: "ix_runs_user_status")
+  @@index([levelId], map: "ix_runs_level")
+  @@map("runs")
+}
+
+model SaveState {
+  id            BigInt   @id @default(autoincrement())
+  userId        BigInt   @map("user_id")
+  slot          Int
+  payload       Json
+  schemaVersion Int      @default(1) @map("schema_version")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slot], map: "uq_save_states_user_slot")
+  @@map("save_states")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.6  Quests / Battle pass
+// ────────────────────────────────────────────────────────────────────
+
+model Quest {
+  id           BigInt   @id @default(autoincrement())
+  type         String   @db.VarChar(16) // daily|weekly|seasonal|story
+  requirements Json
+  rewards      Json
+  activeFrom   DateTime @map("active_from") @db.DateTime(3)
+  activeTo     DateTime @map("active_to") @db.DateTime(3)
+
+  userQuests UserQuest[]
+
+  @@index([type, activeFrom], map: "ix_quests_type_active")
+  @@map("quests")
+}
+
+model UserQuest {
+  userId     BigInt    @map("user_id")
+  questId    BigInt    @map("quest_id")
+  progress   Json      @default("{}")
+  status     String    @default("active") @db.VarChar(16) // active|completed|claimed
+  claimedAt  DateTime? @map("claimed_at") @db.DateTime(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questId])
+  @@index([userId, status], map: "ix_user_quests_user_status")
+  @@map("user_quests")
+}
+
+model BattlePassSeason {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @db.VarChar(64)
+  startsAt  DateTime @map("starts_at") @db.DateTime(3)
+  endsAt    DateTime @map("ends_at") @db.DateTime(3)
+  tracks    Json     // {free:[{tier,reward}], premium:[...]}
+
+  progress BattlePassProgress[]
+
+  @@map("battle_pass_seasons")
+}
+
+model BattlePassProgress {
+  userId    BigInt   @map("user_id")
+  seasonId  BigInt   @map("season_id")
+  tier      Int      @default(0)
+  premium   Boolean  @default(false)
+  xp        Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  season BattlePassSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@id([userId, seasonId])
+  @@map("battle_pass_progress")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.7  Social
+// ────────────────────────────────────────────────────────────────────
+
+model Guild {
+  id            BigInt   @id @default(autoincrement())
+  name          String   @unique @db.VarChar(64)
+  tag           String   @unique @db.VarChar(4)
+  description   String?  @db.Text
+  leaderUserId  BigInt   @map("leader_user_id")
+  level         Int      @default(1)
+  xp            Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  leader  User          @relation("GuildLeader", fields: [leaderUserId], references: [id], onDelete: Restrict)
+  members GuildMember[]
+
+  @@map("guilds")
+}
+
+model GuildMember {
+  guildId      BigInt   @map("guild_id")
+  userId       BigInt   @map("user_id")
+  role         String   @default("member") @db.VarChar(16) // leader|officer|member
+  joinedAt     DateTime @default(now()) @map("joined_at") @db.DateTime(3)
+  contribution Int      @default(0)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([guildId, userId])
+  @@index([userId], map: "ix_guild_members_user")
+  @@map("guild_members")
+}
+
+model Friendship {
+  userId    BigInt   @map("user_id")
+  friendId  BigInt   @map("friend_id")
+  status    String   @default("pending") @db.VarChar(16) // pending|accepted|blocked
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user   User @relation("FriendshipOwner",  fields: [userId],   references: [id], onDelete: Cascade)
+  friend User @relation("FriendshipFriend", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@id([userId, friendId])
+  @@index([friendId], map: "ix_friendships_friend")
+  @@map("friendships")
+}
+
+model ChatMessage {
+  id          BigInt   @id @default(autoincrement())
+  channelType String   @map("channel_type") @db.VarChar(16) // global|guild|party|whisper
+  channelId   BigInt?  @map("channel_id")
+  senderId    BigInt   @map("sender_id")
+  content     String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  flagged     Boolean  @default(false)
+
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([channelType, channelId, createdAt], map: "ix_chat_channel_time")
+  @@index([createdAt], map: "ix_chat_created")
+  @@map("chat_messages")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.8  PvP & Ranking
+// ────────────────────────────────────────────────────────────────────
+
+model PvpMatch {
+  id            BigInt    @id @default(autoincrement())
+  mode          String    @db.VarChar(8) // 1v1|3v3|raid
+  status        String    @db.VarChar(16)
+  startedAt     DateTime  @default(now()) @map("started_at") @db.DateTime(3)
+  endedAt       DateTime? @map("ended_at") @db.DateTime(3)
+  winnerUserId  BigInt?   @map("winner_user_id")
+  region        String    @db.VarChar(16)
+  serverSeed    Bytes     @map("server_seed") @db.VarBinary(64)
+
+  winner   User?           @relation("PvpWinner", fields: [winnerUserId], references: [id], onDelete: SetNull)
+  players  PvpMatchPlayer[]
+
+  @@index([mode, startedAt], map: "ix_pvp_matches_mode_time")
+  @@map("pvp_matches")
+}
+
+model PvpMatchPlayer {
+  id         BigInt @id @default(autoincrement())
+  matchId    BigInt @map("match_id")
+  userId     BigInt @map("user_id")
+  lineup     Json
+  score      Int    @default(0)
+  mmrBefore  Int    @map("mmr_before")
+  mmrAfter   Int    @map("mmr_after")
+  result     String @db.VarChar(8) // win|loss|draw
+
+  match PvpMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, userId], map: "uq_pvp_match_user")
+  @@index([userId], map: "ix_pvp_player_user")
+  @@map("pvp_match_players")
+}
+
+model Mmr {
+  userId       BigInt @map("user_id")
+  mode         String @db.VarChar(8)
+  mmr          Int    @default(1000)
+  peakMmr      Int    @default(1000) @map("peak_mmr")
+  seasonGames  Int    @default(0)    @map("season_games")
+  seasonWins   Int    @default(0)    @map("season_wins")
+  updatedAt    DateTime @updatedAt   @map("updated_at") @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, mode])
+  @@map("mmr")
+}
+
+model Leaderboard {
+  id         BigInt   @id @default(autoincrement())
+  mode       String   @db.VarChar(8)
+  seasonId   BigInt   @map("season_id")
+  userId     BigInt   @map("user_id")
+  rank       Int
+  score      Int
+  snapshotAt DateTime @default(now()) @map("snapshot_at") @db.DateTime(3)
+
+  @@unique([mode, seasonId, userId], map: "uq_leaderboard_entry")
+  @@index([mode, seasonId, rank], map: "ix_leaderboard_rank")
+  @@map("leaderboards")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.9  Marketplace
+// ────────────────────────────────────────────────────────────────────
+
+model ShopItem {
+  id            BigInt    @id @default(autoincrement())
+  itemId        BigInt    @map("item_id")
+  currencyType  String    @map("currency_type") @db.VarChar(8) // gold|aether
+  price         Int
+  availableFrom DateTime  @map("available_from") @db.DateTime(3)
+  availableTo   DateTime  @map("available_to")   @db.DateTime(3)
+  stock         Int?
+
+  item         Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+
+  @@index([availableFrom, availableTo], map: "ix_shop_window")
+  @@map("shop_items")
+}
+
+model Transaction {
+  id           BigInt   @id @default(autoincrement())
+  userId       BigInt   @map("user_id")
+  shopItemId   BigInt   @map("shop_item_id")
+  currencyType String   @map("currency_type") @db.VarChar(8)
+  amount       Int
+  status       String   @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopItem ShopItem @relation(fields: [shopItemId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt], map: "ix_tx_user_time")
+  @@map("transactions")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 2.10 System
+// ────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  actorUserId  BigInt?  @map("actor_user_id")
+  action       String   @db.VarChar(64)
+  targetType   String   @map("target_type") @db.VarChar(64)
+  targetId     BigInt?  @map("target_id")
+  payload      Json
+  ip           String?  @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.VarChar(512)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt], map: "ix_audit_created")
+  @@index([actorUserId, createdAt], map: "ix_audit_actor_time")
+  @@map("audit_log")
+}
+
+model FeatureFlag {
+  key       String   @id @db.VarChar(128)
+  value     Json
+  updatedBy String?  @map("updated_by") @db.VarChar(128)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@map("feature_flags")
+}

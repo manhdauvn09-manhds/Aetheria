@@ -1,0 +1,314 @@
+// Aetheria — SQLite (per-user, on-device) schema
+// One DB file per player. Holds personal play state + read-only catalog cache + sync infra.
+// Server master = MySQL (see prisma/mysql/schema.prisma).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/sqlite-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL_SQLITE")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Local profile (singleton row — represents the owner of this DB file)
+// ────────────────────────────────────────────────────────────────────
+
+model LocalProfile {
+  id              Int      @id @default(1)        // singleton
+  remoteUserId    BigInt   @unique @map("remote_user_id")
+  email           String
+  displayName     String   @map("display_name")
+  avatarUrl       String?  @map("avatar_url")
+  country         String?
+  language        String?
+  accountLevel    Int      @default(1) @map("account_level")
+  accountXp       Int      @default(0) @map("account_xp")
+  preferences     String   @default("{}")         // JSON as text
+  lastLoginAt     DateTime? @map("last_login_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("local_profile")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Catalog cache (mirror of MySQL master, refreshed on login / patch)
+// ────────────────────────────────────────────────────────────────────
+
+model Character {
+  id                BigInt   @id
+  codename          String   @unique
+  name              String
+  class             String
+  role              String
+  baseStats         String   @map("base_stats")
+  artUrl            String?  @map("art_url")
+  lore              String?
+  unlockRequirement String?  @map("unlock_requirement")
+  version           Int      @default(1)
+  cachedAt          DateTime @default(now()) @map("cached_at")
+
+  skills          Skill[]
+  characterSkills CharacterSkill[]
+  userCharacters  UserCharacter[]
+
+  @@map("characters")
+}
+
+model Skill {
+  id          BigInt   @id
+  characterId BigInt   @map("character_id")
+  name        String
+  type        String
+  apCost      Int      @default(0) @map("ap_cost")
+  cooldown    Int      @default(0)
+  effect      String
+  iconUrl     String?  @map("icon_url")
+  cachedAt    DateTime @default(now()) @map("cached_at")
+
+  character       Character        @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterSkills CharacterSkill[]
+  userSkills      UserSkill[]
+
+  @@index([characterId])
+  @@map("skills")
+}
+
+model CharacterSkill {
+  characterId BigInt @map("character_id")
+  slot        Int
+  skillId     BigInt @map("skill_id")
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, slot])
+  @@map("character_skills")
+}
+
+model Realm {
+  id         BigInt @id
+  name       String
+  theme      String
+  colorHex   String @map("color_hex")
+  orderIndex Int    @map("order_index")
+
+  levels Level[]
+
+  @@map("realms")
+}
+
+model Level {
+  id                BigInt @id
+  realmId           BigInt @map("realm_id")
+  levelNumber       Int    @unique @map("level_number")
+  name              String
+  type              String
+  map               String
+  encounter         String
+  rewards           String
+  difficulty        Int    @default(1)
+  minAccountLevel   Int    @default(1) @map("min_account_level")
+  discoverySecrets  String? @map("discovery_secrets")
+  version           Int    @default(1)
+  cachedAt          DateTime @default(now()) @map("cached_at")
+
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  runs  Run[]
+
+  @@index([realmId])
+  @@map("levels")
+}
+
+model Item {
+  id        BigInt @id
+  name      String
+  tier      String
+  type      String
+  effect    String
+  iconUrl   String? @map("icon_url")
+  maxStack  Int    @default(1) @map("max_stack")
+  cachedAt  DateTime @default(now()) @map("cached_at")
+
+  inventory Inventory[]
+  shopItems ShopItem[]
+
+  @@map("items")
+}
+
+model Quest {
+  id           BigInt   @id
+  type         String
+  requirements String
+  rewards      String
+  activeFrom   DateTime @map("active_from")
+  activeTo     DateTime @map("active_to")
+  cachedAt     DateTime @default(now()) @map("cached_at")
+
+  userQuests UserQuest[]
+
+  @@index([type, activeFrom])
+  @@map("quests")
+}
+
+model BattlePassSeason {
+  id        BigInt   @id
+  name      String
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  tracks    String
+
+  progress BattlePassProgress[]
+
+  @@map("battle_pass_seasons")
+}
+
+model ShopItem {
+  id            BigInt   @id
+  itemId        BigInt   @map("item_id")
+  currencyType  String   @map("currency_type")
+  price         Int
+  availableFrom DateTime @map("available_from")
+  availableTo   DateTime @map("available_to")
+  stock         Int?
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("shop_items")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Personal play state (writable; primary copy lives here)
+// ────────────────────────────────────────────────────────────────────
+
+model UserCharacter {
+  id              BigInt   @id @default(autoincrement())
+  remoteId        BigInt?  @unique @map("remote_id")
+  characterId     BigInt   @map("character_id")
+  ascension       Int      @default(0)
+  xp              Int      @default(0)
+  equippedSkinId  BigInt?  @map("equipped_skin_id")
+  unlockedAt      DateTime @default(now()) @map("unlocked_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  dirty           Boolean  @default(true)
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  inventoryEquipped Inventory[] @relation("LocalEquippedTo")
+
+  @@unique([characterId])
+  @@map("user_characters")
+}
+
+model UserSkill {
+  skillId    BigInt @id @map("skill_id")
+  level      Int    @default(1)
+  unlockedAt DateTime @default(now()) @map("unlocked_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  dirty      Boolean  @default(true)
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@map("user_skills")
+}
+
+model Inventory {
+  id                            BigInt   @id @default(autoincrement())
+  remoteId                      BigInt?  @unique @map("remote_id")
+  itemId                        BigInt   @map("item_id")
+  quantity                      Int      @default(1)
+  equippedToUserCharacterId     BigInt?  @map("equipped_to_user_character_id")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
+  dirty                         Boolean  @default(true)
+
+  item       Item           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  equippedTo UserCharacter? @relation("LocalEquippedTo", fields: [equippedToUserCharacterId], references: [id], onDelete: SetNull)
+
+  @@unique([itemId])
+  @@map("inventory")
+}
+
+model Run {
+  id         BigInt   @id @default(autoincrement())
+  remoteId   BigInt?  @unique @map("remote_id")
+  levelId    BigInt   @map("level_id")
+  status     String
+  startedAt  DateTime @default(now()) @map("started_at")
+  endedAt    DateTime? @map("ended_at")
+  score      Int      @default(0)
+  stars      Int      @default(0)
+  actionLog  String   @map("action_log")
+  snapshot   String?
+  dirty      Boolean  @default(true)
+
+  level Level @relation(fields: [levelId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([levelId])
+  @@map("runs")
+}
+
+model SaveState {
+  slot          Int      @id              // 0..3
+  payload       String
+  schemaVersion Int      @default(1) @map("schema_version")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  dirty         Boolean  @default(true)
+
+  @@map("save_states")
+}
+
+model UserQuest {
+  questId   BigInt   @id @map("quest_id")
+  progress  String   @default("{}")
+  status    String   @default("active")
+  claimedAt DateTime? @map("claimed_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  dirty     Boolean   @default(true)
+
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("user_quests")
+}
+
+model BattlePassProgress {
+  seasonId  BigInt   @id @map("season_id")
+  tier      Int      @default(0)
+  premium   Boolean  @default(false)
+  xp        Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  dirty     Boolean  @default(true)
+
+  season BattlePassSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@map("battle_pass_progress")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Sync infrastructure
+// ────────────────────────────────────────────────────────────────────
+
+model SyncQueue {
+  id         Int      @id @default(autoincrement())
+  tableName  String   @map("table_name")
+  rowKey     String   @map("row_key")        // composite key serialised
+  operation  String                              // insert|update|delete
+  payload    String                              // JSON snapshot of mutation
+  createdAt  DateTime @default(now()) @map("created_at")
+  attempts   Int      @default(0)
+  lastError  String?  @map("last_error")
+
+  @@index([createdAt])
+  @@map("sync_queue")
+}
+
+model SyncMeta {
+  tableName    String   @id @map("table_name")
+  lastPulledAt DateTime? @map("last_pulled_at")
+  lastPushedAt DateTime? @map("last_pushed_at")
+  cursor       String?
+
+  @@map("sync_meta")
+}
