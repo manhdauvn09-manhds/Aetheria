@@ -20,6 +20,15 @@ export {
 } from "./helpers.js";
 
 export {
+  createBattle,
+  applyAction,
+  EngineError,
+  type CreateBattleInput,
+  type ApplyResult,
+  type EngineErrorCode,
+} from "./engine.js";
+
+export {
   // Enums
   Elements,
   Statuses,

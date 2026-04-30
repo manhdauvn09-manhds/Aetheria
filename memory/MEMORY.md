@@ -334,7 +334,22 @@ games/Aetheria/
       - 10 RNG tests (determinism across instances, `[0,1)` bound, d6 fairness over 6000 rolls, range-validation throws, `pick` covers all items, `rollDice` sum bounds, `chance` short-circuits + balanced 0.5, `seedFromString` stability + collision-resistance).
       - 23 helpers tests (apCost: end_turn/defend/attack/skills/move + water/ice/missing actor; lineOfSight: clear/wall/void/same-coord/missing tile; rangeReachable: 0-AP, plain expansion, walls + actor blockers; elementAdvantage: same/strong/weak/opposite/unknown; resonanceCheck: empty log, two-attacker trigger, single-attacker no-trigger, enemy ignored, lookback window).
     - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 33/33 passing in 174 ms**, build 13/13.
-25. **NEXT — Step 4.23**: `combat.createBattle(input)` + `combat.applyAction(state, action)` returning `{state, events}` — wire the helpers into a deterministic engine. After that 4.24 closes the engine core (endTurn / checkVictory / status ticking).
+25. ~~Step 4.23: combat.createBattle + combat.applyAction~~ ✅ done 30 Apr 2026.
+    - **`domain-combat/src/engine.ts`** — pure deterministic engine. Two exports: `createBattle(input)` and `applyAction(state, action) → {state, events}`.
+    - `createBattle({battleId, seed?, config?, tiles, actors, firstTurn?})`: derives the RNG seed from `seedFromString(battleId)` when `seed` is omitted (so two callers with the same id replay identically), clones actor stats, picks the highest-`spd` actor on the first side as `activeActorId`, sets phase to `player_turn` / `enemy_turn` accordingly. Default config: 8×6 grid, no turn limit, AP regen 3.
+    - `applyAction(state, action)`:
+      - Front gate: `BATTLE_OVER` (terminal phase), `ACTOR_NOT_FOUND`, `ALREADY_DEFEATED`, `WRONG_TURN`.
+      - Each handler validates action-specific shape **before** computing AP, so the more useful `INVALID_PATH` / `OUT_OF_RANGE` / `NO_LINE_OF_SIGHT` codes win over a generic `INSUFFICIENT_AP` (e.g. a wall step in a move path surfaces `INVALID_PATH`, not "Not enough AP" from `apCost`'s ∞).
+      - **move**: validates path is non-empty, each step adjacent, on map, not a wall/void, not blocked by another live actor; charges AP (`apCost`), updates `pos`, emits `actor_moved {from, to, path, apSpent}`.
+      - **attack**: melee range = 1 hex; LOS via `lineOfSight`; damage formula `max(1, atk-def) × variance(0.85..1.15 from 1d4) × elementAdvantage × crit(0.05/1.5) × resonanceMultiplier(1.5 when `resonanceCheck` matches the attacker's element)`. Emits `resonance_triggered` (when applicable), `damage_dealt`, and `actor_defeated` when HP hits 0.
+      - **use_skill** (shell): cooldown gate, AP charge, sets 1-turn cooldown for the skill; full per-skill behaviour lands with the skill catalog later in 4-D/4-E.
+      - **defend**: AP charge + 1-turn `aether_surge` buff (placeholder until full status system is in).
+      - **end_turn**: emits `turn_ended {turn, side, actorId}` and clears `activeActorId` — full turn rotation owned by 4.24's `endTurn` orchestrator.
+    - All handlers thread `state.rng` through randomised steps and return a fresh state, so replaying `(stateA, actions)` and `(stateB, actions)` from the same seed yields identical event logs.
+    - `EngineError` carries a typed `code` field (`ACTOR_NOT_FOUND` / `TARGET_NOT_FOUND` / `WRONG_TURN` / `INSUFFICIENT_AP` / `INVALID_PATH` / `OUT_OF_RANGE` / `NO_LINE_OF_SIGHT` / `ALREADY_DEFEATED` / `BATTLE_OVER`) so the server can pattern-match on it (Step 4.27 wires combat over tRPC).
+    - **Tests** — added `src/__tests__/engine.test.ts` (17 tests) on top of the existing 33: createBattle determinism + first-turn ordering + override seed; applyAction front gates (wrong turn, battle over); move (happy path, non-adjacent rejected, blocker rejected, wall rejected); attack (damage applied, out-of-range rejected, target killed → defeated event); end_turn / defend / use_skill happy paths; **replay determinism** — same battleId + seed + action sequence produces identical `state.log` and `state.actors`.
+    - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 50/50 passing in ~240 ms**, build 13/13.
+26. **NEXT — Step 4.24**: `combat.endTurn` (full rotation: side switch + per-actor AP regen + turn limit), `combat.checkVictory` (party-wipe / boss-down / draw), and status-effect ticking (burn dot, freeze skip-turn, poison dot, stagger -1 AP, aether_surge resonance trigger).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
