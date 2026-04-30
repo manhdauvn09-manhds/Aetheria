@@ -13,7 +13,7 @@ import { z } from "zod";
 import {
   publicProcedure,
   router,
-  throwAsTrpc,
+  asTrpcError,
 } from "@aetheria/schema-api/trpc";
 import {
   displayNameSchema,
@@ -46,6 +46,14 @@ const logoutInput = z.object({
   refreshToken: z.string().min(20).max(4096),
 });
 
+const googleLoginInput = z.object({
+  idToken: z.string().min(20).max(8192),
+});
+
+const discordLoginInput = z.object({
+  accessToken: z.string().min(20).max(2048),
+});
+
 export const createAuthRouter = (service: AuthService) =>
   router({
     signupWithEmail: publicProcedure
@@ -62,7 +70,7 @@ export const createAuthRouter = (service: AuthService) =>
             userAgent: ctx.request.userAgent ?? null,
           });
         } catch (e) {
-          throwAsTrpc(e);
+          throw asTrpcError(e);
         }
       }),
 
@@ -77,7 +85,7 @@ export const createAuthRouter = (service: AuthService) =>
             userAgent: ctx.request.userAgent ?? null,
           });
         } catch (e) {
-          throwAsTrpc(e);
+          throw asTrpcError(e);
         }
       }),
 
@@ -85,7 +93,7 @@ export const createAuthRouter = (service: AuthService) =>
       try {
         return await service.refreshToken({ refreshToken: input.refreshToken });
       } catch (e) {
-        throwAsTrpc(e);
+        throw asTrpcError(e);
       }
     }),
 
@@ -93,9 +101,37 @@ export const createAuthRouter = (service: AuthService) =>
       try {
         return await service.logout({ refreshToken: input.refreshToken });
       } catch (e) {
-        throwAsTrpc(e);
+        throw asTrpcError(e);
       }
     }),
+
+    loginWithGoogle: publicProcedure
+      .input(googleLoginInput)
+      .mutation(async ({ input, ctx }) => {
+        try {
+          return await service.loginWithGoogleIdToken({
+            idToken: input.idToken,
+            ip: ctx.request.ip ?? null,
+            userAgent: ctx.request.userAgent ?? null,
+          });
+        } catch (e) {
+          throw asTrpcError(e);
+        }
+      }),
+
+    loginWithDiscord: publicProcedure
+      .input(discordLoginInput)
+      .mutation(async ({ input, ctx }) => {
+        try {
+          return await service.loginWithDiscordAccessToken({
+            accessToken: input.accessToken,
+            ip: ctx.request.ip ?? null,
+            userAgent: ctx.request.userAgent ?? null,
+          });
+        } catch (e) {
+          throw asTrpcError(e);
+        }
+      }),
   });
 
 export type AuthRouter = ReturnType<typeof createAuthRouter>;

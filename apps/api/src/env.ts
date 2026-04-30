@@ -24,6 +24,14 @@ const envSchema = z.object({
 
   DATABASE_URL_MYSQL: z.string().url(),
   REDIS_URL: z.string().url().optional(),
+
+  // OAuth (used by apps/web NextAuth + apps/api server-side verification).
+  // Either provider can be left blank — the matching tRPC procedure will
+  // surface NOT_IMPLEMENTED rather than booting with broken config.
+  GOOGLE_CLIENT_ID:     z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  DISCORD_CLIENT_ID:     z.string().optional(),
+  DISCORD_CLIENT_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

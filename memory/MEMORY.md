@@ -107,7 +107,27 @@ games/Aetheria/
     - **Smoke** (30 Apr 2026):
       - `pnpm typecheck` 14/14, `pnpm lint` 8/8, `pnpm build` 7/7.
       - Live boot via `tsx`. With no DB / no Redis: `GET /health` 200, `GET /trpc/health.ping` 200, `POST /trpc/auth.logout` (junk token) → `{ok:true}` (best-effort), `POST /trpc/auth.refreshToken` (bad sig) → 401 `data.app.code=UNAUTHENTICATED`, `POST /trpc/auth.signupWithEmail` (bad inputs) → 400 `data.app.code=VALIDATION_FAILED` with field-level Zod issues.
-12. **NEXT — Step 4.10**: OAuth (Google + Discord) via NextAuth on the web side, plus a server-side handler to exchange a verified OAuth identity for our own JWT pair (re-using `AuthService`).
+12. ~~Step 4.10: OAuth (Google + Discord)~~ ✅ done 30 Apr 2026.
+    - `domain-auth/src/oauth.ts`: `verifyGoogleIdToken(idToken, clientId)` via `jose` + Google's JWKS (`https://www.googleapis.com/oauth2/v3/certs`); `verifyDiscordAccessToken(accessToken)` via `https://discord.com/api/v10/users/@me` (5 s `AbortSignal.timeout`). Both return a normalized `OAuthIdentity { provider, providerSubject, email, emailVerified, displayName }`.
+    - `AuthService` extended with `loginWithGoogleIdToken` / `loginWithDiscordAccessToken` (each verifies then delegates to the private `loginWithOAuthIdentity` flow).
+    - Find/link/create flow:
+      - Match by `(oauth_provider, oauth_subject)` → existing link → audit `auth.oauth.login`.
+      - Else, if `email_verified`, match by email → set `oauth_provider`/`oauth_subject` and `email_verified_at` → audit `auth.oauth.link`. Conflict if the row already has a different provider linked.
+      - Else, fresh signup in a transaction. `pickUniqueDisplayName` derives a base from the OAuth display hint (or the email local-part), sanitizes against `displayNameSchema`'s charset, and tries `base`, `base_2`, … up to 100, then a 6-digit random tail. Audit `auth.oauth.signup`.
+    - `AuthSessionResult.user` now also carries `oauthProvider: "google" | "discord" | null`.
+    - tRPC: `auth.loginWithGoogle({idToken})` / `auth.loginWithDiscord({accessToken})` mutations added under the `auth` router.
+    - `apps/api/src/env.ts`: `GOOGLE_CLIENT_ID/SECRET`, `DISCORD_CLIENT_ID/SECRET` (all optional). `auth/build.ts` only enables a provider's tRPC mutation if its `CLIENT_ID` is set — otherwise the procedure surfaces `NOT_IMPLEMENTED`.
+    - **schema-api**: `throwAsTrpc` (which threw internally) replaced by `asTrpcError` that *returns* a `TRPCError` so callers do `throw asTrpcError(e)`. This unblocks return-type inference for resolvers.
+    - `apps/web` NextAuth wiring:
+      - `next-auth@^4.24` added; `src/app/api/auth/[...nextauth]/route.ts` mounts the catch-all handler.
+      - `src/lib/auth/options.ts`: NextAuth `jwt` callback calls `auth.loginWithGoogle` / `auth.loginWithDiscord` on the API and stashes our access/refresh tokens on the JWT. `session` callback exposes `aetheriaUser` + `aetheriaTokens` to the browser. UI to actually trigger sign-in is owned by Step 4.13.
+      - `src/lib/env.ts` split into public vs server-only env. NextAuth secrets validated lazily; Next's build-time route-metadata pass tolerates missing values (`secret` falls back to a clearly-marked DEV placeholder until a real value is set at runtime).
+      - `transpilePackages` unchanged — NextAuth callbacks live entirely server-side.
+    - `.env.example`: OAuth fields un-commented; `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_OAUTH_GOOGLE`, `NEXT_PUBLIC_OAUTH_DISCORD` added.
+    - **Smoke** (30 Apr 2026):
+      - `pnpm typecheck` 14/14, `pnpm lint` 8/8, `pnpm build` 7/7 — `apps/web` route table now lists `ƒ /api/auth/[...nextauth]` next to `ƒ /`.
+      - Live boot. `auth.loginWithGoogle` (junk JWT) → 401 `UNAUTHORIZED` "Google identity verification failed". `auth.loginWithDiscord` (junk token) → 401 `UNAUTHORIZED` "Discord identity verification failed" (after Discord's API replies 401).
+13. **NEXT — Step 4.11**: password reset + email verification (token in Redis, send via Resend stub). After that 4.12 (`account.getProfile/updateProfile/deleteAccount`) closes Phase 4-B server-side; 4.13 wires the actual web auth UI.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

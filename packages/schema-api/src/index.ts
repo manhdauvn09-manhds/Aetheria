@@ -6,7 +6,7 @@ export {
   publicProcedure,
   protectedProcedure,
   adminProcedure,
-  throwAsTrpc,
+  asTrpcError,
 } from "./trpc.js";
 export {
   type BaseContext,

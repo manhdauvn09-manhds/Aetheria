@@ -11,6 +11,7 @@ import {
   defaultTokenTtl,
   inMemoryRefreshStore,
   redisRefreshStore,
+  type OAuthConfig,
   type TokenConfig,
   type RefreshTokenStore,
 } from "@aetheria/domain-auth";
@@ -42,10 +43,16 @@ export const buildAuth = (env: Env): AuthBundle => {
     store = inMemoryRefreshStore();
   }
 
+  const oauth: OAuthConfig = {
+    ...(env.GOOGLE_CLIENT_ID ? { google: { clientId: env.GOOGLE_CLIENT_ID } } : {}),
+    ...(env.DISCORD_CLIENT_ID ? { discord: {} } : {}),
+  };
+
   const service = new AuthService({
     mysql,
     refreshStore: store,
     tokenConfig,
+    oauth,
   });
 
   return { service, redis };

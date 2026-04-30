@@ -1,10 +1,14 @@
 // Aetheria — AuthService.
 //
-// Owns the four auth flows:
-//   - signupWithEmail   (creates user + profile, issues tokens)
-//   - loginWithEmail    (verifies password, issues tokens)
-//   - refreshToken      (rotates: validates+revokes old jti, issues new pair)
-//   - logout            (revokes the supplied refresh jti)
+// Owns the auth flows:
+//   - signupWithEmail            (creates user + profile, issues tokens)
+//   - loginWithEmail             (verifies password, issues tokens)
+//   - loginWithOAuth             (find / link / create user from a verified
+//                                 OAuth identity; issues tokens)
+//   - loginWithGoogleIdToken     (verifies Google id_token then loginWithOAuth)
+//   - loginWithDiscordAccessToken(verifies Discord access_token then loginWithOAuth)
+//   - refreshToken               (rotates: validates+revokes old jti, issues new pair)
+//   - logout                     (revokes the supplied refresh jti)
 //
 // Designed to be composed: `apps/api` builds one instance with concrete
 // dependencies (Prisma client, refresh store, jwt config) and passes it to
@@ -22,14 +26,26 @@ import {
   verifyRefreshToken,
 } from "./tokens.js";
 import type { RefreshTokenStore } from "./refresh-store.js";
+import {
+  type OAuthIdentity,
+  type OAuthProvider,
+  verifyDiscordAccessToken,
+  verifyGoogleIdToken,
+} from "./oauth.js";
 
 /** Subset of MySQL Prisma we actually call. Lets tests stub easily. */
 export type AuthMysqlClient = Pick<MysqlClient, "user" | "profile" | "$transaction">;
+
+export interface OAuthConfig {
+  readonly google?: { readonly clientId: string };
+  readonly discord?: Record<string, never>;
+}
 
 export interface AuthDeps {
   readonly mysql: AuthMysqlClient;
   readonly refreshStore: RefreshTokenStore;
   readonly tokenConfig: TokenConfig;
+  readonly oauth?: OAuthConfig;
 }
 
 export interface SignupInput {
@@ -49,6 +65,24 @@ export interface LoginInput {
   readonly userAgent?: string | null;
 }
 
+export interface OAuthLoginInput {
+  readonly identity: OAuthIdentity;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
+export interface OAuthGoogleInput {
+  readonly idToken: string;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
+export interface OAuthDiscordInput {
+  readonly accessToken: string;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
 export interface RefreshInput {
   readonly refreshToken: string;
 }
@@ -63,6 +97,7 @@ export interface AuthSessionResult {
     readonly email: string;
     readonly displayName: string;
     readonly roles: readonly string[];
+    readonly oauthProvider: OAuthProvider | null;
   };
   readonly tokens: IssuedTokens;
 }
@@ -151,6 +186,7 @@ export class AuthService {
         email: created.email,
         displayName: created.profile.displayName,
         roles,
+        oauthProvider: null,
       },
       tokens,
     };
@@ -167,6 +203,7 @@ export class AuthService {
         passwordHash: true,
         status: true,
         deletedAt: true,
+        oauthProvider: true,
         profile: { select: { displayName: true } },
       },
     });
@@ -209,6 +246,7 @@ export class AuthService {
         email: user.email,
         displayName: user.profile.displayName,
         roles,
+        oauthProvider: (user.oauthProvider as OAuthProvider | null) ?? null,
       },
       tokens,
     };
@@ -234,6 +272,7 @@ export class AuthService {
         email: true,
         status: true,
         deletedAt: true,
+        oauthProvider: true,
         profile: { select: { displayName: true } },
       },
     });
@@ -255,6 +294,7 @@ export class AuthService {
         email: user.email,
         displayName: user.profile.displayName,
         roles,
+        oauthProvider: (user.oauthProvider as OAuthProvider | null) ?? null,
       },
       tokens,
     };
@@ -277,5 +317,215 @@ export class AuthService {
       // ignore — already invalid; nothing to revoke.
     }
     return { ok: true };
+  }
+
+  async loginWithGoogleIdToken(input: OAuthGoogleInput): Promise<AuthSessionResult> {
+    const cfg = this.deps.oauth?.google;
+    if (!cfg) throw AppError.notImplemented("Google OAuth");
+    const identity = await verifyGoogleIdToken(input.idToken, cfg.clientId);
+    return this.loginWithOAuth({
+      identity,
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+  }
+
+  async loginWithDiscordAccessToken(input: OAuthDiscordInput): Promise<AuthSessionResult> {
+    if (!this.deps.oauth?.discord) throw AppError.notImplemented("Discord OAuth");
+    const identity = await verifyDiscordAccessToken(input.accessToken);
+    return this.loginWithOAuth({
+      identity,
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+  }
+
+  /**
+   * Find / link / create a user from a verified OAuth identity.
+   *  1. Match by (oauthProvider, oauthSubject) — already linked.
+   *  2. Else, if the provider attests the email, match by email and link.
+   *  3. Else, create a fresh user; pick a unique displayName based on the
+   *     provider hint (or the email local-part) with a numeric suffix on
+   *     collision.
+   */
+  async loginWithOAuth(input: OAuthLoginInput): Promise<AuthSessionResult> {
+    const { provider, providerSubject, email, emailVerified, displayName } = input.identity;
+    return this.loginWithOAuthIdentity({
+      provider,
+      providerSubject,
+      email,
+      emailVerified,
+      displayName,
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+  }
+
+  private async loginWithOAuthIdentity(args: {
+    provider: OAuthProvider;
+    providerSubject: string;
+    email: string;
+    emailVerified: boolean;
+    displayName: string | null;
+    ip: string | null;
+    userAgent: string | null;
+  }): Promise<AuthSessionResult> {
+    const { provider, providerSubject, email, emailVerified, displayName, ip, userAgent } = args;
+
+    // 1) Existing OAuth link
+    let dbUser = await this.deps.mysql.user.findFirst({
+      where: { oauthProvider: provider, oauthSubject: providerSubject },
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        deletedAt: true,
+        oauthProvider: true,
+        profile: { select: { displayName: true } },
+      },
+    });
+
+    let auditAction: "auth.oauth.login" | "auth.oauth.link" | "auth.oauth.signup" = "auth.oauth.login";
+
+    if (!dbUser && emailVerified) {
+      // 2) Link to existing email-based account
+      const byEmail = await this.deps.mysql.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          deletedAt: true,
+          oauthProvider: true,
+          profile: { select: { displayName: true } },
+        },
+      });
+      if (byEmail) {
+        if (byEmail.deletedAt !== null) throw AppError.forbidden("Account is deleted");
+        if (byEmail.oauthProvider && byEmail.oauthProvider !== provider) {
+          throw AppError.conflict(
+            "Account already linked to a different provider",
+            { existingProvider: byEmail.oauthProvider, newProvider: provider },
+          );
+        }
+        await this.deps.mysql.user.update({
+          where: { id: byEmail.id },
+          data: {
+            oauthProvider: provider,
+            oauthSubject: providerSubject,
+            emailVerifiedAt: new Date(),
+          },
+        });
+        dbUser = { ...byEmail, oauthProvider: provider };
+        auditAction = "auth.oauth.link";
+      }
+    }
+
+    if (!dbUser) {
+      // 3) Fresh signup
+      const finalDisplayName = await this.pickUniqueDisplayName(displayName, email);
+      const created = await this.deps.mysql.$transaction(
+        async (tx: MysqlPrisma.Prisma.TransactionClient) => {
+          // Re-check email + displayName under the transaction to handle races.
+          const dupEmail = await tx.user.findUnique({ where: { email }, select: { id: true } });
+          if (dupEmail) {
+            throw AppError.conflict("Email is already registered", { field: "email" });
+          }
+          const dupName = await tx.profile.findUnique({
+            where: { displayName: finalDisplayName },
+            select: { userId: true },
+          });
+          if (dupName) {
+            // Extremely unlikely after pickUniqueDisplayName — bail with a
+            // generic conflict so the client can retry.
+            throw AppError.conflict("Display name collision; please retry", { field: "displayName" });
+          }
+          return tx.user.create({
+            data: {
+              email,
+              passwordHash: null,
+              oauthProvider: provider,
+              oauthSubject: providerSubject,
+              emailVerifiedAt: emailVerified ? new Date() : null,
+              status: "active",
+              profile: { create: { displayName: finalDisplayName } },
+            },
+            select: {
+              id: true,
+              email: true,
+              status: true,
+              deletedAt: true,
+              oauthProvider: true,
+              profile: { select: { displayName: true } },
+            },
+          });
+        },
+      );
+      dbUser = created;
+      auditAction = "auth.oauth.signup";
+    }
+
+    if (dbUser.status !== "active") throw AppError.forbidden("Account is not active");
+    if (!dbUser.profile) throw AppError.internal("Account is missing its profile");
+
+    const roles = rolesForUser({ id: dbUser.id, status: dbUser.status });
+    const tokens = await issueTokenPair(dbUser.id, roles, this.deps.tokenConfig);
+    await persistRefresh(this.deps.refreshStore, tokens, dbUser.id);
+
+    if (auditAction !== "auth.oauth.signup") {
+      // Track most recent login on returning users only — signup row already
+      // sets created_at.
+      await this.deps.mysql.user.update({
+        where: { id: dbUser.id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
+
+    await audit.write({
+      actor: dbUser.id,
+      action: auditAction,
+      targetType: "user",
+      targetId: dbUser.id,
+      payload: { provider, providerSubject },
+      ip,
+      userAgent,
+    });
+
+    return {
+      user: {
+        id: dbUser.id.toString(),
+        email: dbUser.email,
+        displayName: dbUser.profile.displayName,
+        roles,
+        oauthProvider: provider,
+      },
+      tokens,
+    };
+  }
+
+  /** Pick a display name unique across `profiles.display_name`. */
+  private async pickUniqueDisplayName(hint: string | null, email: string): Promise<string> {
+    const local = email.split("@")[0] ?? "player";
+    const sanitize = (raw: string): string => {
+      // Allowed by displayNameSchema: letters, digits, spaces, _ and -.
+      const trimmed = raw.normalize("NFKC").trim();
+      const cleaned = trimmed.replace(/[^\p{L}\p{N}_\- ]/gu, "");
+      return cleaned.slice(0, 28).trim() || "player";
+    };
+    const base = sanitize(hint ?? local);
+    // Try base, then base_2, base_3, ... up to ~100 attempts. After that
+    // append a random 6-digit tail.
+    for (let i = 0; i < 100; i++) {
+      const candidate = i === 0 ? base : `${base.slice(0, 26)}_${i + 1}`;
+      const dup = await this.deps.mysql.profile.findUnique({
+        where: { displayName: candidate },
+        select: { userId: true },
+      });
+      if (!dup) return candidate;
+    }
+    const tail = Math.floor(Math.random() * 1_000_000)
+      .toString()
+      .padStart(6, "0");
+    return `${base.slice(0, 22)}_${tail}`;
   }
 }

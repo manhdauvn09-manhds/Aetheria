@@ -66,9 +66,14 @@ const enforceAdmin = t.middleware(({ ctx, next }) => {
 export const protectedProcedure = t.procedure.use(enforceAuth);
 export const adminProcedure = t.procedure.use(enforceAdmin);
 
-/** Re-throw helper: catch a domain AppError, surface as TRPCError. */
-export const throwAsTrpc = (e: unknown): never => {
-  if (isAppError(e)) throw e.toTRPCError();
-  if (e instanceof TRPCError) throw e;
-  throw AppError.internal("Unexpected error", e).toTRPCError();
+/**
+ * Wrap an arbitrary error as a TRPCError so the HTTP layer picks up the
+ * right status. Callers do `throw asTrpcError(e)` — returning the error
+ * (rather than throwing internally) keeps return-type inference clean for
+ * resolvers that catch and re-surface errors.
+ */
+export const asTrpcError = (e: unknown): TRPCError => {
+  if (isAppError(e)) return e.toTRPCError();
+  if (e instanceof TRPCError) return e;
+  return AppError.internal("Unexpected error", e).toTRPCError();
 };
