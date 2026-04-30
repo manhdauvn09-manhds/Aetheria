@@ -32,7 +32,7 @@
 | 4.5 | `packages/schema-api` — tRPC root router skeleton + Zod helpers + error codes (`AppError`) | horizontal | M | 4.3 | ✅ |
 | 4.6 | Cross-cutting utilities: `audit.write`, `featureFlag.isOn`, `i18n.t` stub, `errors` codes | horizontal | S | 4.5, 4.4 | ✅ |
 | 4.7 | `apps/api` boot: Fastify + tRPC adapter + helmet + CORS + rate-limit + JWT verify hook | horizontal | M | 4.5 | ✅ |
-| 4.8 | `apps/web` boot: Next.js 15 App Router + Tailwind + tRPC client + Zustand store skeleton | horizontal | M | 4.5 | ⬜ |
+| 4.8 | `apps/web` boot: Next.js 15 App Router + Tailwind + tRPC client + Zustand store skeleton | horizontal | M | 4.5 | ✅ |
 
 ## Phase 4-B · Auth & Account (vertical slice 1)
 *Goal: a user can sign up, log in, log out, reset password. SQLite `local_profile` is created on first login.*

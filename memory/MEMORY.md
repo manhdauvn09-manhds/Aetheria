@@ -81,7 +81,20 @@ games/Aetheria/
    - `.env.example` extended with API_* / CORS / RATE_LIMIT / JWT_ISSUER / JWT_AUDIENCE.
    - **Smoke**: typecheck 10/10, lint 6/6, build 5/5; live boot via `tsx` confirmed `GET /health`, `GET /trpc/health.ping`, `GET /trpc/health.whoami` all return 200 with superjson payloads.
    - **Note for Step 4.8**: workspace packages still resolve to `src/*.ts` (no built dist). Running `node dist/index.js` directly fails because dependent packages are TS-source only. Dev path is `pnpm dev` (tsx). Production bundling is a 4-K concern.
-10. **NEXT — Step 4.8**: `apps/web` boot — Next.js 15 App Router + Tailwind + tRPC client + Zustand. Should consume `AppRouter` type from `@aetheria/schema-api` and exercise `health.ping` from a server component.
+10. ~~Step 4.8: `apps/web` boot~~ ✅ done 30 Apr 2026 — second runnable workspace.
+    - `apps/web/package.json`: Next 15.0.3, React 18.3, Tailwind 3.4, tRPC v10 (client + react-query + next), `@tanstack/react-query@^4.36.1` (peer-pinned for tRPC v10), Zustand 5, Zod 3.23, superjson 2.2.
+    - `next.config.mjs`: `reactStrictMode`, `poweredByHeader: false`, `typedRoutes: true` (top-level — moved out of `experimental` in Next 15), `transpilePackages: ["@aetheria/schema-api","@aetheria/shared-types"]` so workspace TS source is bundled by Next.
+    - `tsconfig.json`: extends `@aetheria/config/tsconfig/nextjs`, adds `@/*` → `src/*` path alias.
+    - `tailwind.config.cjs`: pulls `@aetheria/config/tailwind/preset` (realm + tier color tokens, font slots, breakpoints).
+    - `eslint.config.mjs`: layers `@aetheria/config/eslint/react`; ignores `.next/**` + `next-env.d.ts`.
+    - `src/lib/env.ts`: Zod-validated client env (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_APP_URL`).
+    - `src/lib/trpc/{shared,client,server}.ts`: shared URL/transformer/header builder; `trpc = createTRPCReact<AppRouter>()` for client components; `serverTrpc` proxy client (`createTRPCProxyClient` + `httpBatchLink`) for Server Components — calls API over HTTP so middleware runs uniformly.
+    - `src/store/session.ts`: Zustand store with `persist` middleware (localStorage key `aetheria.session.v1`). Holds `user` + `tokens` (access/refresh + expiry) and exposes `setSession/clearSession/isAuthenticated`. Hydrate-from-refresh-token flow lands in 4.13.
+    - `src/app/`: `layout.tsx` (root), `providers.tsx` (`'use client'` — QueryClient + tRPC Provider, batch link reads access token from session store), `page.tsx` (Server Component, `dynamic = "force-dynamic"`, calls `serverTrpc.health.ping.query()` and renders status box; falls back to error box if API unreachable), `globals.css` (Tailwind + dark base).
+    - **Important**: web's intra-app imports do NOT use `.js` extensions (Next/webpack doesn't rewrite them); workspace package imports work via `transpilePackages`.
+    - `.env.example` extended with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_APP_URL`.
+    - **Smoke** (30 Apr 2026): typecheck 11/11, lint 7/7, build 6/6 (web bundle: route `/` is dynamic ƒ, ~123 B + 102 kB shared JS). Live SSR confirmed: API on `:3000` + web `next start` on `:3001` → `GET /` returns 200 with rendered `/trpc/health.ping ok · 2026-04-30T07:04:40.464Z`.
+11. **NEXT — Step 4.9**: kick off Phase 4-B (Auth & Account). Begin with argon2id password hashing utilities + `users`/`profiles` CRUD via Prisma + access/refresh JWT issuance, exposed under `auth.signup` / `auth.login` tRPC procedures.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
