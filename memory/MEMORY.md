@@ -383,7 +383,19 @@ games/Aetheria/
       - `parseState("{not json")` throws `HydrateError`.
       - `parseState(stringifyState(s))` round-trip.
     - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 74/74 in ~227 ms**, build 13/13.
-28. **NEXT — Step 4.26**: combat replay — `replayActions(action_log) → finalState` for the anti-cheat worker. Hash-compare server reconstruction against the client-submitted final state.
+28. ~~Step 4.26: combat replay (anti-cheat)~~ ✅ done 30 Apr 2026.
+    - **`domain-combat/src/replay.ts`** — three exports:
+      - `replayActions({init, actions, stopOnError?})` re-creates the battle from `init` (`CreateBattleInput`), drives `actions[]` through `applyAction` one at a time, and returns `{state, events, errors, hash}`. Per-step `EngineError`s are captured into `errors[]` (with `index` + typed `code` + message) but don't roll back state — the engine simply skips the offending action so anti-cheat can see *all* divergences in one pass. `stopOnError: true` aborts at the first.
+      - `hashState(state)` returns a stable 16-char hex fingerprint (FNV-1a 64-bit on `stringifyState(state)`). Two states whose serialized JSON match hash identically; a single HP delta or reordered event produces a different hash. Not collision-resistant for adversarial cryptographic inputs — fine for game-log fingerprinting.
+      - `verifyReplay({init, actions, expectedHash})` runs replay, compares the final hash against the client-submitted one, returns `{ok, expected, actual, state, errors}`. The anti-cheat worker (Phase 4-I) consumes this directly: any `ok: false` flags the run for review.
+    - `fnv1a64(s)` exposed as a building block — hand-rolled split-multiply 64-bit FNV-1a with no BigInt overhead, deterministic across Node + browsers.
+    - **Tests** — 14 new in `__tests__/replay.test.ts`:
+      - `fnv1a64` shape (16 hex chars), stability, sensitivity to tiny edits, empty-string determinism.
+      - `hashState` matches across two fresh-but-identical `createBattle`s; diverges after any action.
+      - `replayActions` reproduces the same state/hash as direct stepping; captures `INVALID_PATH` per-step without aborting; `stopOnError: true` skips the rest; deterministic across two replays.
+      - `verifyReplay` returns `ok:true` for matching hash; `ok:false` for a wrong-hash claim and for tampered action logs that produce a different state; surfaces engine errors alongside the comparison.
+    - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 88/88 in ~310 ms**, build 13/13.
+29. **NEXT — Step 4.27**: server-side combat router (`combat.start`, `combat.applyAction`, `combat.replay`) — wraps the engine in a tRPC surface, persists `BattleState` in per-user SQLite (snapshots) + audit log, runs server-authoritative with `verifyReplay` on completion.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

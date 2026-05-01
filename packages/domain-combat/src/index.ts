@@ -46,6 +46,18 @@ export {
 } from "./persistence.js";
 
 export {
+  replayActions,
+  verifyReplay,
+  hashState,
+  fnv1a64,
+  type ReplayInput,
+  type ReplayResult,
+  type ReplayStepError,
+  type VerifyInput,
+  type VerifyResult,
+} from "./replay.js";
+
+export {
   // Enums
   Elements,
   Statuses,
