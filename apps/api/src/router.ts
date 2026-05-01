@@ -24,6 +24,10 @@ import {
   createSyncRouter,
   type SyncService,
 } from "@aetheria/domain-sync";
+import {
+  createCombatRouter,
+  type CombatRunService,
+} from "@aetheria/domain-combat-runtime";
 
 export interface AppDeps {
   readonly authService: AuthService;
@@ -31,6 +35,7 @@ export interface AppDeps {
   readonly worldService: WorldService;
   readonly saveService: SaveService;
   readonly syncService: SyncService;
+  readonly combatService: CombatRunService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -41,6 +46,7 @@ export const createAppRouter = (deps: AppDeps) =>
     world: createWorldRouter(deps.worldService),
     save: createSaveRouter(deps.saveService),
     sync: createSyncRouter(deps.syncService),
+    combat: createCombatRouter(deps.combatService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

@@ -395,7 +395,27 @@ games/Aetheria/
       - `replayActions` reproduces the same state/hash as direct stepping; captures `INVALID_PATH` per-step without aborting; `stopOnError: true` skips the rest; deterministic across two replays.
       - `verifyReplay` returns `ok:true` for matching hash; `ok:false` for a wrong-hash claim and for tampered action logs that produce a different state; surfaces engine errors alongside the comparison.
     - **Smoke** (30 Apr 2026): typecheck 25/25, lint 14/14, **test 88/88 in ~310 ms**, build 13/13.
-29. **NEXT — Step 4.27**: server-side combat router (`combat.start`, `combat.applyAction`, `combat.replay`) — wraps the engine in a tRPC surface, persists `BattleState` in per-user SQLite (snapshots) + audit log, runs server-authoritative with `verifyReplay` on completion.
+29. ~~Step 4.27: combat wired into the run flow~~ ✅ done 30 Apr 2026.
+    - **New package** `@aetheria/domain-combat-runtime`. Bridges the pure engine (`@aetheria/domain-combat`) to the per-user SQLite `runs` row (snapshot + action_log) + audit log. Idempotent `applyInitSchema(db)` once per (process, userId) so combat works on a freshly opened SQLite file.
+    - `CombatRunService.start({userId, runId})` — loads the run + level row, synthesises a deterministic 6×4 plain grid + 1 hero + 1 foe (real party/encounter mapping deferred to 4-E), builds a fresh `BattleState` via `createBattle({battleId: "run-{id}"})`, persists `stringifyState(state)` to `runs.snapshot` and resets `runs.action_log = "[]"`, audits `combat.start`.
+    - `CombatRunService.submitAction({userId, runId}, action)` — server-authoritative validation:
+      - Loads run + asserts `status === "in_progress"`.
+      - Hydrates `BattleState` from `runs.snapshot`; corrupt JSON throws `INTERNAL`.
+      - Calls `applyAction`. `EngineError` → `INVALID_ACTION` with `details: {code, message, …}` so client/audit see the typed reason.
+      - Appends action to `action_log`, serialises new state, transitions `runs.status` per `phase` (`victory|draw → completed`, `defeat → failed`, else stays `in_progress`), sets `ended_at` when phase terminates.
+      - Audits `combat.submit_action` with kind/actorId/event count/phase.
+    - `CombatRunService.replay({userId, runId})` — re-runs `runs.action_log` from a fresh `init` and compares the resulting hash against `hashState(stored)`. `{ok, expected, actual}` — anti-cheat consumption shape.
+    - **tRPC**: `combat.start` (mutation), `combat.submitAction` (mutation), `combat.replay` (query). All `protectedProcedure`. Action zod schema is a 5-variant discriminated union (`move | attack | use_skill | defend | end_turn`). The `use_skill` variant strips `target: undefined` before passing to the engine so `exactOptionalPropertyTypes` accepts it.
+    - Mounted at `combat.*` in `apps/api` root router; `combatService = new CombatRunService()` in `server.ts`.
+    - `tsconfig.base.json` paths extended for `@aetheria/domain-combat-runtime`.
+    - **Smoke** (30 Apr 2026): typecheck 28/28, lint 15/15, test 88/88, build 14/14. Live (no MySQL):
+      - `world.startLevel` levelNumber=1 → run id=1 (game-assets fallback).
+      - `combat.start` runId=1 → fresh BattleState (`battleId=run-1`, `phase=player_turn`, `activeActorId=hero`, actors `[hero, foe]`).
+      - `combat.submitAction` `attack ghost` → 422 `INVALID_ACTION` `code: "ACTOR_NOT_FOUND"`.
+      - `combat.submitAction` `attack foe` (out of range) → 422 `INVALID_ACTION` `code: "OUT_OF_RANGE"`.
+      - `combat.submitAction` `move [(1,0),(2,0)]` → `runStatus=in_progress`, events `[actor_moved]`, heroPos `{q:2, r:0}`.
+      - `combat.replay` after the move → `ok=true expected=0723f37d… actual=0723f37d…` — server reconstruction matches the persisted snapshot.
+30. **NEXT — Step 4.28**: web combat scene — PixiJS renderer for actors/tiles, animate engine events, optimistic-apply on the client + reconcile on checksum mismatch with the server.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

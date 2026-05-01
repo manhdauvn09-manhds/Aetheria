@@ -8,6 +8,7 @@ import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { AccountService } from "@aetheria/domain-account";
+import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { SaveService } from "@aetheria/domain-save";
 import { SyncService } from "@aetheria/domain-sync";
 import { WorldService } from "@aetheria/domain-world";
@@ -47,12 +48,14 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const worldService = new WorldService({ mysql });
   const saveService = new SaveService();
   const syncService = new SyncService({ mysql });
+  const combatService = new CombatRunService();
   const appRouter = createAppRouter({
     authService: auth.service,
     accountService,
     worldService,
     saveService,
     syncService,
+    combatService,
   });
 
   app.addHook("onClose", async () => {

@@ -42,6 +42,7 @@
       "@aetheria/domain-sync":      ["packages/domain-sync/src"],
       "@aetheria/domain-world":     ["packages/domain-world/src"],
       "@aetheria/domain-combat":    ["packages/domain-combat/src"],
+      "@aetheria/domain-combat-runtime":["packages/domain-combat-runtime/src"],
       "@aetheria/domain-progression":["packages/domain-progression/src"],
       "@aetheria/domain-economy":   ["packages/domain-economy/src"],
       "@aetheria/domain-social":    ["packages/domain-social/src"],
