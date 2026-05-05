@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 import { AccountService } from "@aetheria/domain-account";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
+import { InventoryService } from "@aetheria/domain-inventory";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
 import { SyncService } from "@aetheria/domain-sync";
@@ -51,6 +52,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const syncService = new SyncService({ mysql });
   const combatService = new CombatRunService();
   const rosterService = new RosterService({ mysql });
+  const inventoryService = new InventoryService({ mysql });
   const appRouter = createAppRouter({
     authService: auth.service,
     accountService,
@@ -59,6 +61,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     syncService,
     combatService,
     rosterService,
+    inventoryService,
   });
 
   app.addHook("onClose", async () => {

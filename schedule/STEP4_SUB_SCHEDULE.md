@@ -79,7 +79,7 @@
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
 | 4.29 | `packages/domain-progression` — `xp(n) = floor(50 * n^1.85)`, `checkLevelUp`, milestone unlocks (5/10/15/25/40/60/80/100) | horizontal | M | 4.3 | ✅ |
 | 4.30 | Roster & Skills service: `roster.list/unlockCharacter/ascend/equipSkin`, `skills.tree/invest/respec` | vertical | L | 4.7, 4.29 | ✅ |
-| 4.31 | Inventory service: `list/grant/consume/equip/craft` (server-authoritative; client mirrors)  | vertical | M | 4.7, 4.4 | ⬜ |
+| 4.31 | Inventory service: `list/grant/consume/equip/craft` (server-authoritative; client mirrors)  | vertical | M | 4.7, 4.4 | ✅ |
 | 4.32 | Domain event bus (in-process): `LeveledUp`, `EnemyDefeated`, `LevelCompleted`, `ItemCrafted`, `RunFinished` | horizontal | S | 4.6 | ⬜ |
 | 4.33 | Quests service: `dailyForUser/weeklyForUser/progress(event)/claim` with the event bus       | vertical | L | 4.32, 4.31 | ⬜ |
 | 4.34 | Battle pass service: `currentSeason/progress/claim`                                        | vertical | M | 4.32 | ⬜ |
