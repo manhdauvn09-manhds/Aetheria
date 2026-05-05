@@ -8,6 +8,7 @@ import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { AccountService } from "@aetheria/domain-account";
+import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
 import { QuestService } from "@aetheria/domain-quests";
@@ -55,9 +56,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const rosterService = new RosterService({ mysql });
   const inventoryService = new InventoryService({ mysql });
   const questService = new QuestService({ mysql });
+  const battlePassService = new BattlePassService({ mysql });
   // Wire bus subscriptions on boot; tear them down on close so the
   // singleton bus doesn't leak handlers across hot reloads.
   const questUnsubscribes = questService.start();
+  const bpUnsubscribes = battlePassService.start();
   const appRouter = createAppRouter({
     authService: auth.service,
     accountService,
@@ -68,10 +71,12 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     rosterService,
     inventoryService,
     questService,
+    battlePassService,
   });
 
   app.addHook("onClose", async () => {
     for (const off of questUnsubscribes) off();
+    for (const off of bpUnsubscribes) off();
     if (auth.redis) await auth.redis.quit();
   });
 

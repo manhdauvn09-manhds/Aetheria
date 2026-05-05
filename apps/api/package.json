@@ -21,6 +21,7 @@
     "@aetheria/core":           "workspace:*",
     "@aetheria/domain-account":         "workspace:*",
     "@aetheria/domain-auth":            "workspace:*",
+    "@aetheria/domain-battlepass":      "workspace:*",
     "@aetheria/domain-combat-runtime":  "workspace:*",
     "@aetheria/domain-inventory":       "workspace:*",
     "@aetheria/domain-quests":          "workspace:*",

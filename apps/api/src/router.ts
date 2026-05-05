@@ -41,6 +41,10 @@ import {
   createQuestsRouter,
   type QuestService,
 } from "@aetheria/domain-quests";
+import {
+  createBattlePassRouter,
+  type BattlePassService,
+} from "@aetheria/domain-battlepass";
 
 export interface AppDeps {
   readonly authService: AuthService;
@@ -52,6 +56,7 @@ export interface AppDeps {
   readonly rosterService: RosterService;
   readonly inventoryService: InventoryService;
   readonly questService: QuestService;
+  readonly battlePassService: BattlePassService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -67,6 +72,7 @@ export const createAppRouter = (deps: AppDeps) =>
     skills: createSkillsRouter(deps.rosterService),
     inventory: createInventoryRouter(deps.inventoryService),
     quests: createQuestsRouter(deps.questService),
+    battlepass: createBattlePassRouter(deps.battlePassService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;
