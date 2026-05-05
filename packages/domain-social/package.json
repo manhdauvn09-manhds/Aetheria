@@ -15,7 +15,9 @@
     "./guild/rules":    { "types": "./src/guild/rules.ts",            "default": "./src/guild/rules.ts" },
     "./friends":        { "types": "./src/friends/service.ts",        "default": "./src/friends/service.ts" },
     "./friends/router": { "types": "./src/friends/router.ts",         "default": "./src/friends/router.ts" },
-    "./friends/rules":  { "types": "./src/friends/rules.ts",          "default": "./src/friends/rules.ts" }
+    "./friends/rules":  { "types": "./src/friends/rules.ts",          "default": "./src/friends/rules.ts" },
+    "./chat":           { "types": "./src/chat/service.ts",           "default": "./src/chat/service.ts" },
+    "./chat/router":    { "types": "./src/chat/router.ts",            "default": "./src/chat/router.ts" }
   },
   "files": ["src"],
   "scripts": {

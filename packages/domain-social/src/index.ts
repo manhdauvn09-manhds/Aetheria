@@ -87,3 +87,21 @@ export type {
   FriendRequestInput,
   FriendRespondInput,
 } from "./friends/types.js";
+
+export {
+  ChatService,
+  type ChatDeps,
+  type ChatMysqlClient,
+} from "./chat/service.js";
+
+export {
+  createChatRouter,
+  type ChatRouter,
+} from "./chat/router.js";
+
+export type {
+  ChatMessageRow,
+  SendChatInput,
+  HistoryChatInput,
+  ReportChatInput,
+} from "./chat/types.js";
