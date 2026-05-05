@@ -63,3 +63,27 @@ export type {
   StartRaidInput,
   StartRaidResult,
 } from "./guild/types.js";
+
+export {
+  FriendsService,
+  type FriendsDeps,
+  type FriendsMysqlClient,
+} from "./friends/service.js";
+
+export {
+  createFriendsRouter,
+  type FriendsRouter,
+} from "./friends/router.js";
+
+export {
+  buildFriendList,
+  toFriendStatus,
+} from "./friends/rules.js";
+
+export type {
+  FriendStatus,
+  FriendEdge,
+  FriendList,
+  FriendRequestInput,
+  FriendRespondInput,
+} from "./friends/types.js";

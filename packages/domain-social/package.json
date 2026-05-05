@@ -10,9 +10,12 @@
     ".":              { "types": "./src/index.ts",                  "default": "./src/index.ts" },
     "./rules":        { "types": "./src/rules.ts",                  "default": "./src/rules.ts" },
     "./profanity":    { "types": "./src/profanity.ts",              "default": "./src/profanity.ts" },
-    "./guild":        { "types": "./src/guild/service.ts",          "default": "./src/guild/service.ts" },
-    "./guild/router": { "types": "./src/guild/router.ts",           "default": "./src/guild/router.ts" },
-    "./guild/rules":  { "types": "./src/guild/rules.ts",            "default": "./src/guild/rules.ts" }
+    "./guild":          { "types": "./src/guild/service.ts",          "default": "./src/guild/service.ts" },
+    "./guild/router":   { "types": "./src/guild/router.ts",           "default": "./src/guild/router.ts" },
+    "./guild/rules":    { "types": "./src/guild/rules.ts",            "default": "./src/guild/rules.ts" },
+    "./friends":        { "types": "./src/friends/service.ts",        "default": "./src/friends/service.ts" },
+    "./friends/router": { "types": "./src/friends/router.ts",         "default": "./src/friends/router.ts" },
+    "./friends/rules":  { "types": "./src/friends/rules.ts",          "default": "./src/friends/rules.ts" }
   },
   "files": ["src"],
   "scripts": {

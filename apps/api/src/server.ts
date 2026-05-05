@@ -14,7 +14,7 @@ import { InventoryService } from "@aetheria/domain-inventory";
 import { QuestService } from "@aetheria/domain-quests";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
-import { GuildService } from "@aetheria/domain-social";
+import { FriendsService, GuildService } from "@aetheria/domain-social";
 import { SyncService } from "@aetheria/domain-sync";
 import { WorldService } from "@aetheria/domain-world";
 import { mysql } from "@aetheria/schema-db/mysql";
@@ -59,6 +59,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const questService = new QuestService({ mysql });
   const battlePassService = new BattlePassService({ mysql });
   const guildService = new GuildService({ mysql });
+  const friendsService = new FriendsService({ mysql });
   // Wire bus subscriptions on boot; tear them down on close so the
   // singleton bus doesn't leak handlers across hot reloads.
   const questUnsubscribes = questService.start();
@@ -75,6 +76,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     questService,
     battlePassService,
     guildService,
+    friendsService,
   });
 
   app.addHook("onClose", async () => {
