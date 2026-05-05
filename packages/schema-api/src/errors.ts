@@ -84,8 +84,8 @@ export class AppError extends Error implements AppErrorShape {
   static unauthenticated(message = "Authentication required"): AppError {
     return new AppError("UNAUTHENTICATED", message);
   }
-  static forbidden(message = "Forbidden"): AppError {
-    return new AppError("FORBIDDEN", message);
+  static forbidden(message = "Forbidden", details?: Record<string, unknown>): AppError {
+    return new AppError("FORBIDDEN", message, details ? { details } : undefined);
   }
   static notFound(resource: string, id?: bigint | number | string): AppError {
     const msg = id === undefined ? `${resource} not found` : `${resource} '${String(id)}' not found`;
