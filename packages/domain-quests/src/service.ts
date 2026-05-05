@@ -26,7 +26,7 @@ import {
   type EventBus,
   type Unsubscribe,
 } from "@aetheria/domain-events";
-import { addXp, levelFromTotalXp } from "@aetheria/domain-progression";
+import { applyAccountXp } from "@aetheria/progression-runtime";
 import { AppError } from "@aetheria/schema-api";
 import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
 
@@ -315,29 +315,14 @@ export class QuestService {
             }
             granted.push({ kind: "item", itemId: r.itemId, quantity: r.quantity });
           } else {
-            // xp reward
-            const profile = await tx.profile.findUnique({
-              where: { userId },
-              select: { accountXp: true },
-            });
-            if (!profile) throw AppError.notFound("user", userId);
-            const { level, xpIntoLevel } = levelFromTotalXp(profile.accountXp);
-            const xpResult = addXp(
-              { level, xpIntoLevel, totalXp: profile.accountXp },
-              r.amount,
-            );
-            await tx.profile.update({
-              where: { userId },
-              data: {
-                accountLevel: xpResult.progression.level,
-                accountXp: xpResult.progression.totalXp,
-              },
-            });
-            for (const ev of xpResult.events) {
+            // xp reward — delegate to the shared runtime helper so combat,
+            // battle-pass, and admin grants all share the same pipeline.
+            const xpResult = await applyAccountXp(tx, userId, r.amount);
+            for (const ev of xpResult.leveledUp) {
               leveledUp.push({
                 from: ev.from,
                 to: ev.to,
-                milestoneIds: ev.milestones.map((m) => m.id),
+                milestoneIds: [...ev.milestoneIds],
               });
             }
             granted.push({ kind: "xp", amount: r.amount });

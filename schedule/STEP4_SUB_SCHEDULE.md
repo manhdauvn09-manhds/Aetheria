@@ -82,8 +82,9 @@
 | 4.31 | Inventory service: `list/grant/consume/equip/craft` (server-authoritative; client mirrors)  | vertical | M | 4.7, 4.4 | ✅ |
 | 4.32 | Domain event bus (in-process): `LeveledUp`, `EnemyDefeated`, `LevelCompleted`, `ItemCrafted`, `RunFinished` | horizontal | S | 4.6 | ✅ |
 | 4.33 | Quests service: `dailyForUser/weeklyForUser/progress(event)/claim` with the event bus       | vertical | L | 4.32, 4.31 | ✅ |
-| 4.34 | Battle pass service: `currentSeason/progress/claim`                                        | vertical | M | 4.32 | ⬜ |
-| 4.35 | Web: Roster screen, Skill tree screen, Quest tracker HUD, Battle Pass screen                | vertical | L | 4.30, 4.33 | ⬜ |
+| 4.34 | `progression-runtime`: `applyAccountXp(tx)` + `grantAccountXp({mysql,bus?})` shared helper  | vertical | S | 4.33      | ✅ |
+| 4.35 | Battle pass service: `currentSeason/progress/claim` (uses 4.34)                             | vertical | M | 4.32, 4.34 | ⬜ |
+| 4.35w| Web: Roster screen, Skill tree screen, Quest tracker HUD, Battle Pass screen                | vertical | L | 4.30, 4.33 | ⬜ |
 
 ## Phase 4-F · Social (guild / friends / chat)
 *Goal: guilds with roster + chat channel; friends list with requests; global / guild chat.*

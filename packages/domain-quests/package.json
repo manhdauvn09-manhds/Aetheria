@@ -24,6 +24,7 @@
     "@aetheria/core":              "workspace:*",
     "@aetheria/domain-events":     "workspace:*",
     "@aetheria/domain-progression":"workspace:*",
+    "@aetheria/progression-runtime":"workspace:*",
     "@aetheria/schema-api":        "workspace:*",
     "@aetheria/schema-db":         "workspace:*",
     "@aetheria/shared-types":      "workspace:*",

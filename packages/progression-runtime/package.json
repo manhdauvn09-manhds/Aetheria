@@ -1,0 +1,35 @@
+{
+  "name": "@aetheria/progression-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aetheria progression runtime — Profile-backed XP grant helper that bridges domain-progression (pure) to MySQL Profile + LeveledUp emit.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".":         { "types": "./src/index.ts",   "default": "./src/index.ts" },
+    "./service": { "types": "./src/service.ts", "default": "./src/service.ts" }
+  },
+  "files": ["src"],
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "vitest run",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@aetheria/core":               "workspace:*",
+    "@aetheria/domain-events":      "workspace:*",
+    "@aetheria/domain-progression": "workspace:*",
+    "@aetheria/schema-api":         "workspace:*",
+    "@aetheria/schema-db":          "workspace:*"
+  },
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "@types/node":      "^22.9.0",
+    "rimraf":           "^6.0.1",
+    "typescript":       "^5.6.3",
+    "vitest":           "^2.1.8"
+  }
+}
