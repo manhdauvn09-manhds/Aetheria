@@ -10,6 +10,7 @@ import { z } from "zod";
 const publicSchema = z.object({
   NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3001"),
+  NEXT_PUBLIC_REALTIME_URL: z.string().url().default("http://localhost:3002"),
   /** Surface OAuth provider availability to the UI (so the buttons can hide). */
   NEXT_PUBLIC_OAUTH_GOOGLE: z.coerce.boolean().default(false),
   NEXT_PUBLIC_OAUTH_DISCORD: z.coerce.boolean().default(false),
@@ -20,6 +21,7 @@ export type WebEnv = z.infer<typeof publicSchema>;
 const parsed = publicSchema.safeParse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  NEXT_PUBLIC_REALTIME_URL: process.env.NEXT_PUBLIC_REALTIME_URL,
   NEXT_PUBLIC_OAUTH_GOOGLE: process.env.NEXT_PUBLIC_OAUTH_GOOGLE,
   NEXT_PUBLIC_OAUTH_DISCORD: process.env.NEXT_PUBLIC_OAUTH_DISCORD,
 });

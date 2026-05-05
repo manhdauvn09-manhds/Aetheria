@@ -45,6 +45,14 @@ export const createGuildRouter = (service: GuildService) =>
         }
       }),
 
+    myMembership: protectedProcedure.query(async ({ ctx }) => {
+      try {
+        return await service.myMembership(ctx.auth.userId);
+      } catch (e) {
+        throw asTrpcError(e);
+      }
+    }),
+
     pendingInvites: protectedProcedure.query(async ({ ctx }) => {
       try {
         return await service.listInvitesForUser(ctx.auth.userId);

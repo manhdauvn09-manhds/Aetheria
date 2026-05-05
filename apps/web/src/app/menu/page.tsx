@@ -52,6 +52,9 @@ const MenuInner = (): JSX.Element => {
         <MenuButton href="/roster" title="Roster" subtitle="Heroes, ascensions, skill trees." />
         <MenuButton href="/quests" title="Quests" subtitle="Daily + weekly challenges." />
         <MenuButton href="/battlepass" title="Battle Pass" subtitle="Seasonal track rewards." />
+        <MenuButton href="/guild" title="Guild" subtitle="Found, recruit, lead." />
+        <MenuButton href="/friends" title="Friends" subtitle="Add, accept, manage." />
+        <MenuButton href="/chat" title="Chat" subtitle="Global / guild / whispers." />
         <MenuButton
           href="/menu"
           title="Multiplayer"

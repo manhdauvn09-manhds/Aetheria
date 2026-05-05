@@ -113,6 +113,16 @@ export class GuildService {
     };
   }
 
+  async myMembership(
+    userId: bigint,
+  ): Promise<{ guildId: bigint; role: GuildRole } | null> {
+    const row = await this.mysql.guildMember.findFirst({
+      where: { userId },
+      select: { guildId: true, role: true },
+    });
+    return row === null ? null : { guildId: row.guildId, role: toRole(row.role) };
+  }
+
   async listInvitesForUser(targetUserId: bigint): Promise<readonly GuildInviteRow[]> {
     const rows = await this.mysql.guildInvite.findMany({
       where: { targetUserId, status: "pending" },

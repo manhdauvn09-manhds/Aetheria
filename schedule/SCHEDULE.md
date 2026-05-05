@@ -10,7 +10,7 @@
 | 1 | Game scenario + guideline (md+pdf)         | ✅     | 100| name=Aetheria, guideline + lore done             |
 | 2 | Architecture / Tech-stack / DB design      | ✅     | 100| 5 docs (arch, stack, db, fn, flows) + 5 PDFs     |
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
-| 4 | Coding (sub-schedule below)                | 🟨     | 67 | 4.1–4.41 done; realtime chat fan-out via redis pub/sub (`aetheria:chat:bus`) + Socket.IO rooms (`channel:*` / `user:*`) |
+| 4 | Coding (sub-schedule below)                | 🟨     | 70 | 4.1–4.42 done; Phase 4-F closed (`/guild`, `/friends`, `/chat` with live Socket.IO via `useChatSocket`) |
 | 5 | Code review                                | ⬜     | 0  |                                                  |
 | 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |

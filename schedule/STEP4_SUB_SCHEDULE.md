@@ -97,7 +97,7 @@
 | 4.39 | Chat service: `send/history/report`; flagged-message audit                                 | vertical | M | 4.7, 4.36 | ✅ |
 | 4.40 | `apps/realtime` boot: Socket.IO + Redis adapter + sticky session helper                    | horizontal | M | 4.7 | ✅ |
 | 4.41 | Realtime chat channels (global / guild / party / whisper) via Socket.IO rooms              | vertical | M | 4.40, 4.39 | ✅ |
-| 4.42 | Web: Guild screen, Friends screen, Chat panel                                              | vertical | L | 4.37, 4.38, 4.41 | ⬜ |
+| 4.42 | Web: Guild screen, Friends screen, Chat panel                                              | vertical | L | 4.37, 4.38, 4.41 | ✅ |
 
 ## Phase 4-G · PvP & Leaderboards
 *Goal: 1v1 ranked match end-to-end, MMR updates, leaderboard reflects winner.*
