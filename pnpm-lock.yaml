@@ -120,6 +120,9 @@ importers:
       '@aetheria/api':
         specifier: workspace:*
         version: link:../api
+      '@aetheria/domain-combat':
+        specifier: workspace:*
+        version: link:../../packages/domain-combat
       '@aetheria/game-assets':
         specifier: workspace:*
         version: link:../../packages/game-assets

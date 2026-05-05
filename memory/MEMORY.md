@@ -415,7 +415,29 @@ games/Aetheria/
       - `combat.submitAction` `attack foe` (out of range) → 422 `INVALID_ACTION` `code: "OUT_OF_RANGE"`.
       - `combat.submitAction` `move [(1,0),(2,0)]` → `runStatus=in_progress`, events `[actor_moved]`, heroPos `{q:2, r:0}`.
       - `combat.replay` after the move → `ok=true expected=0723f37d… actual=0723f37d…` — server reconstruction matches the persisted snapshot.
-30. **NEXT — Step 4.28**: web combat scene — PixiJS renderer for actors/tiles, animate engine events, optimistic-apply on the client + reconcile on checksum mismatch with the server.
+30. ~~Step 4.28: web combat scene (PixiJS) — render actors/tiles + animate events + optimistic-apply with reconcile~~ ✅ done 5 May 2026.
+    - **New web store** `apps/web/src/store/combat.ts` (zustand). Holds the live `BattleState`, an `eventQueue` the renderer drains, the most recent `serverHash`, and a `pending: PendingAction | null` slot.
+      - `applyOptimistic(action)` runs the pure engine locally, captures the **pre-state** for rollback + a `predictedHash`, queues `events`, sets `pending`. Errors return `{ok:false, code, message}` — the page surfaces them, no rollback needed because the state hasn't been mutated yet.
+      - `commitServer(state, events)` is called when the server's `combat.submitAction` resolves. If `predictedHash === hashState(serverState)` we accept silently (`lastReconcile.kind = "ok"`); otherwise we replace the state, append any unseen events keyed by `${t}:${type}`, and flag `lastReconcile.kind = "drift"` for the HUD.
+      - `rejectPending(message)` rolls state back to `pending.preState`, clears the queue, sets `lastReconcile.kind = "rolled_back"`.
+      - The engine is deterministic, so when client + server agree on the seed (which they do since the server sends the canonical state on `combat.start`), the predicted hash always matches in practice. The drift path is the safety valve for stale/desynced clients.
+    - **`apps/web/src/components/game/CombatScene.tsx`** — Pixi 8, dynamic-import lazily so SSR stays clean. Setup runs once on mount. Layers: `tileLayer / highlightLayer / actorLayer / fxLayer`. Renderer:
+      - `renderTiles` paints axial hexes using a small terrain palette (plain/forest/stone/water/ice/lava/void/shrine/wall).
+      - `renderActors` diff-applies actor sprites — circle body coloured by side, HP bar under it, monospace id label. Defeated actors fade to alpha 0.4.
+      - `renderHighlight` draws an amber outline on the prop-controlled tile (move target hint).
+      - Subscribes imperatively to `useCombat` for `state` (full repaint on change) and `eventQueue` (animate next event). Animator advances one event at a time and calls `consumeEvent` after each tween — keeps animations strictly serial so `actor_moved → damage_dealt → actor_defeated` reads in order.
+      - Animations: `actor_moved` 220 ms position tween from `event.from` to `event.to`; `damage_dealt` flash + floating `-N` (yellow on crit); `healed` floating `+N` in green; `actor_defeated` 280 ms alpha fade; `resonance_triggered` purple banner; `turn_started/ended/status_*/battle_ended` 80 ms beat (visual hooks land later).
+      - Click handling: pointertap → axial → if an actor occupies it, `onActorClick(id)`; else if it's a tile in `state.tiles`, `onTileClick(coord)`.
+    - **`apps/web/src/components/game/CombatHud.tsx`** — control panel. Shows phase + turn, active actor (HP/AP/element/pos), selected target, `Attack` (enabled only if a non-defeated enemy is `hexDistance === 1` away), `Defend`, `End turn`. Surfaces the latest `lastReconcile` (synced/drift/rolled-back) and a tail of the last 6 events with a typed `summariseEvent` formatter.
+    - **`apps/web/src/app/play/[levelNumber]/page.tsx`** — wired the scene + HUD. Adds an `Engage combat` button that calls `combat.start` and pushes the resulting `BattleState` into the store. While in combat:
+      - Tile click → builds a single-step `move` action (engine validates adjacency + AP). Highlight ring repaints from the prop without touching the canvas.
+      - Actor click → sets `targetId` for the HUD's Attack button.
+      - Submit flow: `applyOptimistic` → `combat.submitAction.mutate` → `commitServer` on success / `rejectPending` on tRPC error.
+      - The page also exits combat cleanly (Exit button + page-unmount cleanup → `resetCombat()`), and abandoning the run drops the combat state too.
+    - **`apps/web/src/app/play/[levelNumber]/page.tsx#toWireAction`** converts the engine's `readonly Coord[]` into the mutable shape tRPC's zod-derived input type expects (and strips `target: undefined` for `use_skill` again on the client side, mirroring the server router).
+    - `apps/web/package.json` adds the `@aetheria/domain-combat: workspace:*` dep.
+    - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 14/14 ✓, `pnpm -r lint` 14/14 ✓, `pnpm -r test` (combat 88/88, others "no tests yet") ✓, `pnpm -r build` 14/14 ✓ (web bundle: `/play/[levelNumber]` 13.4 kB / 149 kB First Load JS, up from 12.0 kB / 148 kB on 4.27).
+31. **NEXT — Step 4.29**: `packages/domain-progression` — XP curve `floor(50 * n^1.85)`, `checkLevelUp`, milestone unlocks at levels 5/10/15/25/40/60/80/100 (kicks off Phase 4-E).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

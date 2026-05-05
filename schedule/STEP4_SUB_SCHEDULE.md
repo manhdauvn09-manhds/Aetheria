@@ -70,7 +70,7 @@
 | 4.25 | `combat.serializeState` / `combat.hydrate` (stable JSON, schema_version)                    | horizontal | S | 4.23 | ✅ |
 | 4.26 | Combat replay: `replayActions(action_log) → finalState` (used by anti-cheat worker)         | horizontal | S | 4.23 | ✅ |
 | 4.27 | Wire combat into Run flow (server): server validates each `combat.submitAction` → updates `runs.action_log` + `snapshot` | vertical | L | 4.23, 4.16 | ✅ |
-| 4.28 | Web: combat scene (PixiJS) — render actors/tiles, animate events, optimistic apply + reconcile on checksum mismatch | vertical | L | 4.27, 4.19 | ⬜ |
+| 4.28 | Web: combat scene (PixiJS) — render actors/tiles, animate events, optimistic apply + reconcile on checksum mismatch | vertical | L | 4.27, 4.19 | ✅ |
 
 ## Phase 4-E · Progression / Inventory / Quests / Battle Pass
 *Goal: defeating enemies grants XP, levels up characters, fills daily quests, advances battle pass.*

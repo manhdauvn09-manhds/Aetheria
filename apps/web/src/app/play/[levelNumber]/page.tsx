@@ -6,16 +6,25 @@
 // Pause / Abandon / back-to-Realms transitions. The state machine in
 // `docs/02_FLOWS.md` §10 lives in the gameFlow store; this page just
 // emits the right transitions on user actions.
+//
+// Step 4.28 added a "Combat" mode: once a run is active the player can
+// click *Engage* to call `combat.start`, swap the level overview for a
+// `CombatScene`, and submit actions. Each action is applied optimistically
+// against the local engine and reconciled with the server's response.
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { Action, Coord } from "@aetheria/domain-combat";
 import type { LevelMap } from "@aetheria/game-assets";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { CombatHud } from "@/components/game/CombatHud";
+import { CombatScene } from "@/components/game/CombatScene";
 import { HexMapRenderer } from "@/components/game/HexMapRenderer";
 import { trpc } from "@/lib/trpc/client";
+import { useCombat } from "@/store/combat";
 import { useGameFlow } from "@/store/gameFlow";
 
 interface SelectedTile {
@@ -35,13 +44,23 @@ const InGameInner = (): JSX.Element => {
 
   const startLevel = trpc.world.startLevel.useMutation();
   const abandonRun = trpc.world.abandonRun.useMutation();
+  const startCombat = trpc.combat.start.useMutation();
+  const submitCombat = trpc.combat.submitAction.useMutation();
 
   const [paused, setPaused] = useState(false);
   const [selected, setSelected] = useState<SelectedTile | null>(null);
+  const [combatMode, setCombatMode] = useState(false);
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<Coord | null>(null);
+  const [combatError, setCombatError] = useState<string | null>(null);
 
-  // Kick off `startLevel` once when we land on a fresh level. If we
-  // already have an active run for this level, skip — supports a
-  // fast-path "Continue".
+  const setCombatState = useCombat((s) => s.setState);
+  const applyOptimistic = useCombat((s) => s.applyOptimistic);
+  const commitServer = useCombat((s) => s.commitServer);
+  const rejectPending = useCombat((s) => s.rejectPending);
+  const resetCombat = useCombat((s) => s.reset);
+
+  // Kick off `startLevel` once when we land on a fresh level.
   useEffect(() => {
     if (!validNumber) return;
     if (activeRun?.levelNumber === levelNumber) {
@@ -62,9 +81,17 @@ const InGameInner = (): JSX.Element => {
         },
       },
     );
-    // Intentionally fires once per level change; pulling startLevel/setScene/
-    // setActiveRun into the dep array would re-fire on every render.
+    // Fires once per level change; pulling startLevel/setScene/setActiveRun into
+    // the dep array would re-fire on every render.
   }, [levelNumber, validNumber]);
+
+  // Drop combat state when leaving the page.
+  useEffect(
+    () => () => {
+      resetCombat();
+    },
+    [resetCombat],
+  );
 
   const onAbandon = (): void => {
     if (!activeRun) {
@@ -76,12 +103,78 @@ const InGameInner = (): JSX.Element => {
       {
         onSettled: () => {
           setActiveRun(null);
+          setCombatMode(false);
+          resetCombat();
           setScene("main_menu");
           router.push("/realms");
         },
       },
     );
   };
+
+  const onEngage = useCallback(() => {
+    if (!activeRun || combatMode) return;
+    setCombatError(null);
+    startCombat.mutate(
+      { runId: activeRun.runId },
+      {
+        onSuccess: (res) => {
+          setCombatState(res.state);
+          setCombatMode(true);
+          setTargetId(null);
+          setHighlight(null);
+        },
+        onError: (e) => {
+          setCombatError(e.message);
+        },
+      },
+    );
+  }, [activeRun, combatMode, startCombat, setCombatState]);
+
+  const onSubmitAction = useCallback(
+    (action: Action) => {
+      if (!activeRun) return;
+      setCombatError(null);
+      const optimistic = applyOptimistic(action);
+      if (!optimistic.ok) {
+        setCombatError(`${optimistic.code}: ${optimistic.message}`);
+        return;
+      }
+      submitCombat.mutate(
+        { runId: activeRun.runId, action: toWireAction(action) },
+        {
+          onSuccess: (res) => {
+            commitServer(res.state, res.events);
+            // Clear move highlight + target after a successful action.
+            setHighlight(null);
+            if (action.kind === "attack") setTargetId(null);
+          },
+          onError: (e) => {
+            rejectPending(e.message);
+            setCombatError(e.message);
+          },
+        },
+      );
+    },
+    [activeRun, applyOptimistic, submitCombat, commitServer, rejectPending],
+  );
+
+  const onActorClick = useCallback((actorId: string) => {
+    setTargetId(actorId);
+  }, []);
+
+  const onCombatTileClick = useCallback(
+    (coord: Coord) => {
+      const cur = useCombat.getState().state;
+      if (!cur?.activeActorId) return;
+      const active = cur.actors.find((a) => a.id === cur.activeActorId);
+      if (active?.side !== "player") return;
+      // Single-step adjacent moves only; engine rejects non-adjacent paths.
+      setHighlight(coord);
+      onSubmitAction({ kind: "move", actorId: active.id, path: [coord] });
+    },
+    [onSubmitAction],
+  );
 
   const map = useMemo<LevelMap | null>(() => {
     const data = startLevel.data;
@@ -110,6 +203,30 @@ const InGameInner = (): JSX.Element => {
           </h1>
         </div>
         <div className="flex items-center gap-2 text-sm">
+          {!combatMode && activeRun ? (
+            <button
+              type="button"
+              onClick={onEngage}
+              disabled={startCombat.isLoading}
+              className="rounded-md border border-amber-700/60 bg-amber-950/40 px-3 py-1 text-amber-200 hover:bg-amber-900/60 disabled:opacity-60"
+            >
+              {startCombat.isLoading ? "Engaging…" : "Engage combat"}
+            </button>
+          ) : null}
+          {combatMode ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCombatMode(false);
+                resetCombat();
+                setHighlight(null);
+                setTargetId(null);
+              }}
+              className="rounded-md border border-zinc-700 px-3 py-1 text-zinc-300 hover:bg-zinc-800"
+            >
+              Exit combat
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -145,8 +262,29 @@ const InGameInner = (): JSX.Element => {
           Couldn&apos;t start the level: {startLevel.error.message}
         </p>
       ) : null}
+      {combatError ? (
+        <p className="rounded-md border border-rose-700/40 bg-rose-950/20 p-2 text-sm text-rose-200">
+          {combatError}
+        </p>
+      ) : null}
 
-      {map ? (
+      {combatMode ? (
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_320px]">
+          <CombatScene
+            onActorClick={onActorClick}
+            onTileClick={onCombatTileClick}
+            highlightTile={highlight}
+          />
+          <CombatHud
+            onSubmit={onSubmitAction}
+            busy={submitCombat.isLoading}
+            selectedTargetId={targetId}
+            onClearTarget={() => {
+              setTargetId(null);
+            }}
+          />
+        </section>
+      ) : map ? (
         <section className="relative">
           <HexMapRenderer
             map={map}
@@ -178,7 +316,7 @@ const InGameInner = (): JSX.Element => {
         </section>
       ) : null}
 
-      {startLevel.data ? (
+      {!combatMode && startLevel.data ? (
         <section className="grid grid-cols-2 gap-4 text-xs text-zinc-400 md:grid-cols-4">
           <Card label="Run ID" value={startLevel.data.run.id} />
           <Card
@@ -199,6 +337,44 @@ const InGameInner = (): JSX.Element => {
       ) : null}
     </main>
   );
+};
+
+// tRPC's zod-derived input types are mutable (`Coord[]`), but the engine
+// declares `readonly Coord[]`. Build a fresh, mutable shape per kind.
+const toWireAction = (a: Action) => {
+  switch (a.kind) {
+    case "move":
+      return {
+        kind: "move" as const,
+        actorId: a.actorId,
+        path: a.path.map((c) => ({ q: c.q, r: c.r })),
+      };
+    case "attack":
+      return { kind: "attack" as const, actorId: a.actorId, targetId: a.targetId };
+    case "use_skill":
+      if (a.target === undefined) {
+        return { kind: "use_skill" as const, actorId: a.actorId, skillId: a.skillId };
+      }
+      return typeof a.target === "string"
+        ? {
+            kind: "use_skill" as const,
+            actorId: a.actorId,
+            skillId: a.skillId,
+            target: a.target,
+          }
+        : {
+            kind: "use_skill" as const,
+            actorId: a.actorId,
+            skillId: a.skillId,
+            target: { q: a.target.q, r: a.target.r },
+          };
+    case "defend":
+      return { kind: "defend" as const, actorId: a.actorId };
+    case "end_turn":
+      return { kind: "end_turn" as const, actorId: a.actorId };
+    default:
+      return ((_: never) => _)(a);
+  }
 };
 
 const Card = ({ label, value }: { label: string; value: string }): JSX.Element => (
