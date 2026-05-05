@@ -92,7 +92,7 @@
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
 | 4.36 | `packages/domain-social` — moderation rules (profanity list, rate limits, mute window)      | horizontal | S | 4.3 | ✅ |
-| 4.37 | Guild service: create / invite / respond / kick / promote / startRaid                      | vertical | L | 4.7, 4.36 | ⬜ |
+| 4.37 | Guild service: create / invite / respond / kick / promote / startRaid                      | vertical | L | 4.7, 4.36 | ✅ |
 | 4.38 | Friends service: list / request / respond                                                  | vertical | M | 4.7 | ⬜ |
 | 4.39 | Chat service: `send/history/report`; flagged-message audit                                 | vertical | M | 4.7, 4.36 | ⬜ |
 | 4.40 | `apps/realtime` boot: Socket.IO + Redis adapter + sticky session helper                    | horizontal | M | 4.7 | ⬜ |

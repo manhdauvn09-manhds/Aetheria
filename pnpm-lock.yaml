@@ -65,6 +65,9 @@ importers:
       '@aetheria/domain-save':
         specifier: workspace:*
         version: link:../../packages/domain-save
+      '@aetheria/domain-social':
+        specifier: workspace:*
+        version: link:../../packages/domain-social
       '@aetheria/domain-sync':
         specifier: workspace:*
         version: link:../../packages/domain-sync
@@ -615,9 +618,21 @@ importers:
 
   packages/domain-social:
     dependencies:
+      '@aetheria/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aetheria/schema-api':
+        specifier: workspace:*
+        version: link:../schema-api
+      '@aetheria/schema-db':
+        specifier: workspace:*
+        version: link:../schema-db
       '@aetheria/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@aetheria/config':
         specifier: workspace:*

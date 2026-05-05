@@ -7,9 +7,12 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".":          { "types": "./src/index.ts",      "default": "./src/index.ts" },
-    "./rules":    { "types": "./src/rules.ts",      "default": "./src/rules.ts" },
-    "./profanity":{ "types": "./src/profanity.ts",  "default": "./src/profanity.ts" }
+    ".":              { "types": "./src/index.ts",                  "default": "./src/index.ts" },
+    "./rules":        { "types": "./src/rules.ts",                  "default": "./src/rules.ts" },
+    "./profanity":    { "types": "./src/profanity.ts",              "default": "./src/profanity.ts" },
+    "./guild":        { "types": "./src/guild/service.ts",          "default": "./src/guild/service.ts" },
+    "./guild/router": { "types": "./src/guild/router.ts",           "default": "./src/guild/router.ts" },
+    "./guild/rules":  { "types": "./src/guild/rules.ts",            "default": "./src/guild/rules.ts" }
   },
   "files": ["src"],
   "scripts": {
@@ -20,7 +23,11 @@
     "clean":     "rimraf dist .turbo"
   },
   "dependencies": {
-    "@aetheria/shared-types": "workspace:*"
+    "@aetheria/core":         "workspace:*",
+    "@aetheria/schema-api":   "workspace:*",
+    "@aetheria/schema-db":    "workspace:*",
+    "@aetheria/shared-types": "workspace:*",
+    "zod":                    "^3.23.8"
   },
   "devDependencies": {
     "@aetheria/config": "workspace:*",

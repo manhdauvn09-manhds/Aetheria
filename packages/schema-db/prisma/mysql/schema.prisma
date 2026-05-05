@@ -39,6 +39,8 @@ model User {
   battlePassProgress    BattlePassProgress[]
   guildLed              Guild[]                 @relation("GuildLeader")
   guildMemberships      GuildMember[]
+  guildInvitesSent      GuildInvite[]           @relation("GuildInviteInviter")
+  guildInvitesReceived  GuildInvite[]           @relation("GuildInviteTarget")
   friendshipsOut        Friendship[]            @relation("FriendshipOwner")
   friendshipsIn         Friendship[]            @relation("FriendshipFriend")
   chatMessages          ChatMessage[]
@@ -348,8 +350,29 @@ model Guild {
 
   leader  User          @relation("GuildLeader", fields: [leaderUserId], references: [id], onDelete: Restrict)
   members GuildMember[]
+  invites GuildInvite[]
 
   @@map("guilds")
+}
+
+model GuildInvite {
+  id             BigInt    @id @default(autoincrement())
+  guildId        BigInt    @map("guild_id")
+  targetUserId   BigInt    @map("target_user_id")
+  inviterUserId  BigInt    @map("inviter_user_id")
+  status         String    @default("pending") @db.VarChar(16) // pending|accepted|declined|cancelled|expired
+  createdAt      DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  respondedAt    DateTime? @map("responded_at") @db.DateTime(3)
+  expiresAt      DateTime  @map("expires_at") @db.DateTime(3)
+
+  guild   Guild @relation(fields: [guildId],       references: [id], onDelete: Cascade)
+  target  User  @relation("GuildInviteTarget",  fields: [targetUserId],  references: [id], onDelete: Cascade)
+  inviter User  @relation("GuildInviteInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, status],         map: "ix_guild_invites_guild_status")
+  @@index([targetUserId, status],    map: "ix_guild_invites_target_status")
+  @@index([inviterUserId],           map: "ix_guild_invites_inviter")
+  @@map("guild_invites")
 }
 
 model GuildMember {
