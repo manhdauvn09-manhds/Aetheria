@@ -10,6 +10,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { AccountService } from "@aetheria/domain-account";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
+import { QuestService } from "@aetheria/domain-quests";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
 import { SyncService } from "@aetheria/domain-sync";
@@ -53,6 +54,10 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const combatService = new CombatRunService();
   const rosterService = new RosterService({ mysql });
   const inventoryService = new InventoryService({ mysql });
+  const questService = new QuestService({ mysql });
+  // Wire bus subscriptions on boot; tear them down on close so the
+  // singleton bus doesn't leak handlers across hot reloads.
+  const questUnsubscribes = questService.start();
   const appRouter = createAppRouter({
     authService: auth.service,
     accountService,
@@ -62,9 +67,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     combatService,
     rosterService,
     inventoryService,
+    questService,
   });
 
   app.addHook("onClose", async () => {
+    for (const off of questUnsubscribes) off();
     if (auth.redis) await auth.redis.quit();
   });
 

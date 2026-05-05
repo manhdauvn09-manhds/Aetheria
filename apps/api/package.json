@@ -23,6 +23,7 @@
     "@aetheria/domain-auth":            "workspace:*",
     "@aetheria/domain-combat-runtime":  "workspace:*",
     "@aetheria/domain-inventory":       "workspace:*",
+    "@aetheria/domain-quests":          "workspace:*",
     "@aetheria/domain-roster":          "workspace:*",
     "@aetheria/domain-save":            "workspace:*",
     "@aetheria/domain-sync":            "workspace:*",
