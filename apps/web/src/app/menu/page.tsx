@@ -49,28 +49,13 @@ const MenuInner = (): JSX.Element => {
           title="Continue"
           subtitle="Resume an active run (auto-detected)."
         />
-        <MenuButton
-          href="/menu"
-          title="Codex"
-          subtitle="Lore + bestiary."
-          disabled
-        />
-        <MenuButton
-          href="/menu"
-          title="Shop"
-          subtitle="Aetheric goods."
-          disabled
-        />
+        <MenuButton href="/roster" title="Roster" subtitle="Heroes, ascensions, skill trees." />
+        <MenuButton href="/quests" title="Quests" subtitle="Daily + weekly challenges." />
+        <MenuButton href="/battlepass" title="Battle Pass" subtitle="Seasonal track rewards." />
         <MenuButton
           href="/menu"
           title="Multiplayer"
           subtitle="Coming in Phase 4-G."
-          disabled
-        />
-        <MenuButton
-          href="/menu"
-          title="Settings"
-          subtitle="Audio, graphics, account."
           disabled
         />
       </nav>
