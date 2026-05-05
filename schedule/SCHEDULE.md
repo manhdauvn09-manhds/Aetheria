@@ -10,7 +10,7 @@
 | 1 | Game scenario + guideline (md+pdf)         | ✅     | 100| name=Aetheria, guideline + lore done             |
 | 2 | Architecture / Tech-stack / DB design      | ✅     | 100| 5 docs (arch, stack, db, fn, flows) + 5 PDFs     |
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
-| 4 | Coding (sub-schedule below)                | 🟨     | 57 | 4.1–4.36 done; web screens (Roster/Skill tree/Quest HUD/Battle Pass) wired against existing tRPC surfaces |
+| 4 | Coding (sub-schedule below)                | 🟨     | 58 | 4.1–4.36 done; `domain-social` (moderation rules + profanity + rate-limit + mute helpers, 22 unit tests) |
 | 5 | Code review                                | ⬜     | 0  |                                                  |
 | 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |
