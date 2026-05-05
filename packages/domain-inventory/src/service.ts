@@ -16,6 +16,7 @@
 // the UserCharacter.equippedSkinId mutation alongside the rest of roster.
 
 import { audit } from "@aetheria/core";
+import { events } from "@aetheria/domain-events";
 import { AppError } from "@aetheria/schema-api";
 import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
 
@@ -459,6 +460,13 @@ export class InventoryService {
       },
       ip: input.ip ?? null,
       userAgent: input.userAgent ?? null,
+    });
+
+    await events.emit("ItemCrafted", {
+      userId: userId.toString(),
+      outputItemId: outputItemId.toString(),
+      outputQuantity: recipe.outputQuantity,
+      inputs: recipe.inputs.map((i) => ({ itemId: i.itemId, quantity: i.quantity })),
     });
 
     return {

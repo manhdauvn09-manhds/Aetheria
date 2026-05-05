@@ -1,0 +1,30 @@
+{
+  "name": "@aetheria/domain-events",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aetheria in-process domain event bus — LeveledUp, EnemyDefeated, LevelCompleted, ItemCrafted, RunFinished.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".":      { "types": "./src/index.ts",  "default": "./src/index.ts" },
+    "./bus":  { "types": "./src/bus.ts",    "default": "./src/bus.ts" },
+    "./types":{ "types": "./src/types.ts",  "default": "./src/types.ts" }
+  },
+  "files": ["src"],
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "vitest run",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "@types/node":      "^22.9.0",
+    "rimraf":           "^6.0.1",
+    "typescript":       "^5.6.3",
+    "vitest":           "^2.1.8"
+  }
+}

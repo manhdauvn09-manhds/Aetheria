@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@aetheria/core":         "workspace:*",
+    "@aetheria/domain-events":"workspace:*",
     "@aetheria/schema-api":   "workspace:*",
     "@aetheria/schema-db":    "workspace:*",
     "@aetheria/shared-types": "workspace:*",
