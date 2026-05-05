@@ -1,0 +1,36 @@
+{
+  "name": "@aetheria/realtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aetheria realtime gateway — Socket.IO + Redis adapter + sticky-session helper. Chat fan-out wires in 4.41.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev":       "tsx watch src/index.ts",
+    "start":     "node dist/index.js",
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "vitest run",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@aetheria/schema-api":             "workspace:*",
+    "@aetheria/shared-types":           "workspace:*",
+    "@socket.io/redis-adapter":         "^8.3.0",
+    "ioredis":                          "^5.4.1",
+    "jose":                             "^5.9.6",
+    "pino":                             "^9.5.0",
+    "pino-pretty":                      "^11.3.0",
+    "socket.io":                        "^4.8.1",
+    "zod":                              "^3.23.8"
+  },
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "@types/node":      "^22.9.0",
+    "rimraf":           "^6.0.1",
+    "tsx":              "^4.19.2",
+    "typescript":       "^5.6.3",
+    "vitest":           "^2.1.8"
+  }
+}
