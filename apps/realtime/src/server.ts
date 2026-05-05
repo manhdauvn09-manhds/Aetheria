@@ -17,7 +17,9 @@ import pino, { type Logger } from "pino";
 import { Server as IoServer } from "socket.io";
 
 import { buildAuthMiddleware } from "./auth.js";
+import { attachChatBus, type ChatBusSubscriber } from "./chatBus.js";
 import type { Env } from "./env.js";
+import { channelRoom, type ChannelType } from "./rooms.js";
 import { shardForUser, STICKY_COOKIE_NAME } from "./sticky.js";
 
 export interface RealtimeBundle {
@@ -74,13 +76,17 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
 
   let pubClient: Redis | null = null;
   let subClient: Redis | null = null;
+  let chatBusSub: Redis | null = null;
+  let chatBus: ChatBusSubscriber | null = null;
   if (env.REDIS_URL) {
     pubClient = new Redis(env.REDIS_URL);
     subClient = pubClient.duplicate();
+    chatBusSub = pubClient.duplicate();
     io.adapter(createAdapter(pubClient, subClient));
-    log.info("redis adapter attached");
+    chatBus = attachChatBus(io, chatBusSub, log);
+    log.info("redis adapter + chat bus attached");
   } else {
-    log.warn("REDIS_URL not set — running single-instance (no cross-process pub/sub)");
+    log.warn("REDIS_URL not set — running single-instance (no cross-process chat bus)");
   }
 
   io.use(
@@ -94,13 +100,31 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
   io.on("connection", (socket) => {
     const userId = socket.auth?.userId ?? "?";
     void socket.join(`user:${userId}`);
+    void socket.join("channel:global");
     log.debug({ userId, socketId: socket.id }, "socket connected");
+
+    // Client-driven join/leave for guild + party rooms. Whisper rooms
+    // are derived from `user:<id>` and never joined explicitly. Guild
+    // membership is enforced upstream at api send-time; clients can
+    // only join rooms they already know about.
+    socket.on("chat:join", (payload: unknown) => {
+      const room = parseRoomPayload(payload);
+      if (!room) return;
+      void socket.join(room);
+    });
+    socket.on("chat:leave", (payload: unknown) => {
+      const room = parseRoomPayload(payload);
+      if (!room) return;
+      void socket.leave(room);
+    });
+
     socket.on("disconnect", (reason) => {
       log.debug({ userId, socketId: socket.id, reason }, "socket disconnected");
     });
   });
 
   const close = async (): Promise<void> => {
+    if (chatBus) await chatBus.close();
     await new Promise<void>((resolve) => {
       void io.close(() => {
         resolve();
@@ -108,6 +132,7 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
     });
     if (pubClient) await pubClient.quit();
     if (subClient) await subClient.quit();
+    chatBusSub = null; // already closed via chatBus.close()
     await new Promise<void>((resolve) => {
       http.close(() => {
         resolve();
@@ -116,4 +141,17 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
   };
 
   return { http, io, log, close };
+};
+
+const isChannelType = (s: unknown): s is ChannelType =>
+  s === "global" || s === "guild" || s === "party" || s === "whisper";
+
+const parseRoomPayload = (payload: unknown): string | null => {
+  if (payload === null || typeof payload !== "object") return null;
+  const r = payload as Record<string, unknown>;
+  if (!isChannelType(r.channelType)) return null;
+  if (r.channelType === "global") return "channel:global";
+  if (r.channelType === "whisper") return null; // never explicit-join
+  if (typeof r.channelId !== "string" || !/^\d+$/.test(r.channelId)) return null;
+  return channelRoom(r.channelType, r.channelId);
 };

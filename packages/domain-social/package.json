@@ -17,7 +17,8 @@
     "./friends/router": { "types": "./src/friends/router.ts",         "default": "./src/friends/router.ts" },
     "./friends/rules":  { "types": "./src/friends/rules.ts",          "default": "./src/friends/rules.ts" },
     "./chat":           { "types": "./src/chat/service.ts",           "default": "./src/chat/service.ts" },
-    "./chat/router":    { "types": "./src/chat/router.ts",            "default": "./src/chat/router.ts" }
+    "./chat/router":    { "types": "./src/chat/router.ts",            "default": "./src/chat/router.ts" },
+    "./chat/publisher": { "types": "./src/chat/publisher.ts",         "default": "./src/chat/publisher.ts" }
   },
   "files": ["src"],
   "scripts": {
@@ -32,6 +33,7 @@
     "@aetheria/schema-api":   "workspace:*",
     "@aetheria/schema-db":    "workspace:*",
     "@aetheria/shared-types": "workspace:*",
+    "ioredis":                "^5.4.1",
     "zod":                    "^3.23.8"
   },
   "devDependencies": {

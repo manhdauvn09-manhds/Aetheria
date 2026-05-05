@@ -15,6 +15,7 @@
     "clean":     "rimraf dist .turbo"
   },
   "dependencies": {
+    "@aetheria/domain-social":          "workspace:*",
     "@aetheria/schema-api":             "workspace:*",
     "@aetheria/shared-types":           "workspace:*",
     "@socket.io/redis-adapter":         "^8.3.0",

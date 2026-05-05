@@ -17,6 +17,7 @@ import {
 } from "../rules.js";
 import type { ChannelType } from "../types.js";
 
+import { toBusMessage, type RealtimePublisher } from "./publisher.js";
 import type {
   ChatMessageRow,
   HistoryChatInput,
@@ -35,6 +36,8 @@ export interface ChatDeps {
   readonly clock?: () => Date;
   /** Optional override for the default profanity list. */
   readonly profanityList?: readonly string[];
+  /** Optional realtime fan-out. When set, every accepted send is published. */
+  readonly publisher?: RealtimePublisher;
 }
 
 const HISTORY_DEFAULT = 50;
@@ -61,11 +64,13 @@ export class ChatService {
   private readonly mysql: ChatMysqlClient;
   private readonly clock: () => Date;
   private readonly profanityList: readonly string[] | undefined;
+  private readonly publisher: RealtimePublisher | undefined;
 
   constructor(deps: ChatDeps) {
     this.mysql = deps.mysql;
     this.clock = deps.clock ?? ((): Date => new Date());
     this.profanityList = deps.profanityList;
+    this.publisher = deps.publisher;
   }
 
   async send(input: SendChatInput): Promise<ChatMessageRow> {
@@ -144,7 +149,15 @@ export class ChatService {
       });
     }
 
-    return this.toRow(created);
+    const row = this.toRow(created);
+
+    // 7. Realtime fan-out (optional). Failures swallowed by the publisher
+    // so a flaky bus never breaks the durable write path.
+    if (this.publisher) {
+      await this.publisher.publish(toBusMessage(row));
+    }
+
+    return row;
   }
 
   async history(input: HistoryChatInput): Promise<readonly ChatMessageRow[]> {

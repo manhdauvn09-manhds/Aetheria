@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
+import { Redis } from "ioredis";
 
 import { AccountService } from "@aetheria/domain-account";
 import { BattlePassService } from "@aetheria/domain-battlepass";
@@ -14,7 +15,12 @@ import { InventoryService } from "@aetheria/domain-inventory";
 import { QuestService } from "@aetheria/domain-quests";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
-import { ChatService, FriendsService, GuildService } from "@aetheria/domain-social";
+import {
+  ChatService,
+  FriendsService,
+  GuildService,
+  redisChatPublisher,
+} from "@aetheria/domain-social";
 import { SyncService } from "@aetheria/domain-sync";
 import { WorldService } from "@aetheria/domain-world";
 import { mysql } from "@aetheria/schema-db/mysql";
@@ -60,7 +66,19 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const battlePassService = new BattlePassService({ mysql });
   const guildService = new GuildService({ mysql });
   const friendsService = new FriendsService({ mysql });
-  const chatService = new ChatService({ mysql });
+
+  // Realtime fan-out is opt-in: when REDIS_URL is set, ChatService
+  // publishes each accepted send to the bus that apps/realtime
+  // subscribes to. Without Redis the writes are still durable but
+  // clients only see them via the next history poll.
+  const chatRedis = env.REDIS_URL ? new Redis(env.REDIS_URL) : null;
+  const chatPublisher = chatRedis
+    ? redisChatPublisher(chatRedis, { warn: (o, m): void => app.log.warn(o, m) })
+    : undefined;
+  const chatService = new ChatService({
+    mysql,
+    ...(chatPublisher ? { publisher: chatPublisher } : {}),
+  });
   // Wire bus subscriptions on boot; tear them down on close so the
   // singleton bus doesn't leak handlers across hot reloads.
   const questUnsubscribes = questService.start();
@@ -84,6 +102,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   app.addHook("onClose", async () => {
     for (const off of questUnsubscribes) off();
     for (const off of bpUnsubscribes) off();
+    if (chatRedis) await chatRedis.quit();
     if (auth.redis) await auth.redis.quit();
   });
 

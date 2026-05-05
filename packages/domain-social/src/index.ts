@@ -105,3 +105,11 @@ export type {
   HistoryChatInput,
   ReportChatInput,
 } from "./chat/types.js";
+
+export {
+  REDIS_CHAT_CHANNEL,
+  toBusMessage,
+  redisChatPublisher,
+  type ChatBusMessage,
+  type RealtimePublisher,
+} from "./chat/publisher.js";

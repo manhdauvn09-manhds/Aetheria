@@ -132,6 +132,9 @@ importers:
 
   apps/realtime:
     dependencies:
+      '@aetheria/domain-social':
+        specifier: workspace:*
+        version: link:../../packages/domain-social
       '@aetheria/schema-api':
         specifier: workspace:*
         version: link:../../packages/schema-api
@@ -679,6 +682,9 @@ importers:
       '@aetheria/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      ioredis:
+        specifier: ^5.4.1
+        version: 5.10.1
       zod:
         specifier: ^3.23.8
         version: 3.25.76
