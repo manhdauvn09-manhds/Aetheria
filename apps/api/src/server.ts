@@ -12,6 +12,7 @@ import { AccountService } from "@aetheria/domain-account";
 import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
+import { PvpMatchmakingService } from "@aetheria/domain-pvp";
 import { QuestService } from "@aetheria/domain-quests";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
@@ -24,6 +25,8 @@ import {
 import { SyncService } from "@aetheria/domain-sync";
 import { WorldService } from "@aetheria/domain-world";
 import { mysql } from "@aetheria/schema-db/mysql";
+
+import { noopRedis } from "./pvp/noopRedis.js";
 
 import { buildAuth } from "./auth/build.js";
 import { buildContextFactory } from "./context.js";
@@ -79,6 +82,16 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     mysql,
     ...(chatPublisher ? { publisher: chatPublisher } : {}),
   });
+
+  // PvP matchmaking: Redis-backed queue + matcher loop. Without
+  // REDIS_URL we wire a no-op redis stub so the API still boots; the
+  // queue endpoints will reply but no matches will be made.
+  const pvpRedis = env.REDIS_URL ? new Redis(env.REDIS_URL) : null;
+  const pvpService = new PvpMatchmakingService({
+    redis: pvpRedis ?? noopRedis,
+    mysql,
+  });
+  const stopPvp = pvpRedis ? pvpService.start() : (): void => undefined;
   // Wire bus subscriptions on boot; tear them down on close so the
   // singleton bus doesn't leak handlers across hot reloads.
   const questUnsubscribes = questService.start();
@@ -97,12 +110,15 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     guildService,
     friendsService,
     chatService,
+    pvpService,
   });
 
   app.addHook("onClose", async () => {
     for (const off of questUnsubscribes) off();
     for (const off of bpUnsubscribes) off();
+    stopPvp();
     if (chatRedis) await chatRedis.quit();
+    if (pvpRedis) await pvpRedis.quit();
     if (auth.redis) await auth.redis.quit();
   });
 

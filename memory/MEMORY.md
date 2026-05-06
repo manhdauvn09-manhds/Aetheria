@@ -619,7 +619,22 @@ games/Aetheria/
     - **Dep**: `apps/web/package.json` adds `socket.io-client@^4.8.1`.
     - **Menu** (`apps/web/src/app/menu/page.tsx`): added Guild / Friends / Chat tiles next to Roster / Quests / Battle Pass; "Multiplayer" tile remains as Phase 4-G placeholder.
     - **Smoke** (5 May 2026): `pnpm --filter @aetheria/web typecheck` ✓, `lint` ✓, `build` ✓ (new static routes `/chat`, `/friends`, `/guild`). Repo-wide `pnpm -r typecheck` 23/23 ✓, `pnpm -r lint` 23/23 ✓, `pnpm -r test` **304/304 ✓**.
-46. **NEXT — Phase 4-G (PvP & Leaderboards) — Step 4.43**: Matchmaking — `pvp.queue/cancelQueue` writing to a Redis ZSET; matcher loop with widening bracket. Vertical L, deps 4.40. After that: Glicko-2 MMR (4.45) → Redis ZSET leaderboards (4.46) → ranked queue (4.47) → web (4.48).
+46. **Step 4.43 — PvP matchmaking (Redis ZSET + widening-bracket matcher)** (5 May 2026):
+    - New package `@aetheria/domain-pvp` (rules + service + router). Opens Phase 4-G.
+    - **Queue layout**: Redis ZSET key `aetheria:pvp:q:<mode>:<region>` per scope. Score = MMR. Member = `<userId>:<joinedAtMs>` (`encodeMember` / `decodeMember` round-trip; ZSCORE recovers MMR, member parse recovers wait time). Modes `1v1|3v3`, regions `na|eu|ap`.
+    - **`src/rules.ts`** (pure): `queueKey`, `encodeMember/decodeMember` (rejects malformed), `bracketWidth(elapsedMs, policy=DEFAULT_BRACKET)` linear ramp `initial=50 + 25/s` clamped at `max=1000`, `isPairable(a,b,now)` (delta ≤ max(widthA,widthB), self-pair rejected), `proposeMatches(entries, now)` greedy: sort by `joinedAt` ascending → pick longest-waiting → first compatible partner → mark both used → repeat.
+    - **`PvpMatchmakingService`** (Pick<Redis, "zadd"|"zrem"|"zrange"|"zcard"|"zscore"> + optional `Pick<MysqlClient,"mmr">`):
+      - `queue({userId, mode, region, mmr})` — rejects double-queue across all scopes; ZADD with score=mmr; audit `pvp.queue`.
+      - `cancelQueue` — locates the user's member in the ZSET (by `<userId>:` prefix scan) and ZREM; audit `pvp.cancelQueue`.
+      - `status(userId)` — returns `{ inQueue, mode, region, mmr, joinedAt }`; the router decorates with `bracketWidth` for UI hints.
+      - `resolveMmr(userId, mode)` — reads `mmr` table when wired, else `DEFAULT_MMR=1000`.
+      - `tick(now?)` — for each scope: ZRANGE all → parse → `proposeMatches` → ZREM both members → fire `onMatch` callback (4.44 plug-point).
+      - `start()` — `setInterval(tick, tickMs=1500)`, `unref`'d so process exit isn't blocked; returns an unsubscribe.
+    - **`createPvpRouter`** — `queue`/`cancelQueue`/`status` (all `protectedProcedure`). `queue` calls `resolveMmr` server-side so clients can't lie about their rating.
+    - **Wiring**: `apps/api` builds a separate `pvpRedis = new Redis(env.REDIS_URL)` (kept distinct from chat/auth so quitting one doesn't break the others), mounts `pvp` in app router, calls `pvpService.start()` only when Redis is present, tears down via `stopPvp()` + `pvpRedis.quit()` in onClose. Without REDIS_URL: `apps/api/src/pvp/noopRedis.ts` (a `Pick<PvpRedisClient>` stub returning zero/empty/null) keeps the API booting; queue endpoints reply but no matches happen.
+    - **Tests** — 16 vitest specs in `__tests__/rules.test.ts` (type guards, queueKey, member encode/decode incl. malformed rejection, bracketWidth ramp + clamp + negative-as-zero, isPairable accept/reject/widening/self, proposeMatches empty/greedy/no-partner/no-double-pair).
+    - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 24/24 ✓, `pnpm -r lint` 24/24 ✓, `pnpm -r test` **320/320 ✓** (was 304; +16 from pvp-rules).
+47. **NEXT — Step 4.44**: Match lifecycle — on each `MatchProposal`, create a `pvp_matches` row + 2 `pvp_match_players` rows (mmrBefore snapshot), spawn a realtime room, expose `pvp.match` query for clients to fetch their active match. Plug `onMatch` into the service from apps/api.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:
