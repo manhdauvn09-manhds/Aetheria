@@ -6,12 +6,17 @@
 
 import type { Redis } from "ioredis";
 
-import type { MatchStartEvent, PvpMatchRow } from "./types.js";
+import type { MatchEndEvent, MatchStartEvent, PvpMatchRow } from "./types.js";
 
 export const REDIS_PVP_MATCH_CHANNEL = "aetheria:pvp:match.start";
+export const REDIS_PVP_MATCH_END_CHANNEL = "aetheria:pvp:match.end";
 
 export interface MatchPublisher {
   publish: (evt: MatchStartEvent) => Promise<void>;
+}
+
+export interface MatchEndPublisher {
+  publishEnd: (evt: MatchEndEvent) => Promise<void>;
 }
 
 export const toMatchStartEvent = (row: PvpMatchRow): MatchStartEvent => ({
@@ -31,6 +36,19 @@ export const redisMatchPublisher = (
       await redis.publish(REDIS_PVP_MATCH_CHANNEL, JSON.stringify(evt));
     } catch (e) {
       log?.warn({ err: e, matchId: evt.matchId }, "pvp match publish failed");
+    }
+  },
+});
+
+export const redisMatchEndPublisher = (
+  redis: Redis,
+  log?: { warn: (obj: unknown, msg?: string) => void },
+): MatchEndPublisher => ({
+  publishEnd: async (evt): Promise<void> => {
+    try {
+      await redis.publish(REDIS_PVP_MATCH_END_CHANNEL, JSON.stringify(evt));
+    } catch (e) {
+      log?.warn({ err: e, matchId: evt.matchId }, "pvp match-end publish failed");
     }
   },
 });

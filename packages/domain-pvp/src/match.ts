@@ -129,6 +129,76 @@ export class PvpMatchService {
     return row;
   }
 
+  /**
+   * Mark a match as `completed` with `winnerUserId`. Updates `pvpMatch`
+   * + each `pvpMatchPlayer.result`. mmrAfter is left untouched here —
+   * 4.46 (Glicko-2) is responsible for that.
+   */
+  async complete(
+    matchId: bigint,
+    winnerUserId: bigint | null,
+    reason: "completed" | "forfeit" | "timeout" = "completed",
+  ): Promise<PvpMatchRow> {
+    const m = await this.mysql.pvpMatch.findUnique({
+      where: { id: matchId },
+      include: { players: true },
+    });
+    if (!m) throw AppError.notFound("pvpMatch", matchId);
+    if (m.status !== "active") {
+      throw AppError.conflict("Match already finalised", { status: m.status });
+    }
+
+    const endedAt = new Date();
+    await this.mysql.$transaction(async (tx) => {
+      await tx.pvpMatch.update({
+        where: { id: matchId },
+        data: {
+          status: reason === "forfeit" ? "abandoned" : "completed",
+          endedAt,
+          winnerUserId,
+        },
+      });
+      for (const p of m.players) {
+        const result: PvpMatchResult =
+          winnerUserId === null
+            ? "draw"
+            : p.userId === winnerUserId
+              ? "win"
+              : "loss";
+        await tx.pvpMatchPlayer.update({
+          where: { matchId_userId: { matchId, userId: p.userId } },
+          data: { result },
+        });
+      }
+    });
+
+    await audit.write({
+      actor: winnerUserId ?? m.players[0]?.userId ?? 0n,
+      action: `pvp.match.${reason}`,
+      targetType: "pvpMatch",
+      targetId: matchId,
+      payload: {
+        winnerUserId: winnerUserId === null ? null : winnerUserId.toString(),
+        reason,
+      },
+      ip: null,
+      userAgent: null,
+    });
+
+    return this.get(matchId, m.players[0]?.userId ?? 0n);
+  }
+
+  /** Forfeit shorthand. The non-forfeiter wins. */
+  async forfeit(matchId: bigint, forfeiterUserId: bigint): Promise<PvpMatchRow> {
+    const m = await this.mysql.pvpMatch.findUnique({
+      where: { id: matchId },
+      include: { players: { select: { userId: true } } },
+    });
+    if (!m) throw AppError.notFound("pvpMatch", matchId);
+    const winner = m.players.find((p) => p.userId !== forfeiterUserId)?.userId ?? null;
+    return this.complete(matchId, winner, "forfeit");
+  }
+
   /** Active match for `userId`, or null when not currently in one. */
   async activeMatchFor(userId: bigint): Promise<PvpMatchRow | null> {
     const player = await this.mysql.pvpMatchPlayer.findFirst({

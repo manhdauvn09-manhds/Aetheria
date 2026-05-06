@@ -30,6 +30,7 @@ import { SyncService } from "@aetheria/domain-sync";
 import { WorldService } from "@aetheria/domain-world";
 import { mysql } from "@aetheria/schema-db/mysql";
 
+import { attachMatchEndConsumer } from "./pvp/matchEndConsumer.js";
 import { noopRedis } from "./pvp/noopRedis.js";
 
 import { buildAuth } from "./auth/build.js";
@@ -110,6 +111,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
       ),
   });
   const stopPvp = pvpRedis ? pvpService.start() : (): void => undefined;
+  // match-end subscriber: realtime publishes match results, api persists them.
+  const matchEndSub = pvpRedis ? pvpRedis.duplicate() : null;
+  const matchEndConsumer = matchEndSub
+    ? attachMatchEndConsumer(matchEndSub, matchService, app.log)
+    : null;
   // Wire bus subscriptions on boot; tear them down on close so the
   // singleton bus doesn't leak handlers across hot reloads.
   const questUnsubscribes = questService.start();
@@ -136,6 +142,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     for (const off of questUnsubscribes) off();
     for (const off of bpUnsubscribes) off();
     stopPvp();
+    if (matchEndConsumer) await matchEndConsumer.close();
     if (chatRedis) await chatRedis.quit();
     if (pvpRedis) await pvpRedis.quit();
     if (auth.redis) await auth.redis.quit();

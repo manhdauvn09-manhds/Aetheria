@@ -135,6 +135,9 @@ importers:
 
   apps/realtime:
     dependencies:
+      '@aetheria/domain-pvp':
+        specifier: workspace:*
+        version: link:../../packages/domain-pvp
       '@aetheria/domain-social':
         specifier: workspace:*
         version: link:../../packages/domain-social

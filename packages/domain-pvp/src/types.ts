@@ -98,3 +98,15 @@ export interface MatchStartEvent {
   readonly players: readonly string[];
   readonly startedAt: string;
 }
+
+export type MatchEndReason = "completed" | "forfeit" | "timeout";
+
+export interface MatchEndEvent {
+  readonly matchId: string;
+  readonly reason: MatchEndReason;
+  /** Winner is null on draws and on forfeits where no winner is declared. */
+  readonly winnerUserId: string | null;
+  /** Loser when applicable (forfeit: the forfeiter). */
+  readonly loserUserId: string | null;
+  readonly endedAt: string;
+}

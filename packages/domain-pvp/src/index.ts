@@ -14,9 +14,12 @@ export {
 
 export {
   REDIS_PVP_MATCH_CHANNEL,
+  REDIS_PVP_MATCH_END_CHANNEL,
   toMatchStartEvent,
   redisMatchPublisher,
+  redisMatchEndPublisher,
   type MatchPublisher,
+  type MatchEndPublisher,
 } from "./publisher.js";
 
 export {
@@ -39,6 +42,8 @@ export {
   DEFAULT_BRACKET,
   type BracketPolicy,
   type CancelQueueInput,
+  type MatchEndEvent,
+  type MatchEndReason,
   type MatchProposal,
   type MatchStartEvent,
   type PvpMatchPlayerRow,

@@ -106,7 +106,7 @@
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
 | 4.43 | Matchmaking: `pvp.queue/cancelQueue` writing to Redis ZSET; matcher loop with widening bracket | vertical | L | 4.40 | ✅ |
 | 4.44 | Match lifecycle: `pvp_matches` row on found, room creation, `pvp.match` query              | vertical | M | 4.43, 4.27 | ✅ |
-| 4.45 | Realtime PvP turns: action validation via `domain-combat`, event broadcast, forfeit on heartbeat miss | vertical | L | 4.44 | ⬜ |
+| 4.45 | Realtime PvP turns: action validation via `domain-combat`, event broadcast, forfeit on heartbeat miss | vertical | L | 4.44 | ✅ |
 | 4.46 | MMR (Glicko-2): `mmr.get/update`; post-match write to `mmr` table + `pvp_match_players`    | vertical | M | 4.45 | ⬜ |
 | 4.47 | Leaderboards: `lb.recordResult` → Redis ZSET `lb:{mode}:{season_id}`; `lb.top/aroundUser`   | vertical | M | 4.46 | ⬜ |
 | 4.48 | Web: PvP queue UI, in-match HUD, post-match summary, leaderboard screen                    | vertical | L | 4.45, 4.47 | ⬜ |

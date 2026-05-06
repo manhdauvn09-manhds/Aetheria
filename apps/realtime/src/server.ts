@@ -19,6 +19,7 @@ import { Server as IoServer } from "socket.io";
 import { buildAuthMiddleware } from "./auth.js";
 import { attachChatBus, type ChatBusSubscriber } from "./chatBus.js";
 import type { Env } from "./env.js";
+import { attachPvpMatches, type PvpMatchesRuntime } from "./pvpMatches.js";
 import { channelRoom, type ChannelType } from "./rooms.js";
 import { shardForUser, STICKY_COOKIE_NAME } from "./sticky.js";
 
@@ -78,15 +79,21 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
   let subClient: Redis | null = null;
   let chatBusSub: Redis | null = null;
   let chatBus: ChatBusSubscriber | null = null;
+  let pvpMatchSub: Redis | null = null;
+  let pvpEndPub: Redis | null = null;
+  let pvpMatches: PvpMatchesRuntime | null = null;
   if (env.REDIS_URL) {
     pubClient = new Redis(env.REDIS_URL);
     subClient = pubClient.duplicate();
     chatBusSub = pubClient.duplicate();
+    pvpMatchSub = pubClient.duplicate();
+    pvpEndPub = pubClient.duplicate();
     io.adapter(createAdapter(pubClient, subClient));
     chatBus = attachChatBus(io, chatBusSub, log);
-    log.info("redis adapter + chat bus attached");
+    pvpMatches = attachPvpMatches(io, pvpMatchSub, pvpEndPub, log);
+    log.info("redis adapter + chat bus + pvp matches attached");
   } else {
-    log.warn("REDIS_URL not set — running single-instance (no cross-process chat bus)");
+    log.warn("REDIS_URL not set — running single-instance (no cross-process chat/pvp bus)");
   }
 
   io.use(
@@ -125,6 +132,7 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
 
   const close = async (): Promise<void> => {
     if (chatBus) await chatBus.close();
+    if (pvpMatches) await pvpMatches.close();
     await new Promise<void>((resolve) => {
       void io.close(() => {
         resolve();
@@ -132,7 +140,9 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
     });
     if (pubClient) await pubClient.quit();
     if (subClient) await subClient.quit();
+    if (pvpEndPub) await pvpEndPub.quit();
     chatBusSub = null; // already closed via chatBus.close()
+    pvpMatchSub = null; // already closed via pvpMatches.close()
     await new Promise<void>((resolve) => {
       http.close(() => {
         resolve();
