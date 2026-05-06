@@ -252,10 +252,13 @@ export class ShopService {
           await txw.inventory.update({ where: { id: inv.id }, data: { quantity: next } });
         }
       }
-      await txw.transaction.update({
-        where: { id: tx.id },
+      // Idempotency guard (B12): only flip to "refunded" if still "completed".
+      // A concurrent refund request would see count=0 and be rejected.
+      const { count } = await txw.transaction.updateMany({
+        where: { id: tx.id, status: "completed" },
         data: { status: "refunded" },
       });
+      if (count === 0) throw AppError.conflict("Transaction already refunded");
       return balanceOf(updated, currency);
     });
 

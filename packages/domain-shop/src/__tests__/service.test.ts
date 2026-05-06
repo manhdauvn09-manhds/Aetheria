@@ -14,7 +14,7 @@ interface TxMock {
   profile:     { update: ReturnType<typeof vi.fn> };
   shopItem:    { update: ReturnType<typeof vi.fn> };
   inventory:   { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
-  transaction: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  transaction: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; updateMany: ReturnType<typeof vi.fn> };
 }
 
 function makeDeps() {
@@ -28,8 +28,9 @@ function makeDeps() {
       delete:     vi.fn().mockResolvedValue(undefined),
     },
     transaction: {
-      create: vi.fn().mockResolvedValue({ id: 42n }),
-      update: vi.fn().mockResolvedValue(undefined),
+      create:     vi.fn().mockResolvedValue({ id: 42n }),
+      update:     vi.fn().mockResolvedValue(undefined),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
   };
   const mysql = {
@@ -216,7 +217,7 @@ describe("ShopService.refund", () => {
     expect(tx.inventory.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { quantity: 2 } }), // 5 - 3 = 2
     );
-    expect(tx.transaction.update).toHaveBeenCalledWith(
+    expect(tx.transaction.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: "refunded" } }),
     );
   });
