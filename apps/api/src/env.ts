@@ -17,8 +17,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX:        z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS:  z.coerce.number().int().positive().default(60_000),
 
-  JWT_SECRET:         z.string().min(32, "JWT_SECRET must be ≥32 bytes"),
-  JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be ≥32 bytes"),
+  JWT_SECRET:         z.string().min(32, "JWT_SECRET must be ≥32 bytes").max(512, "JWT_SECRET must be ≤512 bytes"),
+  JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be ≥32 bytes").max(512, "JWT_REFRESH_SECRET must be ≤512 bytes"),
   JWT_ISSUER:   z.string().default("aetheria"),
   JWT_AUDIENCE: z.string().default("aetheria-web"),
 

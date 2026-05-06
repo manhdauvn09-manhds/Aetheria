@@ -17,7 +17,7 @@ const envSchema = z.object({
     .default("http://localhost:3001")
     .transform((s) => s.split(",").map((o) => o.trim()).filter((o) => o.length > 0)),
 
-  JWT_SECRET:   z.string().min(32, "JWT_SECRET must be ≥32 bytes"),
+  JWT_SECRET:   z.string().min(32, "JWT_SECRET must be ≥32 bytes").max(512, "JWT_SECRET must be ≤512 bytes"),
   JWT_ISSUER:   z.string().default("aetheria"),
   JWT_AUDIENCE: z.string().default("aetheria-web"),
 

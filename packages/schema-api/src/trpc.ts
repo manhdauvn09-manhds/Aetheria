@@ -41,6 +41,11 @@ const t = initTRPC.context<BaseContext>().create({
         data: { ...shape.data, app: cause.toJSON() },
       };
     }
+    // Strip internal stack traces in production so they never reach clients.
+    // tRPC omits them by default, but we enforce it explicitly here.
+    if (process.env.NODE_ENV === "production") {
+      return { ...shape, data: { ...shape.data, stack: undefined } };
+    }
     return shape;
   },
 });
