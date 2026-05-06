@@ -759,7 +759,15 @@ games/Aetheria/
     - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 30/30 ✓, `pnpm -r lint` 30/30 ✓, `pnpm -r test` **388/388 ✓** (no new tests — 4-K is config + harness).
     - **Phase 4-K closed**: 4.64 → 4.65 → 4.66.
     - **Step 4 closed**: 65 sub-tasks done across 11 phases. Single-player MVP playable end-to-end; realtime + ranked PvP wired; production deploy is a manifest-only dry-run.
-60. **NEXT — Step 5 (Code review)**: per `schedule/SCHEDULE.md` row 5. Reviewer focus pre-listed in `CHANGELOG.md`. Step 6 (UT + IT) and Step 7 (quality gate) follow.
+60. **Step 5 — self-review** (5 May 2026):
+    - 17 findings written to `buglist/REVIEW.md`. Severity split: 3 critical / 4 high / 6 medium / 4 low.
+    - **Critical**: R3 MMR update outside match-complete transaction (`domain-pvp/src/match.ts:199`); R7 PvP queue double-queue race (`domain-pvp/src/service.ts:92`); R1 shop refund quantity always 1 (`domain-shop/src/service.ts:245`).
+    - **High**: R2 quest progress loop missing `$transaction`; R11–R12 `domain-shop` + `domain-admin` zero tests.
+    - **Medium**: R4 guild promote uniform tx; R5 guild invite TOCTOU; R6 admin replay actor filter; R8–R9 realtime deadline race + state-map leak; R13–R14 combat-runtime + auth tests missing.
+    - **Low**: R10 matcher read-then-remove gap; R15–R17 sync/world/save tests missing.
+    - **Audit trail**: clean — no mutation skipped `audit.write` in the scan.
+    - Bug counter `Review = 17` recorded in `schedule/SCHEDULE.md`. Fixes deferred to Step 6 (UT + IT) per the recommended fix order in `REVIEW.md`.
+61. **NEXT — Step 6 (UT + IT)**: implement the fixes in REVIEW.md order (R3 → R7 → R1 → R2 → R8/R9 → R4) and add the missing test suites (R11–R14). Step 7 quality gate blocks until `Review = 0`.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

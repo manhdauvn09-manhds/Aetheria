@@ -11,7 +11,7 @@
 | 2 | Architecture / Tech-stack / DB design      | ✅     | 100| 5 docs (arch, stack, db, fn, flows) + 5 PDFs     |
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
 | 4 | Coding (sub-schedule below)                | ✅     | 100| 4.1–4.66 done. Step 4 closed — see `CHANGELOG.md` for phase rollup + Step 5 follow-ups. |
-| 5 | Code review                                | ⬜     | 0  |                                                  |
+| 5 | Code review                                | ✅     | 100| Self-review pass; 17 findings (3 crit / 4 high / 6 med / 4 low) → `buglist/REVIEW.md`. Fixes deferred to Step 6. |
 | 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |
 
@@ -67,7 +67,7 @@ Critical path (≈22 tasks) gets us to a single-player playable demo:
 Full task list, dependencies, sizes, and deliverables live in `schedule/STEP4_SUB_SCHEDULE.md`.
 
 ## Bug counters (rolling)
-- Review:     0
+- Review:     17
 - UT:         0
 - IT:         0
 - QualityGate: 0
