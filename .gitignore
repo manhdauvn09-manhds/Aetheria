@@ -52,3 +52,44 @@ Thumbs.db
 .eslintcache
 .prettiercache
 .parcel-cache
+
+# secrets / credentials (never commit)
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+secrets/
+credentials/
+private/
+*.gpg
+*.asc
+auth.json
+service-account*.json
+
+# backup / temp / swap
+*.bak
+*.backup
+*.orig
+*.tmp
+*.swp
+*.swo
+*~
+
+# crash / dump
+*.dmp
+core.*
+crash.log
+
+# test artifacts (local)
+test-results/
+playwright-report/
+playwright/.cache/
+
+# local override files
+*.local
+local.json
+local.yaml
+local.yml
