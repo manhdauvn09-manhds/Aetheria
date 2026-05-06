@@ -7,6 +7,19 @@ export {
 } from "./service.js";
 
 export {
+  PvpMatchService,
+  type MatchDeps,
+  type MatchMysqlClient,
+} from "./match.js";
+
+export {
+  REDIS_PVP_MATCH_CHANNEL,
+  toMatchStartEvent,
+  redisMatchPublisher,
+  type MatchPublisher,
+} from "./publisher.js";
+
+export {
   createPvpRouter,
   type PvpRouter,
 } from "./router.js";
@@ -27,6 +40,11 @@ export {
   type BracketPolicy,
   type CancelQueueInput,
   type MatchProposal,
+  type MatchStartEvent,
+  type PvpMatchPlayerRow,
+  type PvpMatchResult,
+  type PvpMatchRow,
+  type PvpMatchStatus,
   type PvpMode,
   type PvpRegion,
   type QueueEntry,

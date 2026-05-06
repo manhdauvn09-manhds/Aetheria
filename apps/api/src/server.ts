@@ -12,7 +12,11 @@ import { AccountService } from "@aetheria/domain-account";
 import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
-import { PvpMatchmakingService } from "@aetheria/domain-pvp";
+import {
+  PvpMatchmakingService,
+  PvpMatchService,
+  redisMatchPublisher,
+} from "@aetheria/domain-pvp";
 import { QuestService } from "@aetheria/domain-quests";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
@@ -87,9 +91,23 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   // REDIS_URL we wire a no-op redis stub so the API still boots; the
   // queue endpoints will reply but no matches will be made.
   const pvpRedis = env.REDIS_URL ? new Redis(env.REDIS_URL) : null;
+  const matchPublisher = pvpRedis
+    ? redisMatchPublisher(pvpRedis, { warn: (o, m): void => app.log.warn(o, m) })
+    : undefined;
+  const matchService = new PvpMatchService({
+    mysql,
+    ...(matchPublisher ? { publisher: matchPublisher } : {}),
+  });
   const pvpService = new PvpMatchmakingService({
     redis: pvpRedis ?? noopRedis,
     mysql,
+    onMatch: (proposal): Promise<void> =>
+      matchService.createFromProposal(proposal).then(
+        () => undefined,
+        (e: unknown) => {
+          app.log.error({ err: e }, "pvp match creation failed");
+        },
+      ),
   });
   const stopPvp = pvpRedis ? pvpService.start() : (): void => undefined;
   // Wire bus subscriptions on boot; tear them down on close so the
@@ -111,6 +129,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     friendsService,
     chatService,
     pvpService,
+    pvpMatchService: matchService,
   });
 
   app.addHook("onClose", async () => {

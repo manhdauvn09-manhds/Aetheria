@@ -63,3 +63,38 @@ export interface QueueStatus {
   readonly mmr: number | null;
   readonly joinedAt: Date | null;
 }
+
+// ────────────────────────────────────────────────────────────────────
+// Match lifecycle (4.44)
+// ────────────────────────────────────────────────────────────────────
+
+export type PvpMatchStatus = "active" | "completed" | "abandoned";
+export type PvpMatchResult = "win" | "loss" | "draw";
+
+export interface PvpMatchPlayerRow {
+  readonly userId: bigint;
+  readonly lineup: readonly string[];
+  readonly score: number;
+  readonly mmrBefore: number;
+  readonly mmrAfter: number;
+  readonly result: PvpMatchResult;
+}
+
+export interface PvpMatchRow {
+  readonly matchId: bigint;
+  readonly mode: PvpMode;
+  readonly region: PvpRegion;
+  readonly status: PvpMatchStatus;
+  readonly startedAt: Date;
+  readonly endedAt: Date | null;
+  readonly winnerUserId: bigint | null;
+  readonly players: readonly PvpMatchPlayerRow[];
+}
+
+export interface MatchStartEvent {
+  readonly matchId: string;
+  readonly mode: PvpMode;
+  readonly region: PvpRegion;
+  readonly players: readonly string[];
+  readonly startedAt: string;
+}

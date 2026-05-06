@@ -10,7 +10,7 @@
 | 1 | Game scenario + guideline (md+pdf)         | ✅     | 100| name=Aetheria, guideline + lore done             |
 | 2 | Architecture / Tech-stack / DB design      | ✅     | 100| 5 docs (arch, stack, db, fn, flows) + 5 PDFs     |
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
-| 4 | Coding (sub-schedule below)                | 🟨     | 72 | 4.1–4.43 done; PvP matchmaking — Redis ZSET queue + widening-bracket matcher loop (`domain-pvp`) |
+| 4 | Coding (sub-schedule below)                | 🟨     | 73 | 4.1–4.44 done; PvP match lifecycle — `pvp_matches` row on found + match-start redis event + `pvp.match`/`activeMatch` queries |
 | 5 | Code review                                | ⬜     | 0  |                                                  |
 | 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |

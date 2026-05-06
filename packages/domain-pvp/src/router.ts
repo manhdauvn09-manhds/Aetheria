@@ -11,6 +11,7 @@ import {
   router,
 } from "@aetheria/schema-api/trpc";
 
+import type { PvpMatchService } from "./match.js";
 import type { PvpMatchmakingService } from "./service.js";
 
 const modeSchema = z.union([z.literal("1v1"), z.literal("3v3")]);
@@ -20,7 +21,17 @@ const regionSchema = z.union([
   z.literal("ap"),
 ]);
 
-export const createPvpRouter = (service: PvpMatchmakingService) =>
+const bigIntId = z
+  .string()
+  .min(1)
+  .max(40)
+  .regex(/^\d+$/, "must be a positive integer string")
+  .transform((s) => BigInt(s));
+
+export const createPvpRouter = (
+  service: PvpMatchmakingService,
+  matches: PvpMatchService,
+) =>
   router({
     queue: protectedProcedure
       .input(z.object({ mode: modeSchema, region: regionSchema }))
@@ -60,6 +71,24 @@ export const createPvpRouter = (service: PvpMatchmakingService) =>
           ...s,
           bracketWidth: service.estimatedBracket(s.joinedAt),
         };
+      } catch (e) {
+        throw asTrpcError(e);
+      }
+    }),
+
+    match: protectedProcedure
+      .input(z.object({ matchId: bigIntId }))
+      .query(async ({ input, ctx }) => {
+        try {
+          return await matches.get(input.matchId, ctx.auth.userId);
+        } catch (e) {
+          throw asTrpcError(e);
+        }
+      }),
+
+    activeMatch: protectedProcedure.query(async ({ ctx }) => {
+      try {
+        return await matches.activeMatchFor(ctx.auth.userId);
       } catch (e) {
         throw asTrpcError(e);
       }
