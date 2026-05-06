@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aetheria — Game Features (Detailed)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); padding: 40px; }
+    h1 { color: #f5576c; margin-bottom: 10px; font-size: 2.5em; }
+    .subtitle { color: #f093fb; font-style: italic; margin-bottom: 30px; }
+    h2 { color: #f5576c; margin-top: 35px; margin-bottom: 15px; border-bottom: 2px solid #f093fb; padding-bottom: 10px; }
+    h3 { color: #f093fb; margin-top: 20px; margin-bottom: 10px; }
+    .feature-box { background: #f9f9f9; border-left: 4px solid #f5576c; padding: 15px; margin: 15px 0; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    th { background: #f5576c; color: white; }
+    .mechanic { background: #fff5f5; padding: 12px; margin: 10px 0; border-radius: 4px; border-left: 3px solid #f093fb; }
+    p { margin-bottom: 12px; }
+    ul, ol { margin-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✨ Aetheria — Game Features (Detailed)</h1>
+    <p class="subtitle">Deep-dive into every system, mechanic, and progression path.</p>
+
+    <h2>1. Combat System (Turn-Based Grid Battle)</h2>
+    <h3>Battlefield Layout</h3>
+    <ul>
+      <li><strong>6×8 Hex Grid:</strong> Asymmetrical battlefield with varied elevation.</li>
+      <li><strong>Elevation:</strong> High ground grants +10% defense; low ground applies -10% defense. Melee vs ranged treated differently.</li>
+      <li><strong>Elemental Tiles:</strong> Verdant → mushroom patches (heal 5% HP/turn). Ember → lava (burn on step). Frost → icy terrain (slow). Tide → water (drown risk). Sky → wind shear (knockback). Void → reality rifts (chaotic damage).</li>
+      <li><strong>Hazards:</strong> Traps, lava flows, ice walls. Some are destructible.</li>
+    </ul>
+
+    <h3>Action Point (AP) System</h3>
+    <div class="mechanic">
+      <strong>Core Mechanic:</strong> Each hero gets 3 AP per turn.
+      <ul>
+        <li><strong>Move 1 hex:</strong> 1 AP</li>
+        <li><strong>Basic attack:</strong> 1 AP</li>
+        <li><strong>Skill (varies):</strong> 1–2 AP</li>
+        <li><strong>Defend (parry):</strong> Free (next turn)</li>
+        <li><strong>Bank AP:</strong> Unspent AP carries over, capped at 1 per turn (max 4 total)</li>
+      </ul>
+    </div>
+
+    <h3>Elements & Weaknesses</h3>
+    <table>
+      <tr><th>Element</th><th>Weak To</th><th>Strong Against</th><th>Signature Effect</th></tr>
+      <tr><td>Verdant</td><td>Ember</td><td>Tide</td><td>Regen, growth</td></tr>
+      <tr><td>Ember</td><td>Tide</td><td>Frost</td><td>Burn, DoT</td></tr>
+      <tr><td>Frost</td><td>Ember</td><td>Sky</td><td>Slow, freeze</td></tr>
+      <tr><td>Tide</td><td>Sky</td><td>Verdant</td><td>Drown, erosion</td></tr>
+      <tr><td>Sky</td><td>Void</td><td>Ember</td><td>Knockback, stun</td></tr>
+      <tr><td>Void</td><td>Verdant</td><td>Sky</td><td>Chaos, unpredictable</td></tr>
+    </table>
+
+    <h3>Resonance (Combo System)</h3>
+    <div class="mechanic">
+      <strong>Trigger:</strong> When two heroes chain consecutive turns with matching elements (e.g., Lyra uses Frost skill, then Kyo uses Frost skill).
+      <ul>
+        <li><strong>Effect:</strong> +50% damage to both attacks; AoE burst at impact location.</li>
+        <li><strong>Build Meter:</strong> Each status effect or element match adds 1 stack (max 5). At 5 stacks, Aether-Surge grants free skill next turn.</li>
+        <li><strong>Timing:</strong> Must activate within 2 consecutive turns.</li>
+      </ul>
+    </div>
+
+    <h3>Status Effects</h3>
+    <table>
+      <tr><th>Status</th><th>Source</th><th>Effect</th><th>Duration</th></tr>
+      <tr><td>Burn</td><td>Ember skills</td><td>2% max HP damage per turn; spreads on adjacency (50% chance)</td><td>3 turns</td></tr>
+      <tr><td>Freeze</td><td>Frost skills</td><td>-50% action speed; 20% chance to skip next turn</td><td>2 turns</td></tr>
+      <tr><td>Poison</td><td>Void/Verdant</td><td>1% max HP damage per turn, stacking</td><td>5 turns</td></tr>
+      <tr><td>Stagger</td><td>Sky/physical</td><td>-1 AP next turn; defense halved</td><td>1 turn</td></tr>
+      <tr><td>Aether-Surge</td><td>Combo/resonance</td><td>+30% all damage; free skill next turn</td><td>1 turn</td></tr>
+    </table>
+
+    <h2>2. Progression System</h2>
+    <h3>Account Level (1–100)</h3>
+    <ul>
+      <li><strong>XP Curve:</strong> Exponential. Lv 1 = 100 XP, Lv 50 = 10,000 XP, Lv 100 = 50,000 XP.</li>
+      <li><strong>Milestone Unlocks:</strong>
+        <ul>
+          <li>Lv 5: Inventory expanded (+20 slots)</li>
+          <li>Lv 15: Photo Mode unlocked</li>
+          <li>Lv 25: Co-op raids unlocked</li>
+          <li>Lv 40: PvP ranked mode starts (Bronze tier)</li>
+          <li>Lv 50: Skill tree respec becomes free (was 1 gold)</li>
+          <li>Lv 75: Mythic-tier loot drops begin</li>
+          <li>Lv 90: Endless Tower unlocked</li>
+          <li>Lv 100: Convergence (final story act); multiple endings</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Character Ascension (A0–A3)</h3>
+    <div class="mechanic">
+      <strong>Per-character tiers. Each tier costs:</strong>
+      <ul>
+        <li><strong>A0 → A1:</strong> 5 Aether-cores (common), 500 gold</li>
+        <li><strong>A1 → A2:</strong> 10 Aether-cores (rare), 2,000 gold, 1 duplicate</li>
+        <li><strong>A2 → A3:</strong> 20 Aether-cores (epic), 5,000 gold, 2 duplicates, 1 Mythic shard</li>
+      </ul>
+      <strong>Stat boost per tier:</strong> +10% HP, +5% ATK, +3% DEF, +2% SPD
+    </div>
+
+    <h3>Skill Tree (12 Nodes per Hero)</h3>
+    <ul>
+      <li><strong>Structure:</strong> 3 branches (offense, defense, utility). Each branch has 4 nodes in a linear path.</li>
+      <li><strong>Node Types:</strong>
+        <ul>
+          <li><strong>Stat nodes:</strong> +ATK, +DEF, +HP, +SPD</li>
+          <li><strong>Skill unlock nodes:</strong> New active or passive ability</li>
+          <li><strong>Synergy nodes:</strong> Bonus if paired with certain teammates</li>
+        </ul>
+      </li>
+      <li><strong>Respec:</strong> Free at towns after Lv 50 (otherwise 1 gold per point).</li>
+    </ul>
+
+    <h3>Loot & Rarity</h3>
+    <table>
+      <tr><th>Tier</th><th>Drop Rate</th><th>Stat Boost</th><th>Special Ability</th></tr>
+      <tr><td>Common</td><td>60%</td><td>None</td><td>None</td></tr>
+      <tr><td>Rare</td><td>25%</td><td>+10% primary stat</td><td>1 passive</td></tr>
+      <tr><td>Epic</td><td>12%</td><td>+20% primary, +5% secondary</td><td>2 passives, unique effect</td></tr>
+      <tr><td>Mythic</td><td>2.8%</td><td>+30% all stats</td><td>Signature ability (hero-specific)</td></tr>
+      <tr><td>Aether-Forged</td><td>0.2%</td><td>+50% all stats</td><td>Transforms hero mechanic (e.g., Kyo can parry 2 attacks, not 1)</td></tr>
+    </table>
+
+    <h3>Crafting (Forge System)</h3>
+    <div class="mechanic">
+      <strong>Recipes:</strong>
+      <ul>
+        <li><strong>Merge (3 duplicates + shard):</strong> Upgrade 1 tier (Common → Rare)</li>
+        <li><strong>Ascend (5 Aether-cores):</strong> Boost stats without changing tier</li>
+        <li><strong>Transmute (1 Epic + 1 Mythic blueprint):</strong> Craft new Mythic item</li>
+      </ul>
+    </div>
+
+    <h2>3. Exploration & Story (6 Realms)</h2>
+    <h3>Realm Mechanics</h3>
+    <ul>
+      <li><strong>Overworld Graph:</strong> Each realm is a node map. Nodes are: Story, Combat, Puzzle, Treasure, Boss, Hidden.</li>
+      <li><strong>Discovery Meter:</strong> Explores environmental secrets. 100% unlocks: secret boss, cosmetic reward, lore codex.</li>
+      <li><strong>Narrative Twist:</strong> At 50% realm completion, major story reveal (e.g., betrayal, hidden ally).</li>
+      <li><strong>Dynamic Events:</strong> Weather/time-of-day changes spawn rare encounters (e.g., storm = rare elemental boss).</li>
+      <li><strong>Photo Mode:</strong> Capture scenic vistas, share on social feed. Engagement rewards apply.</li>
+    </ul>
+
+    <h3>The 6 Realms & Story Acts</h3>
+    <table>
+      <tr><th>Realm</th><th>Levels</th><th>Story Act</th><th>Story Beat</th></tr>
+      <tr><td>Verdant Reach</td><td>1–16</td><td>Awakening</td><td>Aevra wakes in ruined shrine, learns of Aether Shards</td></tr>
+      <tr><td>Ember Wastes</td><td>17–32</td><td>Bonds</td><td>Recruit Kyo (samurai) & Lyra (mage); first alliance forms</td></tr>
+      <tr><td>Frostspire</td><td>33–48</td><td>Betrayal</td><td>Council of Thrones fractured; one Shard stolen</td></tr>
+      <tr><td>Tideglass</td><td>49–64</td><td>Schism</td><td>Guilds clash; rival faction "Obsidian Choir" emerges; PvP unlocked</td></tr>
+      <tr><td>Skyfall Vault</td><td>65–80</td><td>Descent</td><td>Journey into Voidmaw; companions at risk of permanent death</td></tr>
+      <tr><td>Voidmaw</td><td>81–100</td><td>Convergence</td><td>Reforge the Aether; multiple endings based on choices</td></tr>
+    </table>
+
+    <h2>4. Multiplayer Features</h2>
+    <h3>PvP (Ranked System)</h3>
+    <div class="mechanic">
+      <strong>Ranking:</strong> Bronze → Silver → Gold → Platinum → Diamond → Mythic (6 tiers)
+      <ul>
+        <li><strong>Matchmaking:</strong> Glicko-2 MMR. Queue time &lt; 30s at peak.</li>
+        <li><strong>Reward Structure:</strong> Win = +20 MMR (Diamond+), +10 (others). Loss = -5 MMR (soft floor at 0).</li>
+        <li><strong>Seasonal Reset:</strong> Monthly. Top 1% earn exclusive cosmetic.</li>
+        <li><strong>Anti-cheat:</strong> Server-authoritative validation. Replay hash verification detects tampering.</li>
+      </ul>
+    </div>
+
+    <h3>Guilds</h3>
+    <ul>
+      <li><strong>Capacity:</strong> 30 members max.</li>
+      <li><strong>Roles:</strong> Leader, Officer, Member. Permissions for treasury, invites, kick.</li>
+      <li><strong>Weekly Raids:</strong> 3-player synchronous raid boss. Exclusive loot (Epic+ items).</li>
+      <li><strong>Guild Storage:</strong> 100 item slots; members can deposit/withdraw.</li>
+      <li><strong>Guild Leaderboard:</strong> Ranked by weekly raid completion speed.</li>
+    </ul>
+
+    <h3>Co-op (3-Player Raids)</h3>
+    <ul>
+      <li><strong>Realtime Synchronous:</strong> All 3 heroes' turns resolve simultaneously (not turn-by-turn).</li>
+      <li><strong>Communication:</strong> Voice chat or text callouts in-raid.</li>
+      <li><strong>Boss Mechanics:</strong> Team coordination required (e.g., 2 must attack simultaneously to stagger boss).</li>
+      <li><strong>Loot Share:</strong> Drops go to guild treasury; fairness via rolling.</li>
+    </ul>
+
+    <h3>Leaderboards</h3>
+    <ul>
+      <li><strong>Global:</strong> Top 100 highest-level players (account level).</li>
+      <li><strong>Regional:</strong> By server drift (latency-optimized region).</li>
+      <li><strong>Guild:</strong> Sorted by member count and weekly raid completion.</li>
+      <li><strong>Friends:</strong> Private leaderboard within your friend group.</li>
+      <li><strong>PvP:</strong> Ranked by MMR (Mythic tier only, live-updated every 5 min).</li>
+    </ul>
+
+    <h2>5. Social & Chat</h2>
+    <ul>
+      <li><strong>Global Chat:</strong> Server-wide messages. Profanity filter; spam bans (3 strikes).</li>
+      <li><strong>Guild Chat:</strong> Members only. Moderator pins; message history 30 days.</li>
+      <li><strong>Party Chat:</strong> In-raid or co-op team. Private.</li>
+      <li><strong>Whisper:</strong> 1-on-1 private message. Offline messages queued (max 50).</li>
+      <li><strong>Report System:</strong> Flag toxic players. Game moderators review within 24 hours; bans up to permanent for severe cases.</li>
+    </ul>
+
+    <h2>6. Marketplace & Economy</h2>
+    <ul>
+      <li><strong>Soft Currency (Gold):</strong> In-game earnable. Use for: gear upgrades, skill respec, Forge recipes, marketplace.</li>
+      <li><strong>Premium Currency (Gems):</strong> Real-money only. Use for: battle pass, cosmetic skins, founder pack.</li>
+      <li><strong>Marketplace Listings:</strong> Gear, crafting materials. No stats-affecting items (cosmetics only for premium).</li>
+      <li><strong>Price Dynamics:</strong> Algorithmic pricing prevents inflation/deflation. Rare items auto-adjust based on supply.</li>
+      <li><strong>No Loot Boxes:</strong> All cosmetics visible before purchase.</li>
+    </ul>
+
+    <h2>7. Daily & Seasonal Content</h2>
+    <h3>Daily Login</h3>
+    <ul>
+      <li><strong>Day 1:</strong> 100 gold</li>
+      <li><strong>Day 3:</strong> 1 Rare item</li>
+      <li><strong>Day 7:</strong> 500 gold + 5 Aether-cores (streak reset, 2x multiplier for next cycle)</li>
+    </ul>
+
+    <h3>Weekly Quests</h3>
+    <ul>
+      <li>Defeat 5 bosses</li>
+      <li>Win 3 PvP matches</li>
+      <li>Complete 1 guild raid</li>
+      <li>Explore 50% of a realm</li>
+      <li><strong>Rewards:</strong> 1,000 gold + 1 Epic loot box</li>
+    </ul>
+
+    <h3>Seasonal Pass (Free + Premium)</h3>
+    <ul>
+      <li><strong>Free Track:</strong> 30 tiers. Rewards: cosmetics (weapon skins, emotes), gold, Aether-cores.</li>
+      <li><strong>Premium Track:</strong> 40 additional tiers. Exclusive skins and effects (no stat advantage).</li>
+      <li><strong>Duration:</strong> 60 days per season. Auto-progress via gameplay; no grind gates.</li>
+    </ul>
+
+    <h3>Endless Tower (Roguelike)</h3>
+    <ul>
+      <li><strong>Procedural:</strong> 50 floors. Each floor has random enemy composition and modifier.</li>
+      <li><strong>Modifiers:</strong> "Weak heroes heal 50% less," "enemies gain +2 AP," etc.</li>
+      <li><strong>Rewards:</strong> Scaling by floor cleared. Floor 1 = 50 gold, Floor 50 = 10,000 gold + Mythic shard.</li>
+      <li><strong>Daily Reset:</strong> 1 free run per day; can purchase more (100 gems each).</li>
+    </ul>
+
+    <h2>8. Save & Sync System</h2>
+    <div class="mechanic">
+      <strong>Auto-save Triggers:</strong> Turn end, node enter/exit, menu open, idle 10s.
+      <ul>
+        <li><strong>Cloud Sync:</strong> IndexedDB cache (local) + delta sync to server every 30s.</li>
+        <li><strong>Offline Mode:</strong> Play offline for up to 1 hour; changes auto-merge on reconnect.</li>
+        <li><strong>Resume Banner:</strong> "Continue Lv 24 — Frostspire Bridge (8 min ago)"</li>
+        <li><strong>Manual Slots:</strong> 3 save slots for experiment/branching playstyles.</li>
+      </ul>
+    </div>
+
+    <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
+    <p style="text-align: center; color: #666; font-size: 0.9em;">
+      <strong>Aetheria.</strong> Master every system. Perfect your strategy. <br>
+      <em>Features v1.0 — May 2026</em>
+    </p>
+  </div>
+</body>
+</html>

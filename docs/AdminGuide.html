@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aetheria — Admin Guide</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 950px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); padding: 40px; }
+    h1 { color: #667eea; margin-bottom: 10px; font-size: 2.3em; }
+    .subtitle { color: #764ba2; font-style: italic; margin-bottom: 30px; }
+    h2 { color: #764ba2; margin-top: 35px; margin-bottom: 15px; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+    h3 { color: #667eea; margin-top: 20px; margin-bottom: 10px; }
+    .warning { background: #fff3cd; border-left: 4px solid #ff6b6b; padding: 15px; margin: 15px 0; border-radius: 4px; }
+    .safe { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 15px 0; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    th { background: #667eea; color: white; }
+    .code-block { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; font-family: monospace; overflow-x: auto; margin: 10px 0; }
+    .code-block code { color: #a6e22e; }
+    .permission-table th { background: #ff6b6b; }
+    ul, ol { margin-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 8px; }
+    p { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔒 Aetheria — Admin Guide</h1>
+    <p class="subtitle">Moderation, enforcement, and system maintenance for Aetheria operators.</p>
+
+    <div class="warning">
+      <strong>⚠️ Important:</strong> Admin tools are powerful and visible in audit logs. All actions are permanently recorded. Use responsibly.
+    </div>
+
+    <h2>1. Admin Access & Authentication</h2>
+    <h3>Who Can Access Admin?</h3>
+    <ul>
+      <li><strong>Admins:</strong> Role-based access control. Admins are assigned via database directly (no self-signup).</li>
+      <li><strong>Login:</strong> Via admin panel (separate from player login). Uses same JWT auth but admin-only procedures.</li>
+      <li><strong>MFA:</strong> Recommended (not enforced, but strongly advised).</li>
+      <li><strong>Session:</strong> 15-minute timeout for security. Manual logout required to clear session.</li>
+    </ul>
+
+    <h3>Accessing Admin Panel</h3>
+    <p>Navigate to <code>/admin</code> endpoint (requires valid admin token). Login screen requests email + password.</p>
+
+    <h2>2. Core Admin Tools</h2>
+
+    <h3>2.1. User Moderation (Ban / Unban)</h3>
+    <div class="warning">
+      <strong>⚠️ Caution:</strong> Bans are permanent until reversed. Always verify reason before executing.
+    </div>
+    <table class="permission-table">
+      <tr><th>Action</th><th>Description</th><th>Audit Log Entry</th></tr>
+      <tr><td><strong>Ban User</strong></td><td>Set user status to "banned". Prevents login, PvP, guild access.</td><td><code>admin.banUser</code></td></tr>
+      <tr><td><strong>Unban User</strong></td><td>Set user status back to "active". Restores all access.</td><td><code>admin.unbanUser</code></td></tr>
+    </table>
+    <h4>Ban Reasons (recommended)</h4>
+    <ul>
+      <li>Toxicity in chat (slurs, harassment)</li>
+      <li>Cheating detected (anomalous match data, replay hash mismatch)</li>
+      <li>Account sharing / multi-accounting</li>
+      <li>RMT (real-money trading) involvement</li>
+      <li>Exploit abuse (game-breaking glitch)</li>
+      <li>Spam / flooding</li>
+    </ul>
+
+    <h3>2.2. Item Grants (Economy Adjustment)</h3>
+    <p>Manually grant items to a user (e.g., compensation for lost progress, event entry item).</p>
+    <table class="permission-table">
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td><strong>Target User</strong></td><td>Select user by ID or username.</td></tr>
+      <tr><td><strong>Item ID</strong></td><td>Choose from item catalog (weapon, armor, consumable, etc.)</td></tr>
+      <tr><td><strong>Quantity</strong></td><td>Number of items to grant. Respects inventory stack cap.</td></tr>
+    </table>
+    <h4>Example Use Cases</h4>
+    <ul>
+      <li><strong>Server Maintenance Comp:</strong> Grant 100 gold + 1 Epic item to all affected players (bulk via script).</li>
+      <li><strong>Event Prerequisite:</strong> Grant seasonal quest starter item.</li>
+      <li><strong>Bug Fix Revert:</strong> If player lost items due to glitch, manually restore stack.</li>
+    </ul>
+
+    <div class="safe">
+      <strong>✓ Safe:</strong> Item grants do not trigger immediate notifications to players. Check audit log later to verify completion.
+    </div>
+
+    <h3>2.3. Feature Flags (System Control)</h3>
+    <p>Toggle gameplay features on/off without redeploying code. Useful for A/B testing, disabling buggy features, or staged rollouts.</p>
+    <h4>Flag Types</h4>
+    <table class="permission-table">
+      <tr><th>Flag Name</th><th>Type</th><th>Effect When ON</th><th>Effect When OFF</th></tr>
+      <tr><td><code>pvp_enabled</code></td><td>Boolean</td><td>PvP matchmaking active</td><td>PvP queues reject with "maintenance"</td></tr>
+      <tr><td><code>shop_enabled</code></td><td>Boolean</td><td>Marketplace open for trading</td><td>Buy/sell operations fail</td></tr>
+      <tr><td><code>combat_difficulty_multiplier</code></td><td>Float</td><td>Boss HP × value (1.0 = normal, 2.0 = hard)</td><td>Always 1.0 (normal)</td></tr>
+      <tr><td><code>daily_quest_rewards_multiplier</code></td><td>Float</td><td>Gold/XP rewards × value (1.0 = normal)</td><td>Always 1.0</td></tr>
+      <tr><td><code>seasonal_pass_enabled</code></td><td>Boolean</td><td>Players can purchase battle pass</td><td>Pass progression frozen</td></tr>
+    </table>
+
+    <h4>Setting a Feature Flag</h4>
+    <div class="code-block">
+      <code>Flag: pvp_enabled<br>Value: false<br>Updated by: admin_account<br>Reason: Matchmaker bug fix in progress</code>
+    </div>
+    <p>All flag changes are <strong>instantly live</strong>. No server restart required.</p>
+
+    <h3>2.4. Audit Log Replay (Investigation)</h3>
+    <p>Query audit logs to investigate incidents (cheating suspicions, economy exploits, etc.).</p>
+    <h4>Replay Filters</h4>
+    <table class="permission-table">
+      <tr><th>Filter</th><th>Description</th><th>Example</th></tr>
+      <tr><td><strong>Action</strong></td><td>Event type (e.g., "shop.purchase", "combat.submit_action")</td><td><code>shop.refund</code> to find all refunds</td></tr>
+      <tr><td><strong>Target Type</strong></td><td>Resource affected (user, shopItem, run, etc.)</td><td><code>run</code> to find all combat actions</td></tr>
+      <tr><td><strong>Timestamp (Before)</strong></td><td>Logs before a specific time</td><td>Past 24 hours</td></tr>
+      <tr><td><strong>Limit</strong></td><td>Max results returned (1–500)</td><td>100 = last 100 entries</td></tr>
+    </table>
+
+    <h4>Investigation Example: Suspicious PvP Win Rate</h4>
+    <div class="code-block">
+      <code>Action: pvp.submitAction<br>Before: [today's date]<br>Limit: 500<br>...<br>Find: User won 50 matches in 2 hours (humanly impossible)<br>Check action timestamps: 2 sec apart (bot-like pattern)<br>Check replay hashes: All won matches have tamper signatures</code>
+    </div>
+    <p><strong>Action:</strong> Ban user for cheating. Award affected opponents compensation (gold + rank revert).</p>
+
+    <h2>3. Bulk Admin Operations</h2>
+    <p><em>Scripted operations for server-wide events, maintenance, or seasonal resets.</em></p>
+
+    <h3>3.1. Season Reset</h3>
+    <ul>
+      <li>PvP rank soft reset (keep 70% of MMR, reset tier to Bronze)</li>
+      <li>Leaderboard snapshot (archive top 100 players for season history)</li>
+      <li>Guild raid counter reset</li>
+      <li>Issue seasonal cosmetic to all participants in previous season</li>
+    </ul>
+
+    <h3>3.2. Emergency Compensation (Server Outage)</h3>
+    <ul>
+      <li>Grant 500 gold to all users who attempted login during downtime window (detected via audit logs)</li>
+      <li>Extend battle pass deadline by 24 hours</li>
+      <li>Double XP for next 6 hours (feature flag)</li>
+    </ul>
+
+    <h3>3.3. Scheduled Maintenance</h3>
+    <ul>
+      <li>Set global flag <code>maintenance_mode = true</code></li>
+      <li>Broadcast message: "Patch in progress. Estimated 30 min."</li>
+      <li>Gracefully disconnect all players (auto-save triggered)</li>
+      <li>Deploy code changes</li>
+      <li>Set <code>maintenance_mode = false</code></li>
+      <li>Players auto-reconnect with resume banner</li>
+    </ul>
+
+    <h2>4. Security & Best Practices</h2>
+
+    <h3>4.1. Audit Trail</h3>
+    <div class="safe">
+      <strong>✓ Every admin action is logged:</strong>
+      <ul>
+        <li>Who: Admin username</li>
+        <li>What: Action type (ban, grant, flag change)</li>
+        <li>When: Timestamp (UTC)</li>
+        <li>Why: Reason field (free text)</li>
+        <li>Result: Success/failure + affected entity ID</li>
+      </ul>
+    </div>
+
+    <h3>4.2. Approval Workflows (for critical actions)</h3>
+    <p>Recommended process for high-impact decisions:</p>
+    <ol>
+      <li><strong>Investigation:</strong> Audit log replay to confirm issue.</li>
+      <li><strong>Peer Review:</strong> Message another admin with findings.</li>
+      <li><strong>Action:</strong> Execute (with reason documented).</li>
+      <li><strong>Transparency:</strong> Post in #moderation channel (internal); affected player gets notification.</li>
+    </ol>
+
+    <h3>4.3. Password & Access Management</h3>
+    <ul>
+      <li>Admin passwords: strong (16+ chars, mixed case, symbols).</li>
+      <li>Rotate every 90 days.</li>
+      <li>Never share admin credentials. Each admin has unique login.</li>
+      <li>Session timeout: 15 min of inactivity → auto-logout.</li>
+      <li>Suspicious login (unusual IP/location): flag for verification.</li>
+    </ul>
+
+    <h3>4.4. Common Mistakes to Avoid</h3>
+    <div class="warning">
+      <strong>❌ Don't:</strong>
+      <ul>
+        <li>Ban without audit log evidence first.</li>
+        <li>Grant excessive items (economy inflation risk).</li>
+        <li>Leave feature flags in "broken" states overnight (e.g., <code>pvp_enabled = false</code> for debugging).</li>
+        <li>Share admin credentials. Use unique logins.</li>
+        <li>Forget to document reason for action (required in audit log).</li>
+      </ul>
+    </div>
+
+    <h2>5. Incident Response Protocol</h2>
+
+    <h3>5.1. Cheating Detection</h3>
+    <ol>
+      <li><strong>Alert Trigger:</strong> Anti-cheat system detects replay hash mismatch or anomalous action sequence.</li>
+      <li><strong>Investigation:</strong> Replay the match server-side. Confirm tampering.</li>
+      <li><strong>Decision:</strong> Ban or warn (first offense = warning + rank reset; repeat = permanent ban).</li>
+      <li><strong>Victim Comp:</strong> Revert rank loss for opponents; grant 100 gold.</li>
+      <li><strong>Log:</strong> Action recorded in audit trail + moderator dashboard.</li>
+    </ol>
+
+    <h3>5.2. Toxic Player Report</h3>
+    <ol>
+      <li><strong>Report Filed:</strong> Player clicks "Report" button in chat.</li>
+      <li><strong>Review:</strong> Admin checks chat log (profanity filter, context).</li>
+      <li><strong>Action:</strong> Verbal warning (cached msg: "Tone it down"), mute (24h), or ban (repeat offender).</li>
+      <li><strong>Appeal:</strong> Player can email support@aetheria.com; independent admin reviews.</li>
+    </ol>
+
+    <h3>5.3. Economy Exploit</h3>
+    <ol>
+      <li><strong>Symptom:</strong> Unusual spike in marketplace prices or item duplication.</li>
+      <li><strong>Root Cause:</strong> Check auction logs for pattern (e.g., user A lists item, user B instant-buys 100x, prices spike 10x).</li>
+      <li><strong>Fix:</strong> Revert affected transactions (delete orders, refund gold).</li>
+      <li><strong>Ban:</strong> Perpetrators banned; innocent users compensated.</li>
+    </ol>
+
+    <h2>6. Reporting & Analytics Dashboard</h2>
+    <ul>
+      <li><strong>Daily Active Users (DAU):</strong> Trend chart over past 30 days.</li>
+      <li><strong>PvP Queue Health:</strong> Match success rate, avg wait time.</li>
+      <li><strong>Economy Health:</strong> Gold in circulation, item inflation index.</li>
+      <li><strong>Crash/Error Rate:</strong> Top error messages, affected build versions.</li>
+      <li><strong>Moderation Metrics:</strong> Bans this week, appeal resolution time.</li>
+      <li><strong>Feature Usage:</strong> Shop usage rate, guild participation rate.</li>
+    </ul>
+
+    <h2>7. Escalation Contacts</h2>
+    <table class="permission-table">
+      <tr><th>Issue</th><th>Contact</th><th>SLA</th></tr>
+      <tr><td>Critical exploit (economy break)</td><td>Lead Admin + CTO</td><td>30 min response</td></tr>
+      <tr><td>Server down (> 5 min)</td><td>DevOps on-call</td><td>5 min response</td></tr>
+      <tr><td>Player appeal (ban dispute)</td><td>Support Lead</td><td>24 h review</td></tr>
+      <tr><td>Security incident (account breach)</td><td>Security Officer</td><td>2 h response</td></tr>
+    </table>
+
+    <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
+    <p style="text-align: center; color: #666; font-size: 0.9em;">
+      <strong>Aetheria Admin Ops.</strong> Keep the realm safe. <br>
+      <em>Admin Guide v1.0 — May 2026. For authorized personnel only.</em>
+    </p>
+  </div>
+</body>
+</html>
