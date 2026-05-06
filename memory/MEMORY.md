@@ -696,7 +696,20 @@ games/Aetheria/
     - **Wiring**: `apps/api/package.json` adds `@aetheria/domain-shop`. `server.ts` instantiates `new ShopService({ mysql })`; router mounts at `shop`.
     - **Test bypass**: `domain-shop` ships service-only (impure DB). `package.json` test script set to `vitest run --passWithNoTests` so `pnpm -r test` doesn't fail; pure rules already covered in `domain-economy`.
     - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 26/26 ✓, `pnpm -r lint` 26/26 ✓, `pnpm -r test` **359/359 ✓** (was 348; +11 from economy rules).
-54. **NEXT — Step 4.51**: Notifications service — `notify.list/markRead/push`; in-app dropdown. Vertical M, deps 4.32 (event bus). Will use `notifications` table (or add migration if missing). Then 4.52 admin tools to close Phase 4-H.
+54. **Step 4.51 — `domain-notifications` (list / markRead / push)** (5 May 2026):
+    - **Schema migration `0005_notifications`**: new `notifications` MySQL table (`id`, `user_id`, `type` VARCHAR(32), `payload` JSON, `read_at` nullable, `created_at`). Indexes `(user_id, created_at)` + `(user_id, read_at)` for the unread-count query. Cascade on user delete. Mirrored in raw `db/mysql/01_init.sql`. `User` model gains `notifications` relation. Prisma client regenerated.
+    - **`packages/domain-notifications/src/`**: `types.ts` (`NotificationType` canonical kinds: level_up / quest_complete / battlepass_tier / guild_invite / friend_request / pvp_match_start / pvp_match_end / shop_purchase / system + open `string` for ad-hoc; `NotificationRow`, `PushInput`, `ListInput`, `MarkReadInput`); `rules.ts` (`isKnownType`, `categoryOf` → progress/social/pvp/shop/system tabs, `parsePayload` defensive null/object guard); `service.ts` (`NotificationsService` with `Pick<MysqlClient, "notification">`, `clock` injectable).
+    - **Service**:
+      - `list({ userId, limit≤100, unreadOnly? })` — `findMany` desc by `createdAt` + parallel `count` of unread; returns `{ entries, unreadCount }`.
+      - `markRead({ userId, notificationIds?, all? })` — `updateMany` setting `readAt = clock()`; safe-no-op when neither `all` nor non-empty `notificationIds`.
+      - `push({ userId, type (1-32 chars), payload? })` — `create` row, audit `notify.push`. **Prisma `JSON` quirk**: `Record<string, unknown>` isn't assignable to `Prisma.InputJsonValue` under strict TS — cast via `(payload ?? {}) as MysqlPrisma.Prisma.InputJsonValue` (re-export `MysqlPrisma` namespace from `@aetheria/schema-db/mysql`).
+    - **Router**: `createNotificationsRouter` exposes `list({ limit?, unreadOnly? })` (query) + `markRead({ notificationIds?, all? })` (mutation). All `protectedProcedure`. Conditional spread for optional fields (exactOptionalPropertyTypes).
+    - **Wiring**: `apps/api/package.json` adds dep. `server.ts` instantiates `new NotificationsService({ mysql })`. `router.ts` mounts `notifications: createNotificationsRouter(deps.notificationsService)`.
+    - **Bus subscribers**: deferred — domains can call `notificationsService.push(...)` directly. Auto-emit on LeveledUp/QuestClaimed is a follow-up.
+    - **In-app dropdown UI**: deferred to a separate web step (not in 4.51 scope).
+    - **Tests** — 6 vitest specs in `__tests__/rules.test.ts` (isKnownType, categoryOf bucketing for all 9 kinds + unknown→system, parsePayload null/non-object/garbage).
+    - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 27/27 ✓, `pnpm -r lint` 27/27 ✓, `pnpm -r test` **365/365 ✓** (was 359; +6 from notif rules).
+55. **NEXT — Step 4.52**: Admin tools — `admin.banUser/grantItem/featureFlag.set/replay` + minimal admin UI. Vertical L, deps 4.49 + 4.51. Closes Phase 4-H. Uses existing `audit_log` + `feature_flags` tables; admin role gated via `adminProcedure` in schema-api/trpc.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

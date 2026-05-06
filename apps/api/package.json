@@ -24,6 +24,7 @@
     "@aetheria/domain-battlepass":      "workspace:*",
     "@aetheria/domain-combat-runtime":  "workspace:*",
     "@aetheria/domain-inventory":       "workspace:*",
+    "@aetheria/domain-notifications":   "workspace:*",
     "@aetheria/domain-pvp":             "workspace:*",
     "@aetheria/domain-quests":          "workspace:*",
     "@aetheria/domain-roster":          "workspace:*",

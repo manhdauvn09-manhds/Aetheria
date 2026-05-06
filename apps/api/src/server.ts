@@ -12,6 +12,7 @@ import { AccountService } from "@aetheria/domain-account";
 import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
+import { NotificationsService } from "@aetheria/domain-notifications";
 import {
   LeaderboardService,
   MmrService,
@@ -78,6 +79,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const guildService = new GuildService({ mysql });
   const friendsService = new FriendsService({ mysql });
   const shopService = new ShopService({ mysql });
+  const notificationsService = new NotificationsService({ mysql });
 
   // Realtime fan-out is opt-in: when REDIS_URL is set, ChatService
   // publishes each accepted send to the bus that apps/realtime
@@ -149,6 +151,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     mmrService,
     lbService,
     shopService,
+    notificationsService,
   });
 
   app.addHook("onClose", async () => {
