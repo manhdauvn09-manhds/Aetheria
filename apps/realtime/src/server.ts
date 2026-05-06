@@ -125,11 +125,17 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
 
     // Client-driven join/leave for guild + party rooms. Whisper rooms
     // are derived from `user:<id>` and never joined explicitly. Guild
-    // membership is enforced upstream at api send-time; clients can
-    // only join rooms they already know about.
+    // membership is verified by the API before it fans out messages;
+    // the realtime layer adds a room-count cap (B11) so a rogue socket
+    // cannot join an unbounded number of rooms.
+    const MAX_CLIENT_ROOMS = 20;
     socket.on("chat:join", (payload: unknown) => {
       const room = parseRoomPayload(payload);
       if (!room) return;
+      if (socket.rooms.size >= MAX_CLIENT_ROOMS) {
+        log.warn({ userId, socketId: socket.id, room }, "chat:join rejected — room cap reached");
+        return;
+      }
       void socket.join(room);
     });
     socket.on("chat:leave", (payload: unknown) => {

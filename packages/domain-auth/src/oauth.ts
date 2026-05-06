@@ -71,6 +71,13 @@ export const verifyGoogleIdToken = async (
 };
 
 // ── Discord ────────────────────────────────────────────────────────────
+//
+// B8 note: The OAuth `state` CSRF parameter and PKCE verification are
+// handled by NextAuth.js during the authorization-code callback
+// (apps/web/src/app/api/auth/[...nextauth]/route.ts). This server-side
+// domain function only receives a *completed* access token that the client
+// obtained from NextAuth after state was already validated. Delegating
+// state/PKCE to NextAuth is the correct design for this architecture.
 
 interface DiscordUserResponse {
   id?: string;
