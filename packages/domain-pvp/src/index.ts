@@ -21,6 +21,15 @@ export {
 } from "./mmr.js";
 
 export {
+  LeaderboardService,
+  lbKey,
+  slidingWindow,
+  type LbRedisClient,
+  type LeaderboardDeps,
+  type LeaderboardEntry,
+} from "./leaderboard.js";
+
+export {
   glicko2Single,
   glicko2Update,
   DEFAULT_RATING,

@@ -25,6 +25,9 @@ const envSchema = z.object({
   DATABASE_URL_MYSQL: z.string().url(),
   REDIS_URL: z.string().url().optional(),
 
+  /** PvP season identifier — keys leaderboards by `lb:{mode}:{seasonId}`. */
+  PVP_SEASON_ID: z.string().min(1).max(32).default("1"),
+
   // OAuth (used by apps/web NextAuth + apps/api server-side verification).
   // Either provider can be left blank — the matching tRPC procedure will
   // surface NOT_IMPLEMENTED rather than booting with broken config.

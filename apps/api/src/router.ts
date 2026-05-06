@@ -47,6 +47,7 @@ import {
 } from "@aetheria/domain-battlepass";
 import {
   createPvpRouter,
+  type LeaderboardService,
   type MmrService,
   type PvpMatchmakingService,
   type PvpMatchService,
@@ -77,6 +78,7 @@ export interface AppDeps {
   readonly pvpService: PvpMatchmakingService;
   readonly pvpMatchService: PvpMatchService;
   readonly mmrService: MmrService;
+  readonly lbService: LeaderboardService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -96,7 +98,7 @@ export const createAppRouter = (deps: AppDeps) =>
     guild: createGuildRouter(deps.guildService),
     friends: createFriendsRouter(deps.friendsService),
     chat: createChatRouter(deps.chatService),
-    pvp: createPvpRouter(deps.pvpService, deps.pvpMatchService, deps.mmrService),
+    pvp: createPvpRouter(deps.pvpService, deps.pvpMatchService, deps.mmrService, deps.lbService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

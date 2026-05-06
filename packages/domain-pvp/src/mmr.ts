@@ -9,12 +9,15 @@ import { audit } from "@aetheria/core";
 import type { MysqlClient } from "@aetheria/schema-db/mysql";
 
 import { DEFAULT_RATING, glicko2Single, type GlickoRating } from "./glicko.js";
+import type { LeaderboardService } from "./leaderboard.js";
 import type { PvpMatchResult, PvpMode } from "./types.js";
 
 export type MmrMysqlClient = Pick<MysqlClient, "mmr" | "pvpMatchPlayer" | "$transaction">;
 
 export interface MmrDeps {
   readonly mysql: MmrMysqlClient;
+  /** Optional leaderboard hook fired after each match's mmr write. */
+  readonly leaderboard?: LeaderboardService;
 }
 
 export interface MmrSnapshot extends GlickoRating {
@@ -37,9 +40,11 @@ const toMode = (raw: string): PvpMode => (raw === "3v3" ? "3v3" : "1v1");
 
 export class MmrService {
   private readonly mysql: MmrMysqlClient;
+  private readonly leaderboard: LeaderboardService | undefined;
 
   constructor(deps: MmrDeps) {
     this.mysql = deps.mysql;
+    this.leaderboard = deps.leaderboard;
   }
 
   /** Read or seed the rating row for `(userId, mode)`. */
@@ -150,6 +155,21 @@ export class MmrService {
       ip: null,
       userAgent: null,
     });
+
+    if (this.leaderboard) {
+      await Promise.all([
+        this.leaderboard.recordResult({
+          userId: params.playerA,
+          mode: params.mode,
+          mmr: aAfter.rating,
+        }),
+        this.leaderboard.recordResult({
+          userId: params.playerB,
+          mode: params.mode,
+          mmr: bAfter.rating,
+        }),
+      ]);
+    }
 
     return [
       { userId: params.playerA, before: a, after: aAfter, result: resultA },

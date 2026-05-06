@@ -13,6 +13,7 @@ import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
 import {
+  LeaderboardService,
   MmrService,
   PvpMatchmakingService,
   PvpMatchService,
@@ -96,7 +97,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const matchPublisher = pvpRedis
     ? redisMatchPublisher(pvpRedis, { warn: (o, m): void => app.log.warn(o, m) })
     : undefined;
-  const mmrService = new MmrService({ mysql });
+  const lbService = new LeaderboardService({
+    redis: pvpRedis ?? noopRedis,
+    seasonId: env.PVP_SEASON_ID,
+  });
+  const mmrService = new MmrService({ mysql, leaderboard: lbService });
   const matchService = new PvpMatchService({
     mysql,
     mmrService,
@@ -140,6 +145,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     pvpService,
     pvpMatchService: matchService,
     mmrService,
+    lbService,
   });
 
   app.addHook("onClose", async () => {

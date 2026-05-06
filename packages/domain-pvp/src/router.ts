@@ -11,6 +11,7 @@ import {
   router,
 } from "@aetheria/schema-api/trpc";
 
+import type { LeaderboardService } from "./leaderboard.js";
 import type { PvpMatchService } from "./match.js";
 import type { MmrService } from "./mmr.js";
 import type { PvpMatchmakingService } from "./service.js";
@@ -33,6 +34,7 @@ export const createPvpRouter = (
   service: PvpMatchmakingService,
   matches: PvpMatchService,
   mmr: MmrService,
+  lb: LeaderboardService,
 ) =>
   router({
     queue: protectedProcedure
@@ -101,6 +103,43 @@ export const createPvpRouter = (
       .query(async ({ input, ctx }) => {
         try {
           return await mmr.get(ctx.auth.userId, input.mode);
+        } catch (e) {
+          throw asTrpcError(e);
+        }
+      }),
+
+    lbTop: protectedProcedure
+      .input(
+        z.object({
+          mode: modeSchema,
+          limit: z.number().int().min(1).max(500).optional(),
+          seasonId: z.string().min(1).max(32).optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        try {
+          return await lb.top(input.mode, input.limit ?? 50, input.seasonId);
+        } catch (e) {
+          throw asTrpcError(e);
+        }
+      }),
+
+    lbAroundMe: protectedProcedure
+      .input(
+        z.object({
+          mode: modeSchema,
+          radius: z.number().int().min(0).max(50).optional(),
+          seasonId: z.string().min(1).max(32).optional(),
+        }),
+      )
+      .query(async ({ input, ctx }) => {
+        try {
+          return await lb.aroundUser(
+            ctx.auth.userId,
+            input.mode,
+            input.radius ?? 5,
+            input.seasonId,
+          );
         } catch (e) {
           throw asTrpcError(e);
         }
