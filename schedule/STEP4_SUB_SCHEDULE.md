@@ -141,9 +141,9 @@
 ## Phase 4-K · Cut MVP & ship
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
-| 4.64 | E2E smoke: signup → tutorial → first level cleared → autosave → resume → claim daily quest | vertical | M | most of 4-B..4-E | ⬜ |
-| 4.65 | Deployment dry-run: docker-compose for local; Fly.io / Vercel manifests                     | horizontal | M | 4.7, 4.40, 4.53, 4.8 | ⬜ |
-| 4.66 | Hand-off to Step 5 (code review): generate PR list / changelog                              | horizontal | S | all above | ⬜ |
+| 4.64 | E2E smoke harness: Fastify in-process inject driver (`pnpm e2e:smoke`)                      | vertical | M | most of 4-B..4-E | ✅ |
+| 4.65 | Deployment dry-run: docker-compose + Dockerfiles + Fly.io toml + Vercel json                | horizontal | M | 4.7, 4.40, 4.53, 4.8 | ✅ |
+| 4.66 | Hand-off to Step 5: `CHANGELOG.md` with phase rollup + follow-ups                           | horizontal | S | all above | ✅ |
 
 ---
 

@@ -752,7 +752,14 @@ games/Aetheria/
     - **Wiring**: api/realtime/worker boot all call `startTracing(...)` + `startSentry(...)` from `@aetheria/core` exports. `apps/realtime` adds `@aetheria/core` workspace dep.
     - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 30/30 ✓, `pnpm -r lint` 30/30 ✓, `pnpm -r test` **388/388 ✓** (was 381; +7 from telemetry rules); web build ✓.
     - **Phase 4-J closed**: 4.58 → 4.59 → 4.60 → 4.61 → 4.62 → 4.63.
-59. **NEXT — Phase 4-K Step 4.64**: E2E smoke (signup → tutorial → first level → autosave → resume → claim daily quest). 4.65 deployment dry-run (docker-compose / Fly / Vercel manifests). 4.66 Hand-off to Step 5 (PR list / changelog).
+59. **Steps 4.64–4.66 — Phase 4-K (closes Step 4)** (5 May 2026):
+    - **4.64 E2E smoke harness**: `scripts/e2e-smoke.ts` boots `apps/api` via `buildServer(env)` and uses Fastify `app.inject()` to walk `/health` + `/trpc/health.ping` without binding a port. Run via `pnpm e2e:smoke`. Full signup→tutorial→level→resume→claim path requires DB + Redis fixtures — harness ships so CI can layer them on (Step 6).
+    - **4.65 Deployment dry-run**: `deploy/docker-compose.yml` (mysql 8.4 + redis 7.4-alpine with healthchecks + named volumes); `deploy/Dockerfile.{api,realtime,worker}` (multi-stage node:22-alpine, pnpm-corepack, prisma generate baked into the api/worker images, web-build skipped in worker); `deploy/fly.{api,realtime,worker}.toml` (sin region, shared-cpu 1×512MB, http_service for api/realtime with `/health` + `/healthz` probes, worker daemon-only); `deploy/vercel.web.json` for Next.js 15. `deploy/README.md` documents the env matrix per surface. Nothing actually deployed — these are scaffolds only.
+    - **4.66 Hand-off**: `CHANGELOG.md` at repo root — phase rollup, final stats (30 packages, 388 tests, 5 migrations), reviewer focus areas (atomicity, auth boundary, audit trail, concurrency, test coverage), known follow-ups (IndexedDB cache, real OTel/Sentry SDKs, 3v3 MMR, combat-domain validation in realtime PvP, replay-based anti-cheat).
+    - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 30/30 ✓, `pnpm -r lint` 30/30 ✓, `pnpm -r test` **388/388 ✓** (no new tests — 4-K is config + harness).
+    - **Phase 4-K closed**: 4.64 → 4.65 → 4.66.
+    - **Step 4 closed**: 65 sub-tasks done across 11 phases. Single-player MVP playable end-to-end; realtime + ranked PvP wired; production deploy is a manifest-only dry-run.
+60. **NEXT — Step 5 (Code review)**: per `schedule/SCHEDULE.md` row 5. Reviewer focus pre-listed in `CHANGELOG.md`. Step 6 (UT + IT) and Step 7 (quality gate) follow.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

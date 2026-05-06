@@ -1,0 +1,28 @@
+# Aetheria — apps/api production image.
+
+FROM node:22-alpine AS base
+WORKDIR /repo
+ENV PNPM_HOME=/pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# ---------- deps stage ----------
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api/package.json apps/api/
+COPY packages packages
+RUN pnpm install --frozen-lockfile
+
+# ---------- build stage ----------
+FROM deps AS build
+COPY . .
+RUN pnpm --filter @aetheria/schema-db generate:mysql
+RUN pnpm --filter @aetheria/api build
+
+# ---------- runtime stage ----------
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /repo /app
+EXPOSE 3000
+CMD ["node", "apps/api/dist/index.js"]

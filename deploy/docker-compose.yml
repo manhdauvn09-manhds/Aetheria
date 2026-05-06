@@ -1,0 +1,49 @@
+# Aetheria — local dev stack.
+#
+# `docker compose -f deploy/docker-compose.yml up` brings up MySQL + Redis
+# bound to host ports. The api/realtime/worker apps still run on the host
+# (via `pnpm dev`) so hot-reload works; the compose file just provides
+# the data plane.
+
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: aetheria
+      MYSQL_DATABASE: aetheria
+      MYSQL_USER: aetheria
+      MYSQL_PASSWORD: aetheria
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../db/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uaetheria", "-paetheria"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mysql_data:
+  redis_data:

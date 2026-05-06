@@ -1,0 +1,17 @@
+# Aetheria — Fly.io app manifest for apps/worker.
+# Deploy:  fly deploy --config deploy/fly.worker.toml --dockerfile deploy/Dockerfile.worker
+
+app = "aetheria-worker"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile.worker"
+
+[env]
+  NODE_ENV = "production"
+
+# No http_service: worker is a daemon, not a request handler.
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
