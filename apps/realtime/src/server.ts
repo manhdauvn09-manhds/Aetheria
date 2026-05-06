@@ -18,7 +18,7 @@ import pino, { type Logger } from "pino";
 import { startSentry, startTracing } from "@aetheria/core";
 import { Server as IoServer } from "socket.io";
 
-import { buildAuthMiddleware } from "./auth.js";
+import { buildAuthMiddleware, buildJtiRegistry } from "./auth.js";
 import { attachChatBus, type ChatBusSubscriber } from "./chatBus.js";
 import type { Env } from "./env.js";
 import { attachPvpMatches, type PvpMatchesRuntime } from "./pvpMatches.js";
@@ -103,16 +103,22 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
     log.warn("REDIS_URL not set — running single-instance (no cross-process chat/pvp bus)");
   }
 
+  const jtiRegistry = buildJtiRegistry();
+
   io.use(
-    buildAuthMiddleware({
-      secret: env.JWT_SECRET,
-      issuer: env.JWT_ISSUER,
-      audience: env.JWT_AUDIENCE,
-    }),
+    buildAuthMiddleware(
+      {
+        secret: env.JWT_SECRET,
+        issuer: env.JWT_ISSUER,
+        audience: env.JWT_AUDIENCE,
+      },
+      jtiRegistry,
+    ),
   );
 
   io.on("connection", (socket) => {
     const userId = socket.auth?.userId ?? "?";
+    const jti = socket.auth?.jti;
     void socket.join(`user:${userId}`);
     void socket.join("channel:global");
     log.debug({ userId, socketId: socket.id }, "socket connected");
@@ -134,6 +140,7 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
 
     socket.on("disconnect", (reason) => {
       log.debug({ userId, socketId: socket.id, reason }, "socket disconnected");
+      if (jti) jtiRegistry.release(jti);
     });
   });
 

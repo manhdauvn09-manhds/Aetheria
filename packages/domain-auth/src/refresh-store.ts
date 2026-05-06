@@ -29,13 +29,37 @@ export interface RefreshTokenStore {
 
 // ── In-memory ────────────────────────────────────────────────────────
 
-export const inMemoryRefreshStore = (): RefreshTokenStore => {
+// GC interval: purge expired tokens every 5 minutes so the Map doesn't grow
+// unboundedly in long-running dev/test processes.
+const GC_INTERVAL_MS = 5 * 60 * 1_000;
+
+export const inMemoryRefreshStore = (): RefreshTokenStore & { stopGc(): void } => {
   const byJti = new Map<string, RefreshRecord>();
   const byUser = new Map<string, Set<string>>();
 
   const userKey = (userId: bigint): string => userId.toString();
 
+  const gcTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [jti, rec] of byJti) {
+      if (rec.expiresAt <= now) {
+        byJti.delete(jti);
+        byUser.get(userKey(rec.userId))?.delete(jti);
+      }
+    }
+    // remove empty user buckets
+    for (const [k, bucket] of byUser) {
+      if (bucket.size === 0) byUser.delete(k);
+    }
+  }, GC_INTERVAL_MS);
+
+  // Prevent the timer from keeping the process alive (tests, worker shutdown).
+  gcTimer.unref?.();
+
   return {
+    stopGc() {
+      clearInterval(gcTimer);
+    },
     put(jti, record) {
       byJti.set(jti, record);
       const k = userKey(record.userId);

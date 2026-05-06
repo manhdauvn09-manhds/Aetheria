@@ -35,6 +35,7 @@ export const defaultTokenTtl = {
 
 export interface AccessClaims {
   sub: string;
+  jti: string;
   roles: readonly string[];
   iat: number;
   exp: number;
@@ -62,18 +63,20 @@ export const signAccessToken = async (
   userId: bigint,
   roles: readonly string[],
   cfg: TokenConfig,
-): Promise<{ token: string; expiresAt: number }> => {
+): Promise<{ token: string; jti: string; expiresAt: number }> => {
+  const jti = randomUUID();
   const iat = nowSec();
   const exp = iat + cfg.accessTtlSeconds;
   const token = await new SignJWT({ roles })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setSubject(userId.toString())
+    .setJti(jti)
     .setIssuer(cfg.issuer)
     .setAudience(cfg.audience)
     .setIssuedAt(iat)
     .setExpirationTime(exp)
     .sign(enc.encode(cfg.accessSecret));
-  return { token, expiresAt: exp * 1000 };
+  return { token, jti, expiresAt: exp * 1000 };
 };
 
 export const signRefreshToken = async (

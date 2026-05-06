@@ -7,6 +7,12 @@
 //
 // We deliberately avoid query-string fallback — query strings end up in
 // reverse-proxy access logs and that's a bad place for a bearer secret.
+//
+// B5 replay guard: each JWT must carry a `jti` claim. Once a connection is
+// established the jti is locked to that socket. A second handshake with the
+// same jti is rejected while the first socket is still live. On disconnect
+// the lock is released so the client can reconnect with the same token within
+// its TTL (the expected single-tab reconnect pattern).
 
 import { errors as joseErrors, jwtVerify } from "jose";
 
@@ -23,6 +29,7 @@ export interface JwtConfig {
 export interface SocketAuth {
   readonly userId: string;
   readonly roles: readonly string[];
+  readonly jti: string;
 }
 
 /**
@@ -53,7 +60,37 @@ export type SocketIoMiddleware = (
   next: (err?: Error) => void,
 ) => void;
 
-export const buildAuthMiddleware = (cfg: JwtConfig): SocketIoMiddleware => {
+/**
+ * Tracks which JTIs are currently held by an active socket.
+ * Used to prevent the same access token being replayed to open a second
+ * concurrent WebSocket session (B5).
+ *
+ * Call `jtiRegistry.release(jti)` in the socket's "disconnect" handler.
+ */
+export interface JtiRegistry {
+  /** Returns false if the jti is already claimed. */
+  claim(jti: string): boolean;
+  release(jti: string): void;
+}
+
+export const buildJtiRegistry = (): JtiRegistry => {
+  const active = new Set<string>();
+  return {
+    claim(jti) {
+      if (active.has(jti)) return false;
+      active.add(jti);
+      return true;
+    },
+    release(jti) {
+      active.delete(jti);
+    },
+  };
+};
+
+export const buildAuthMiddleware = (
+  cfg: JwtConfig,
+  jtiRegistry: JtiRegistry,
+): SocketIoMiddleware => {
   const key = enc.encode(cfg.secret);
   return (socket, next): void => {
     const token = extractToken(socket);
@@ -72,11 +109,23 @@ export const buildAuthMiddleware = (cfg: JwtConfig): SocketIoMiddleware => {
           next(new Error("UNAUTHENTICATED: token missing subject"));
           return;
         }
+
+        const jti = result.payload.jti;
+        if (typeof jti !== "string" || jti.length === 0) {
+          next(new Error("UNAUTHENTICATED: token missing jti"));
+          return;
+        }
+
+        if (!jtiRegistry.claim(jti)) {
+          next(new Error("UNAUTHENTICATED: token already in use"));
+          return;
+        }
+
         const rawRoles = (result.payload as { roles?: unknown }).roles;
         const roles: readonly string[] = Array.isArray(rawRoles)
           ? rawRoles.filter((r): r is string => typeof r === "string")
           : [];
-        socket.auth = { userId: sub, roles };
+        socket.auth = { userId: sub, roles, jti };
         next();
       })
       .catch((e: unknown) => {
