@@ -13,6 +13,10 @@ import {
   type AccountService,
 } from "@aetheria/domain-account";
 import {
+  createAdminRouter,
+  type AdminService,
+} from "@aetheria/domain-admin";
+import {
   createWorldRouter,
   type WorldService,
 } from "@aetheria/domain-world";
@@ -89,6 +93,7 @@ export interface AppDeps {
   readonly lbService: LeaderboardService;
   readonly shopService: ShopService;
   readonly notificationsService: NotificationsService;
+  readonly adminService: AdminService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -111,6 +116,7 @@ export const createAppRouter = (deps: AppDeps) =>
     pvp: createPvpRouter(deps.pvpService, deps.pvpMatchService, deps.mmrService, deps.lbService),
     shop: createShopRouter(deps.shopService),
     notifications: createNotificationsRouter(deps.notificationsService),
+    admin: createAdminRouter(deps.adminService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

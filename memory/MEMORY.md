@@ -709,7 +709,21 @@ games/Aetheria/
     - **In-app dropdown UI**: deferred to a separate web step (not in 4.51 scope).
     - **Tests** — 6 vitest specs in `__tests__/rules.test.ts` (isKnownType, categoryOf bucketing for all 9 kinds + unknown→system, parsePayload null/non-object/garbage).
     - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 27/27 ✓, `pnpm -r lint` 27/27 ✓, `pnpm -r test` **365/365 ✓** (was 359; +6 from notif rules).
-55. **NEXT — Step 4.52**: Admin tools — `admin.banUser/grantItem/featureFlag.set/replay` + minimal admin UI. Vertical L, deps 4.49 + 4.51. Closes Phase 4-H. Uses existing `audit_log` + `feature_flags` tables; admin role gated via `adminProcedure` in schema-api/trpc.
+55. **Step 4.52 — `domain-admin` + `/admin` UI (closes Phase 4-H)** (5 May 2026):
+    - **`packages/domain-admin/src/`** — types/service/router. All routes via `adminProcedure` (`schema-api/trpc`); non-admin caller rejected at boundary.
+    - **Service ops** (every one writes audit):
+      - `banUser({ targetUserId, reason 1-500 })` → `users.status="banned"`; payload `{ reason, priorStatus }`.
+      - `unbanUser({ targetUserId })` → `status="active"`.
+      - `grantItem({ targetUserId, itemId, quantity 1-9999 })` → upserts `inventory` with `items.maxStack` cap (rejects overflow).
+      - `setFeatureFlag({ key 1-128, value: unknown })` → upsert `feature_flags`; `updatedBy = actorUserId.toString()`.
+      - `listFeatureFlags()` / `replay({ action?, actorUserId?, targetType?, before?, limit≤500 })`.
+    - **Audit-targetId quirk**: `audit.write({ targetId })` is `bigint | null` only. Non-numeric ids (e.g. feature flag keys) live in `payload`, not `targetId`.
+    - **Wiring**: api adds dep, instantiates `new AdminService({ mysql })`, mounts `admin: createAdminRouter(...)`.
+    - **Web `/admin`** — 4 cards: User moderation (Ban/Unban), Grant item, Feature flags (list + JSON-parsed set), Audit replay (action filter, scrollable list of 25). Hides nothing client-side; server is the gate. Not linked from menu.
+    - **Tests**: service-only, `vitest run --passWithNoTests`.
+    - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 28/28 ✓, `pnpm -r lint` 28/28 ✓, `pnpm -r test` **365/365 ✓**; web build ✓ (`/admin` 2.91 kB static).
+    - **Phase 4-H closed**: 4.49 (shop) → 4.50 (economy) → 4.51 (notifications) → 4.52 (admin).
+56. **NEXT — Phase 4-I (Workers / Cron) Step 4.53**: Worker scaffold (`apps/worker`) — pino + cron triggers + Redis lock primitives. Then 4.54 dailyReset, 4.55 leaderboard snapshot, 4.56 anti-cheat sweep, 4.57 guildRaidScheduler.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

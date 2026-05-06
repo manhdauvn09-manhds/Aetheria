@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { Redis } from "ioredis";
 
 import { AccountService } from "@aetheria/domain-account";
+import { AdminService } from "@aetheria/domain-admin";
 import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
@@ -80,6 +81,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const friendsService = new FriendsService({ mysql });
   const shopService = new ShopService({ mysql });
   const notificationsService = new NotificationsService({ mysql });
+  const adminService = new AdminService({ mysql });
 
   // Realtime fan-out is opt-in: when REDIS_URL is set, ChatService
   // publishes each accepted send to the bus that apps/realtime
@@ -152,6 +154,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     lbService,
     shopService,
     notificationsService,
+    adminService,
   });
 
   app.addHook("onClose", async () => {

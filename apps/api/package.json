@@ -20,6 +20,7 @@
   "dependencies": {
     "@aetheria/core":           "workspace:*",
     "@aetheria/domain-account":         "workspace:*",
+    "@aetheria/domain-admin":           "workspace:*",
     "@aetheria/domain-auth":            "workspace:*",
     "@aetheria/domain-battlepass":      "workspace:*",
     "@aetheria/domain-combat-runtime":  "workspace:*",
