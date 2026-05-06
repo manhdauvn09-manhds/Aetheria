@@ -723,7 +723,17 @@ games/Aetheria/
     - **Tests**: service-only, `vitest run --passWithNoTests`.
     - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 28/28 ✓, `pnpm -r lint` 28/28 ✓, `pnpm -r test` **365/365 ✓**; web build ✓ (`/admin` 2.91 kB static).
     - **Phase 4-H closed**: 4.49 (shop) → 4.50 (economy) → 4.51 (notifications) → 4.52 (admin).
-56. **NEXT — Phase 4-I (Workers / Cron) Step 4.53**: Worker scaffold (`apps/worker`) — pino + cron triggers + Redis lock primitives. Then 4.54 dailyReset, 4.55 leaderboard snapshot, 4.56 anti-cheat sweep, 4.57 guildRaidScheduler.
+56. **Step 4.53 — `apps/worker` scaffold (Phase 4-I opens)** (5 May 2026):
+    - New workspace `@aetheria/worker`. Pino logger + interval scheduler + Redis SET-NX lock primitives.
+    - **`src/lock.ts`** — `acquire(redis, name, ttlMs)` uses `SET key token PX ttl NX` → `{key, token} | null`; `release` is a Lua CAS (`if get(K) == token then del`). `runLocked(redis, name, ttlMs, fn)` returns `{ran: true, result} | {ran: false}`; releases in `finally` (errors swallowed — TTL is safety net) and re-throws fn errors after release.
+    - **`src/scheduler.ts`** — `buildScheduler(jobs, { log, redis, buildContext, allowlist? })`: each job runs on `setInterval(intervalMs).unref()` with first-tick delay `initialDelayMs ?? min(30s, intervalMs/4)`. With Redis: every tick wrapped in `runLocked` (single-fire across fleet). Without Redis: runs unconditionally (dev-only). `stop()` clears all timers.
+    - **`src/jobs/types.ts`** — `JobDefinition { name, intervalMs, lockTtlMs, initialDelayMs?, run(ctx) }`; `JobContext { mysql, redis, log, now }`.
+    - **`src/jobs/ping.ts`** — placeholder heartbeat (60 s) so 4.53 ships runnable. Real jobs land 4.54+.
+    - **`src/env.ts`** — `NODE_ENV`, `DATABASE_URL_MYSQL`, optional `REDIS_URL`, `WORKER_JOBS` csv allowlist (empty = all) for fleet sharding.
+    - **`exactOptionalPropertyTypes` workaround**: `allowlist: env.WORKER_JOBS.length > 0 ? env.WORKER_JOBS : []` (empty array, not `undefined`).
+    - **Tests** — 10 vitest specs: lockKey, acquire/release/runLocked happy + contention + throws-still-releases; computeInitialDelay explicit/clamp/default. Pattern: vi.fn mocks use `() => Promise.resolve(...)` to avoid `require-await` lint.
+    - **Smoke** (5 May 2026): `pnpm -r typecheck` 29/29 ✓, `pnpm -r lint` 29/29 ✓, `pnpm -r test` **375/375 ✓** (was 365; +10 from worker).
+57. **NEXT — Step 4.54**: cron.dailyReset / weeklyReset / seasonReset — quest progress reset + BP window roll + leaderboard season-end. Then 4.55 antiCheatScan, 4.56 leaderboardSnapshot, 4.57 guildRaidScheduler.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

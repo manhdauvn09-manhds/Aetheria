@@ -1,0 +1,35 @@
+{
+  "name": "@aetheria/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aetheria worker — cron-driven jobs (daily reset, anti-cheat sweep, leaderboard snapshot, guild raid scheduler) with Redis-locked single-fire execution.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev":       "tsx watch src/index.ts",
+    "start":     "node dist/index.js",
+    "build":     "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint":      "eslint src",
+    "test":      "vitest run",
+    "clean":     "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@aetheria/core":         "workspace:*",
+    "@aetheria/schema-api":   "workspace:*",
+    "@aetheria/schema-db":    "workspace:*",
+    "@aetheria/shared-types": "workspace:*",
+    "ioredis":                "^5.4.1",
+    "pino":                   "^9.5.0",
+    "pino-pretty":            "^11.3.0",
+    "zod":                    "^3.23.8"
+  },
+  "devDependencies": {
+    "@aetheria/config": "workspace:*",
+    "@types/node":      "^22.9.0",
+    "rimraf":           "^6.0.1",
+    "tsx":              "^4.19.2",
+    "typescript":       "^5.6.3",
+    "vitest":           "^2.1.8"
+  }
+}

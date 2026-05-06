@@ -122,7 +122,7 @@
 ## Phase 4-I · Workers / Cron
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
-| 4.53 | `apps/worker` boot: BullMQ + Redis connection                                              | horizontal | S | 4.7 | ⬜ |
+| 4.53 | `apps/worker` boot — pino + interval scheduler + Redis lock primitives                     | horizontal | S | 4.7 | ✅ |
 | 4.54 | `cron.dailyReset`, `cron.weeklyReset`, `cron.seasonReset`                                   | horizontal | M | 4.53, 4.33 | ⬜ |
 | 4.55 | `worker.antiCheatScan` — replay `runs.action_log` via `combat.replayActions`, flag mismatches | horizontal | M | 4.53, 4.26 | ⬜ |
 | 4.56 | `worker.leaderboardSnapshot` hourly — copy Redis ZSET top-N to `leaderboards` table          | horizontal | S | 4.53, 4.47 | ⬜ |
