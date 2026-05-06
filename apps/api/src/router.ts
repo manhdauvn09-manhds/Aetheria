@@ -17,6 +17,10 @@ import {
   type AdminService,
 } from "@aetheria/domain-admin";
 import {
+  createTelemetryRouter,
+  type TelemetryService,
+} from "@aetheria/domain-telemetry";
+import {
   createWorldRouter,
   type WorldService,
 } from "@aetheria/domain-world";
@@ -94,6 +98,7 @@ export interface AppDeps {
   readonly shopService: ShopService;
   readonly notificationsService: NotificationsService;
   readonly adminService: AdminService;
+  readonly telemetryService: TelemetryService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -117,6 +122,7 @@ export const createAppRouter = (deps: AppDeps) =>
     shop: createShopRouter(deps.shopService),
     notifications: createNotificationsRouter(deps.notificationsService),
     admin: createAdminRouter(deps.adminService),
+    telemetry: createTelemetryRouter(deps.telemetryService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

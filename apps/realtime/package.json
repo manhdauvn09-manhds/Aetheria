@@ -17,6 +17,7 @@
   "dependencies": {
     "@aetheria/domain-pvp":             "workspace:*",
     "@aetheria/domain-social":          "workspace:*",
+    "@aetheria/core":                   "workspace:*",
     "@aetheria/schema-api":             "workspace:*",
     "@aetheria/shared-types":           "workspace:*",
     "@socket.io/redis-adapter":         "^8.3.0",

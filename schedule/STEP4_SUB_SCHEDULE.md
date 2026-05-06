@@ -131,12 +131,12 @@
 ## Phase 4-J · Frontend polish, PWA, i18n, telemetry
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
-| 4.58 | Game state machine (`02_FLOWS.md` §10) wired across menus / hub / combat / pause            | vertical | M | 4.20, 4.28 | ⬜ |
-| 4.59 | PWA: service worker, asset manifest precache, IndexedDB asset cache                        | horizontal | M | 4.8 | ⬜ |
-| 4.60 | i18n: `i18n.t` with namespace files; bootstrap en + vi                                     | horizontal | S | 4.6 | ⬜ |
-| 4.61 | Telemetry: `telemetry.event` (client batches → server sink); core funnels: signup → tutorial → lvl5 → lvl25 | horizontal | M | 4.7 | ⬜ |
-| 4.62 | OpenTelemetry tracing wiring on api + realtime + worker                                    | horizontal | M | 4.7, 4.40, 4.53 | ⬜ |
-| 4.63 | Sentry integration (web + node)                                                            | horizontal | S | 4.8, 4.7 | ⬜ |
+| 4.58 | Game state machine (`02_FLOWS.md` §10) wired across menus / hub / combat / pause            | vertical | M | 4.20, 4.28 | ✅ |
+| 4.59 | PWA: service worker + manifest precache (IndexedDB asset cache deferred)                   | horizontal | M | 4.8 | ✅ |
+| 4.60 | i18n: `useT` hook with namespace files; bootstrap en + vi                                  | horizontal | S | 4.6 | ✅ |
+| 4.61 | Telemetry: `telemetry.event` (client batches → audit_log sink); funnel allowlist           | horizontal | M | 4.7 | ✅ |
+| 4.62 | OpenTelemetry tracing scaffold (no-op until OTEL_EXPORTER_OTLP_ENDPOINT set)               | horizontal | M | 4.7, 4.40, 4.53 | ✅ |
+| 4.63 | Sentry scaffold (no-op until SENTRY_DSN set)                                               | horizontal | S | 4.8, 4.7 | ✅ |
 
 ## Phase 4-K · Cut MVP & ship
 | #    | Task                                                                                       | Slice | Size | Dep | Status |

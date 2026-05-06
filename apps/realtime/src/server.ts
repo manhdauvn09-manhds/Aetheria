@@ -14,6 +14,8 @@ import {
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
 import pino, { type Logger } from "pino";
+
+import { startSentry, startTracing } from "@aetheria/core";
 import { Server as IoServer } from "socket.io";
 
 import { buildAuthMiddleware } from "./auth.js";
@@ -66,6 +68,11 @@ const buildHttpHandler = (env: Env, log: Logger) =>
   };
 
 export const buildRealtime = (env: Env): RealtimeBundle => {
+  startTracing({
+    serviceName: "aetheria-realtime",
+    endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+  startSentry({ dsn: process.env.SENTRY_DSN, environment: env.NODE_ENV });
   const log = buildLogger(env);
   const http = createServer(buildHttpHandler(env, log));
 

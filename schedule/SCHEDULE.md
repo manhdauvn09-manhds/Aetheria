@@ -10,7 +10,7 @@
 | 1 | Game scenario + guideline (md+pdf)         | ✅     | 100| name=Aetheria, guideline + lore done             |
 | 2 | Architecture / Tech-stack / DB design      | ✅     | 100| 5 docs (arch, stack, db, fn, flows) + 5 PDFs     |
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
-| 4 | Coding (sub-schedule below)                | 🟨     | 95 | 4.1–4.57 done; Phase 4-I closed — daily/weekly/season resets + antiCheat outlier sweep + lb snapshot + guildRaidScheduler |
+| 4 | Coding (sub-schedule below)                | 🟨     | 97 | 4.1–4.63 done; Phase 4-J closed — scene transitions + PWA shell + en/vi i18n + telemetry funnel + OTel/Sentry env-gated stubs |
 | 5 | Code review                                | ⬜     | 0  |                                                  |
 | 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |

@@ -83,6 +83,9 @@ importers:
       '@aetheria/domain-sync':
         specifier: workspace:*
         version: link:../../packages/domain-sync
+      '@aetheria/domain-telemetry':
+        specifier: workspace:*
+        version: link:../../packages/domain-telemetry
       '@aetheria/domain-world':
         specifier: workspace:*
         version: link:../../packages/domain-world
@@ -144,6 +147,9 @@ importers:
 
   apps/realtime:
     dependencies:
+      '@aetheria/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aetheria/domain-pvp':
         specifier: workspace:*
         version: link:../../packages/domain-pvp
@@ -963,6 +969,37 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+
+  packages/domain-telemetry:
+    dependencies:
+      '@aetheria/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aetheria/schema-api':
+        specifier: workspace:*
+        version: link:../schema-api
+      '@aetheria/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@aetheria/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.17
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)
 
   packages/domain-world:
     dependencies:

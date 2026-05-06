@@ -3,6 +3,7 @@
 import { Redis } from "ioredis";
 import pino, { type Logger } from "pino";
 
+import { startSentry, startTracing } from "@aetheria/core";
 import { mysql, disconnectMysql } from "@aetheria/schema-db/mysql";
 
 import { loadEnv, type Env } from "./env.js";
@@ -35,6 +36,11 @@ const ALL_JOBS: readonly JobDefinition[] = [
 
 const main = async (): Promise<void> => {
   const env = loadEnv();
+  startTracing({
+    serviceName: "aetheria-worker",
+    endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+  startSentry({ dsn: process.env.SENTRY_DSN, environment: env.NODE_ENV });
   const log = buildLogger(env);
   const redis = env.REDIS_URL ? new Redis(env.REDIS_URL) : null;
 

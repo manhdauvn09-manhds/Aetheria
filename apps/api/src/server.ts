@@ -8,6 +8,8 @@ import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
 import { Redis } from "ioredis";
 
+import { startSentry, startTracing } from "@aetheria/core";
+
 import { AccountService } from "@aetheria/domain-account";
 import { AdminService } from "@aetheria/domain-admin";
 import { BattlePassService } from "@aetheria/domain-battlepass";
@@ -32,6 +34,7 @@ import {
   redisChatPublisher,
 } from "@aetheria/domain-social";
 import { SyncService } from "@aetheria/domain-sync";
+import { TelemetryService } from "@aetheria/domain-telemetry";
 import { WorldService } from "@aetheria/domain-world";
 import { mysql } from "@aetheria/schema-db/mysql";
 
@@ -45,6 +48,12 @@ import { registerPlugins } from "./plugins.js";
 import { createAppRouter, type AppRouter } from "./router.js";
 
 export const buildServer = async (env: Env): Promise<FastifyInstance> => {
+  startTracing({
+    serviceName: "aetheria-api",
+    endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+  startSentry({ dsn: process.env.SENTRY_DSN, environment: env.NODE_ENV });
+
   const app = Fastify({
     logger:
       env.NODE_ENV === "development"
@@ -82,6 +91,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const shopService = new ShopService({ mysql });
   const notificationsService = new NotificationsService({ mysql });
   const adminService = new AdminService({ mysql });
+  const telemetryService = new TelemetryService();
 
   // Realtime fan-out is opt-in: when REDIS_URL is set, ChatService
   // publishes each accepted send to the bus that apps/realtime
@@ -155,6 +165,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     shopService,
     notificationsService,
     adminService,
+    telemetryService,
   });
 
   app.addHook("onClose", async () => {
