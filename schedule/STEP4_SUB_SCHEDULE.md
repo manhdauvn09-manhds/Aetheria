@@ -109,7 +109,7 @@
 | 4.45 | Realtime PvP turns: action validation via `domain-combat`, event broadcast, forfeit on heartbeat miss | vertical | L | 4.44 | ✅ |
 | 4.46 | MMR (Glicko-2): `mmr.get/update`; post-match write to `mmr` table + `pvp_match_players`    | vertical | M | 4.45 | ✅ |
 | 4.47 | Leaderboards: `lb.recordResult` → Redis ZSET `lb:{mode}:{season_id}`; `lb.top/aroundUser`   | vertical | M | 4.46 | ✅ |
-| 4.48 | Web: PvP queue UI, in-match HUD, post-match summary, leaderboard screen                    | vertical | L | 4.45, 4.47 | ⬜ |
+| 4.48 | Web: PvP queue UI, in-match HUD, post-match summary, leaderboard screen                    | vertical | L | 4.45, 4.47 | ✅ |
 
 ## Phase 4-H · Marketplace, Notifications, Admin
 | #    | Task                                                                                       | Slice | Size | Dep | Status |

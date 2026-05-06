@@ -672,7 +672,17 @@ games/Aetheria/
     - **Wiring**: `apps/api/src/env.ts` adds `PVP_SEASON_ID` (default `"1"`, length 1–32). `apps/api/src/server.ts` builds `new LeaderboardService({ redis: pvpRedis ?? noopRedis, seasonId: env.PVP_SEASON_ID })` once, passes into both `MmrService` (for auto-record) and the app router. `noopRedis` extended to satisfy `LbRedisClient` (added `zrevrange`/`zrevrank`).
     - **Tests** — 6 vitest specs in `__tests__/leaderboard.test.ts` (`lbKey` namespacing for both modes/seasons; `slidingWindow` centred / top-clamp / bottom-clamp / empty / negative-radius).
     - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 24/24 ✓, `pnpm -r lint` 24/24 ✓, `pnpm -r test` **348/348 ✓** (was 342; +6 from leaderboard helpers).
-51. **NEXT — Step 4.48**: Web — PvP queue UI, in-match HUD, post-match summary, leaderboard screen. Vertical L, deps 4.45 + 4.47. Consumes `pvp.queue/cancelQueue/status/match/activeMatch/mmr/lbTop/lbAroundMe` + Socket.IO events `pvp:start/state/end`.
+51. **Step 4.48 — Web PvP / Leaderboard (closes Phase 4-G)** (5 May 2026):
+    - **`apps/web/src/lib/realtime/useMatchSocket.ts`** — Socket.IO hook scoped to a `matchId`. Subscribes to `pvp:start`/`pvp:state`/`pvp:end` (filters by `matchId`), exposes `{ connected, start, turn, history, end, action(kind) }`. `action(...)` returns the realtime ack as `{ ok: true } | { ok: false; reason }` via Socket.IO callback. Uses `auth: { token: access.value }` from the Zustand session, `transports: ["websocket"]`, autoConnect.
+    - **`/pvp` (`apps/web/src/app/pvp/page.tsx`)** — branches on `pvp.activeMatch.useQuery({ refetchInterval: 4_000 })`:
+      - **No match**: `QueuePanel` reads `pvp.status` (every 2s), shows mode/region pickers + "Find match" button (mutates `pvp.queue`); when queued shows mode/region/MMR/bracketWidth + Cancel.
+      - **Match live**: `MatchHud` driven by `useMatchSocket(matchId)` — turn card (`#N`, "Your move" / "Waiting for #x"), deadline countdown via local `useDeadlineCountdown` (500ms tick), Move/Ability/Surrender buttons gated on `myTurn`, scrollback history list of moves. Auto-invalidates `activeMatch` 4s after `pvp:end` so the user transitions out cleanly.
+      - **Match ended**: `PostMatchSummary` reads `pvp.match({ matchId })` and renders `result` + MMR `before → after` with signed delta + colour-coded.
+    - **`/leaderboard` (`apps/web/src/app/leaderboard/page.tsx`)** — tabs 1v1 / 3v3. Reads `pvp.lbTop({ mode, limit: 50 })` and `pvp.lbAroundMe({ mode, radius: 5 })`. Highlights the viewer's row with `border-realm-aetheric`. Empty states inline.
+    - **Menu** (`apps/web/src/app/menu/page.tsx`): replaced disabled "Multiplayer" tile with active **PvP** + **Leaderboard** tiles.
+    - **Smoke** (5 May 2026): `pnpm --filter @aetheria/web typecheck` ✓, `lint` ✓ (after collapsing one redundant null+length guard to `top.data?.length === 0` and removing two `!` non-null assertions in cancel-queue handler), `build` ✓ (new static routes `/pvp` 4 kB, `/leaderboard` 2.1 kB). Repo-wide `pnpm -r typecheck` 24/24 ✓, `pnpm -r lint` 24/24 ✓, `pnpm -r test` **348/348 ✓** (no new test files).
+    - **Phase 4-G closed**: 4.43 (matchmaking) → 4.44 (lifecycle) → 4.45 (realtime turns) → 4.46 (Glicko-2) → 4.47 (leaderboards) → 4.48 (web). PvP loop end-to-end playable when `REDIS_URL` is set.
+52. **NEXT — Phase 4-H (Marketplace / Notifications / Admin)** Step 4.49: Marketplace — `shop` (purchase/list) + currency ledger via existing `ShopItem`/`Transaction` models. Vertical M.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

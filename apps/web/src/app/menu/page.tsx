@@ -55,12 +55,8 @@ const MenuInner = (): JSX.Element => {
         <MenuButton href="/guild" title="Guild" subtitle="Found, recruit, lead." />
         <MenuButton href="/friends" title="Friends" subtitle="Add, accept, manage." />
         <MenuButton href="/chat" title="Chat" subtitle="Global / guild / whispers." />
-        <MenuButton
-          href="/menu"
-          title="Multiplayer"
-          subtitle="Coming in Phase 4-G."
-          disabled
-        />
+        <MenuButton href="/pvp" title="PvP" subtitle="Ranked 1v1 / 3v3." />
+        <MenuButton href="/leaderboard" title="Leaderboard" subtitle="Live Glicko-2 standings." />
       </nav>
 
       <footer className="flex justify-center">
