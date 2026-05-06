@@ -21,9 +21,33 @@ Fixed 8 of 35 findings in commit batch:
 - **S8, S10** — Root layout extended: `metadataBase`, `openGraph`, `twitter`, `alternates.canonical`, `alternates.languages` + `viewport` export (themeColor / viewport-fit).
 - **B3 — false positive**: inventory router already passes `ctx.auth.userId` (not client input); finding closed without code change.
 
-### Remaining (27 open)
+### Hardening pass 2 (post-audit)
+Fixed additional 14 findings (+ 2 false positives closed):
+- **S1** — 13 route-level `layout.tsx` files added as Server Components to export `metadata` for all auth-gated pages (menu/login/signup/play/pvp/guild/chat/leaderboard/admin/battlepass/friends/roster/realms). `/admin` marked `robots: noindex`.
+- **S6** — `generateMetadata()` in `layout.tsx` for 3 dynamic routes: `/play/[levelNumber]`, `/realms/[realmId]`, `/roster/[userCharacterId]`. All marked `robots: noindex`.
+- **S4** — Schema.org `VideoGame` JSON-LD block added to root layout via `next/script`.
+- **S7 — confirmed**: `alternates.languages` (en/vi) already in root layout from pass 1; no further change needed.
+- **B2** — Background 5-minute GC loop in `inMemoryRefreshStore()`; timer `unref()`'d; `stopGc()` exposed for teardown.
+- **B5** — Access tokens now carry a `jti` claim (`signAccessToken` updated). `JtiRegistry` in `apps/realtime/src/auth.ts` claims JTI on WS connect and releases on disconnect — prevents same token opening a concurrent second session.
+- **F3** — Refresh cookie upgraded from `SameSite=Lax` to `SameSite=Strict` in both `buildRefreshCookie` and `buildClearRefreshCookie`.
+- **F4** — Email stripped from `partialize()` in `apps/web/src/store/session.ts`; only id/displayName/roles/oauthProvider persisted to localStorage.
+- **B6** — JWT secret max-length capped at 512 bytes in both `apps/api/src/env.ts` and `apps/realtime/src/env.ts`.
+- **B10** — Explicit `shape.data.stack = undefined` in tRPC `errorFormatter` for `NODE_ENV=production` in `packages/schema-api/src/trpc.ts`.
+- **B8** — Design-appropriate: OAuth state/PKCE delegated to NextAuth. Code comment added to `oauth.ts`.
+- **B9 — false positive**: `JobDefinition.lockTtlMs` is already per-job; scheduler uses it directly. No code change.
+- **B11** — `MAX_CLIENT_ROOMS=20` cap in `chat:join` handler prevents rogue socket from joining unbounded rooms.
+- **B12** — Refund now uses `transaction.updateMany(where: { status: "completed" })` inside the DB transaction; `count=0` → conflict error. Prevents double-credit on concurrent refund.
+
+### Remaining (11 open)
 
 These findings are **separate from the Step 5 review** (`buglist/REVIEW.md`). They are operational hardening + production readiness items, not Step 4 correctness bugs.
+
+Remaining open:
+- **S9** (med) — No `alternates.canonical` strategy for multi-locale per-page.
+- **S11, S12** (low) — No `next/image` (acceptable); SW is SEO-safe (informational).
+- **B13** (low) — SQLite per-user file integrity not enforced.
+- **B14** (low) — No audit gate before destructive cron paths.
+- **B15** (low) — No state CSRF check at API layer (delegated to NextAuth — design-appropriate).
 
 ---
 
