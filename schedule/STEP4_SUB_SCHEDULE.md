@@ -123,10 +123,10 @@
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
 | 4.53 | `apps/worker` boot — pino + interval scheduler + Redis lock primitives                     | horizontal | S | 4.7 | ✅ |
-| 4.54 | `cron.dailyReset`, `cron.weeklyReset`, `cron.seasonReset`                                   | horizontal | M | 4.53, 4.33 | ⬜ |
-| 4.55 | `worker.antiCheatScan` — replay `runs.action_log` via `combat.replayActions`, flag mismatches | horizontal | M | 4.53, 4.26 | ⬜ |
-| 4.56 | `worker.leaderboardSnapshot` hourly — copy Redis ZSET top-N to `leaderboards` table          | horizontal | S | 4.53, 4.47 | ⬜ |
-| 4.57 | `worker.guildRaidScheduler` — weekly                                                        | horizontal | S | 4.53, 4.37 | ⬜ |
+| 4.54 | `cron.dailyReset`, `cron.weeklyReset`, `cron.seasonReset`                                   | horizontal | M | 4.53, 4.33 | ✅ |
+| 4.55 | `worker.antiCheatScan` — score-outlier sweep (replay-based verifier deferred)                | horizontal | M | 4.53, 4.26 | ✅ |
+| 4.56 | `worker.leaderboardSnapshot` hourly — copy Redis ZSET top-N to `leaderboards` table          | horizontal | S | 4.53, 4.47 | ✅ |
+| 4.57 | `worker.guildRaidScheduler` — weekly                                                        | horizontal | S | 4.53, 4.37 | ✅ |
 
 ## Phase 4-J · Frontend polish, PWA, i18n, telemetry
 | #    | Task                                                                                       | Slice | Size | Dep | Status |

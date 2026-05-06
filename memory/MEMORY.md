@@ -733,7 +733,16 @@ games/Aetheria/
     - **`exactOptionalPropertyTypes` workaround**: `allowlist: env.WORKER_JOBS.length > 0 ? env.WORKER_JOBS : []` (empty array, not `undefined`).
     - **Tests** — 10 vitest specs: lockKey, acquire/release/runLocked happy + contention + throws-still-releases; computeInitialDelay explicit/clamp/default. Pattern: vi.fn mocks use `() => Promise.resolve(...)` to avoid `require-await` lint.
     - **Smoke** (5 May 2026): `pnpm -r typecheck` 29/29 ✓, `pnpm -r lint` 29/29 ✓, `pnpm -r test` **375/375 ✓** (was 365; +10 from worker).
-57. **NEXT — Step 4.54**: cron.dailyReset / weeklyReset / seasonReset — quest progress reset + BP window roll + leaderboard season-end. Then 4.55 antiCheatScan, 4.56 leaderboardSnapshot, 4.57 guildRaidScheduler.
+57. **Steps 4.54–4.57 — Phase 4-I cron jobs** (5 May 2026):
+    - **`cron.dailyReset` / `cron.weeklyReset`** (24h / 7d) — `userQuest.updateMany({ where: { quest: { type: "daily"|"weekly" } }, data: { progress: {}, status: "active", claimedAt: null } })`. Quest discriminator field is **`type`** (not `kind`). Idempotent.
+    - **`cron.seasonReset`** (30d) — `mmr.updateMany({}, { seasonGames: 0, seasonWins: 0 })`. Rating + RD + volatility carry over (Glicko-2 no-games branch handles RD inflation).
+    - **`worker.antiCheatScan`** (1h) — last-hour completed runs grouped by levelId (capped 200/level), per-level `median` score, flags any run where `score > 3×median` via `audit.write("antiCheat.scoreOutlier")`. Pure helpers `median` + `isOutlier` in `src/jobs/stats.ts`. Replay-based verifier (4.26 `combat.replayActions`) is a follow-up.
+    - **`worker.leaderboardSnapshot`** (1h) — for each `(mode, seasonId)`, ZRevRange top-100 from `aetheria:lb:{mode}:{seasonId}` and upsert `leaderboards` rows keyed `(mode, seasonId, userId)`. Without Redis: warn + return. `seasonId` from `process.env.PVP_SEASON_ID` (default `"1"`, matches `apps/api`).
+    - **`worker.guildRaidScheduler`** (7d) — writes one `audit.guild.raid.scheduled` per guild with weekStart (UTC midnight) + windowMs. Real raid lifecycle is downstream.
+    - **Tests** — 6 vitest specs for `median` + `isOutlier`.
+    - **Smoke** (5 May 2026): `pnpm -r typecheck` 29/29 ✓, `pnpm -r lint` 29/29 ✓, `pnpm -r test` **381/381 ✓** (was 375; +6).
+    - **Phase 4-I closed**: 4.53 → 4.54 → 4.55 → 4.56 → 4.57.
+58. **NEXT — Phase 4-J (Frontend polish / PWA / i18n / telemetry)** Step 4.58+. Then Phase 4-K (E2E smoke, deployment dry-run, hand-off).
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

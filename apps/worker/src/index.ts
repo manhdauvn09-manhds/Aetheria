@@ -6,8 +6,14 @@ import pino, { type Logger } from "pino";
 import { mysql, disconnectMysql } from "@aetheria/schema-db/mysql";
 
 import { loadEnv, type Env } from "./env.js";
+import { antiCheatScanJob } from "./jobs/antiCheatScan.js";
+import { dailyResetJob } from "./jobs/dailyReset.js";
+import { guildRaidSchedulerJob } from "./jobs/guildRaidScheduler.js";
+import { leaderboardSnapshotJob } from "./jobs/leaderboardSnapshot.js";
 import { pingJob } from "./jobs/ping.js";
+import { seasonResetJob } from "./jobs/seasonReset.js";
 import type { JobContext, JobDefinition } from "./jobs/types.js";
+import { weeklyResetJob } from "./jobs/weeklyReset.js";
 import { buildScheduler } from "./scheduler.js";
 
 const buildLogger = (env: Env): Logger =>
@@ -17,7 +23,15 @@ const buildLogger = (env: Env): Logger =>
       : { level: "info" },
   );
 
-const ALL_JOBS: readonly JobDefinition[] = [pingJob];
+const ALL_JOBS: readonly JobDefinition[] = [
+  pingJob,
+  dailyResetJob,
+  weeklyResetJob,
+  seasonResetJob,
+  antiCheatScanJob,
+  leaderboardSnapshotJob,
+  guildRaidSchedulerJob,
+];
 
 const main = async (): Promise<void> => {
   const env = loadEnv();
