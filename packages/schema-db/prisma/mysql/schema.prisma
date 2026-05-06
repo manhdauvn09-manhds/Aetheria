@@ -63,6 +63,8 @@ model Profile {
   language       String?  @db.VarChar(16)
   accountLevel   Int      @default(1) @map("account_level")
   accountXp      Int      @default(0) @map("account_xp")
+  gold           Int      @default(0)
+  aether         Int      @default(0)
   preferences    Json     @default("{}")
   createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt      DateTime @updatedAt        @map("updated_at") @db.DateTime(3)

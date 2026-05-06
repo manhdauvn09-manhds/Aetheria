@@ -68,6 +68,9 @@ importers:
       '@aetheria/domain-save':
         specifier: workspace:*
         version: link:../../packages/domain-save
+      '@aetheria/domain-shop':
+        specifier: workspace:*
+        version: link:../../packages/domain-shop
       '@aetheria/domain-social':
         specifier: workspace:*
         version: link:../../packages/domain-social
@@ -489,6 +492,28 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  packages/domain-economy:
+    dependencies:
+      '@aetheria/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+    devDependencies:
+      '@aetheria/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.17
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)
+
   packages/domain-events:
     devDependencies:
       '@aetheria/config':
@@ -713,6 +738,43 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+
+  packages/domain-shop:
+    dependencies:
+      '@aetheria/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aetheria/domain-economy':
+        specifier: workspace:*
+        version: link:../domain-economy
+      '@aetheria/schema-api':
+        specifier: workspace:*
+        version: link:../schema-api
+      '@aetheria/schema-db':
+        specifier: workspace:*
+        version: link:../schema-db
+      '@aetheria/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@aetheria/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.17
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)
 
   packages/domain-social:
     dependencies:

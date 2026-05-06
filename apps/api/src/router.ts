@@ -53,6 +53,10 @@ import {
   type PvpMatchService,
 } from "@aetheria/domain-pvp";
 import {
+  createShopRouter,
+  type ShopService,
+} from "@aetheria/domain-shop";
+import {
   createChatRouter,
   createFriendsRouter,
   createGuildRouter,
@@ -79,6 +83,7 @@ export interface AppDeps {
   readonly pvpMatchService: PvpMatchService;
   readonly mmrService: MmrService;
   readonly lbService: LeaderboardService;
+  readonly shopService: ShopService;
 }
 
 export const createAppRouter = (deps: AppDeps) =>
@@ -99,6 +104,7 @@ export const createAppRouter = (deps: AppDeps) =>
     friends: createFriendsRouter(deps.friendsService),
     chat: createChatRouter(deps.chatService),
     pvp: createPvpRouter(deps.pvpService, deps.pvpMatchService, deps.mmrService, deps.lbService),
+    shop: createShopRouter(deps.shopService),
   });
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

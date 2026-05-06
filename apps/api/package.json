@@ -28,6 +28,7 @@
     "@aetheria/domain-quests":          "workspace:*",
     "@aetheria/domain-roster":          "workspace:*",
     "@aetheria/domain-save":            "workspace:*",
+    "@aetheria/domain-shop":            "workspace:*",
     "@aetheria/domain-social":          "workspace:*",
     "@aetheria/domain-sync":            "workspace:*",
     "@aetheria/domain-world":           "workspace:*",

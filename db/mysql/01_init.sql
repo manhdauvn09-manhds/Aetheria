@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS `profiles` (
   `language`       VARCHAR(16)     NULL,
   `account_level`  INT             NOT NULL DEFAULT 1,
   `account_xp`     INT             NOT NULL DEFAULT 0,
+  `gold`           INT             NOT NULL DEFAULT 0,
+  `aether`         INT             NOT NULL DEFAULT 0,
   `preferences`    JSON            NOT NULL,
   `created_at`     DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at`     DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),

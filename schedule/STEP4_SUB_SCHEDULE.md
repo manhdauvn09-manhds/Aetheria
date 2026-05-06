@@ -114,8 +114,8 @@
 ## Phase 4-H · Marketplace, Notifications, Admin
 | #    | Task                                                                                       | Slice | Size | Dep | Status |
 |------|--------------------------------------------------------------------------------------------|-------|------|-----|--------|
-| 4.49 | Shop service: `catalog/purchase/history` (transactional, currency check, audit write)      | vertical | M | 4.31 | ⬜ |
-| 4.50 | `packages/domain-economy` — currency rules, price computation, refund window               | horizontal | S | 4.3 | ⬜ |
+| 4.49 | Shop service: `catalog/purchase/history` (transactional, currency check, audit write)      | vertical | M | 4.31 | ✅ |
+| 4.50 | `packages/domain-economy` — currency rules, price computation, refund window               | horizontal | S | 4.3 | ✅ |
 | 4.51 | Notifications service: `notify.list/markRead/push`; in-app dropdown                        | vertical | M | 4.32 | ⬜ |
 | 4.52 | Admin tools: `admin.banUser/grantItem/featureFlag.set/replay` + minimal admin UI            | vertical | L | 4.49, 4.51 | ⬜ |
 

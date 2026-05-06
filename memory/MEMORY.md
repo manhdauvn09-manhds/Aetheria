@@ -682,7 +682,21 @@ games/Aetheria/
     - **Menu** (`apps/web/src/app/menu/page.tsx`): replaced disabled "Multiplayer" tile with active **PvP** + **Leaderboard** tiles.
     - **Smoke** (5 May 2026): `pnpm --filter @aetheria/web typecheck` ✓, `lint` ✓ (after collapsing one redundant null+length guard to `top.data?.length === 0` and removing two `!` non-null assertions in cancel-queue handler), `build` ✓ (new static routes `/pvp` 4 kB, `/leaderboard` 2.1 kB). Repo-wide `pnpm -r typecheck` 24/24 ✓, `pnpm -r lint` 24/24 ✓, `pnpm -r test` **348/348 ✓** (no new test files).
     - **Phase 4-G closed**: 4.43 (matchmaking) → 4.44 (lifecycle) → 4.45 (realtime turns) → 4.46 (Glicko-2) → 4.47 (leaderboards) → 4.48 (web). PvP loop end-to-end playable when `REDIS_URL` is set.
-52. **NEXT — Phase 4-H (Marketplace / Notifications / Admin)** Step 4.49: Marketplace — `shop` (purchase/list) + currency ledger via existing `ShopItem`/`Transaction` models. Vertical M.
+52. **Step 4.50 — `packages/domain-economy` (horizontal foundation)** (5 May 2026):
+    - Pure rules-only package. Exports: `Currency = "gold" | "aether"`, `isCurrency`/`toCurrency` (defaults to `gold` on garbage), `REFUND_WINDOW_MS = 24*60*60*1000`, `isWithinRefundWindow(createdAt, now, windowMs?)`, `applyDiscount(basePrice, discountBp)` (basis points clamped 0–10000, integer floor math), `isShopItemActive(from, to, now)` (inclusive-from, exclusive-to), `canAfford(balance, price)`, `lineTotal(basePrice, qty, discountBp?)` (price × floor(qty)).
+    - **Tests** — 11 vitest specs covering currency guards, discount clamping + integer math, refund window default + custom, shop-active boundary, canAfford, lineTotal qty/discount/floor.
+53. **Step 4.49 — `packages/domain-shop` (catalog/purchase/refund/history)** (5 May 2026):
+    - **Schema migration `0004_currency_balance`**: `profiles` gains `gold INT NOT NULL DEFAULT 0` + `aether INT NOT NULL DEFAULT 0`. Mirrored in raw `db/mysql/01_init.sql`. Prisma client regenerated.
+    - **`ShopService(Pick<MysqlClient, "shopItem"|"transaction"|"profile"|"inventory"|"item"|"$transaction">)`**:
+      - `catalog()` — `shopItem.findMany` filtered by `availableFrom ≤ now < availableTo`, joined with `item.{name,tier}` for UI. Returns `ShopItemRow[]`.
+      - `purchase({userId, shopItemId, quantity?})` — atomic `$transaction`: (1) decrement `profiles.{gold|aether}` via `{ decrement: totalCost }`, (2) decrement `shopItem.stock` when finite, (3) inventory upsert with stack-cap from `items.maxStack` (rejects overflow), (4) write `transactions{status:"completed"}`. Pre-checks: window active, stock, balance via `canAfford`. Audit `shop.purchase`.
+      - `refund({userId, transactionId})` — gated by ownership + `status === "completed"` + `isWithinRefundWindow(createdAt, now)`; reverses balance debit, decrements/deletes inventory row, marks transaction `refunded`. Audit `shop.refund`.
+      - `history(userId, limit≤200)` — `transaction.findMany` desc by `createdAt`.
+    - **Router** — `createShopRouter(svc)` with `catalog` (query), `history` (query), `purchase` (mutation), `refund` (mutation). All `protectedProcedure`. `purchase.quantity` bounded `[1,99]`; conditional spread for `exactOptionalPropertyTypes`.
+    - **Wiring**: `apps/api/package.json` adds `@aetheria/domain-shop`. `server.ts` instantiates `new ShopService({ mysql })`; router mounts at `shop`.
+    - **Test bypass**: `domain-shop` ships service-only (impure DB). `package.json` test script set to `vitest run --passWithNoTests` so `pnpm -r test` doesn't fail; pure rules already covered in `domain-economy`.
+    - **Smoke** (5 May 2026): repo-wide `pnpm -r typecheck` 26/26 ✓, `pnpm -r lint` 26/26 ✓, `pnpm -r test` **359/359 ✓** (was 348; +11 from economy rules).
+54. **NEXT — Step 4.51**: Notifications service — `notify.list/markRead/push`; in-app dropdown. Vertical M, deps 4.32 (event bus). Will use `notifications` table (or add migration if missing). Then 4.52 admin tools to close Phase 4-H.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

@@ -22,6 +22,7 @@ import {
 import { QuestService } from "@aetheria/domain-quests";
 import { RosterService } from "@aetheria/domain-roster";
 import { SaveService } from "@aetheria/domain-save";
+import { ShopService } from "@aetheria/domain-shop";
 import {
   ChatService,
   FriendsService,
@@ -76,6 +77,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const battlePassService = new BattlePassService({ mysql });
   const guildService = new GuildService({ mysql });
   const friendsService = new FriendsService({ mysql });
+  const shopService = new ShopService({ mysql });
 
   // Realtime fan-out is opt-in: when REDIS_URL is set, ChatService
   // publishes each accepted send to the bus that apps/realtime
@@ -146,6 +148,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     pvpMatchService: matchService,
     mmrService,
     lbService,
+    shopService,
   });
 
   app.addHook("onClose", async () => {
