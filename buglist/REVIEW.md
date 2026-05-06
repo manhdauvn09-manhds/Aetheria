@@ -7,12 +7,12 @@ The numbers below feed the **Bug counters → Review** row in `schedule/SCHEDULE
 | Severity | Found | Fixed (Step 6) | Open |
 | -------- | ----- | -------------- | ---- |
 | critical | 3     | 3              | 0    |
-| high     | 4     | 1              | 3    |
+| high     | 4     | 3              | 1    |
 | medium   | 6     | 3              | 3    |
-| low      | 4     | 0              | 4    |
-| **total**| **17**| **7**          | **10** |
+| low      | 4     | 2              | 2    |
+| **total**| **17**| **13**         | **4** |
 
-Step 6 closed the 3 critical findings + the 1 high correctness bug + 3 medium concurrency / atomicity issues. The remaining 10 entries are: 3 minor correctness/observability gaps (R5, R6, R10) + 7 test-coverage gaps (R11–R17) — those are tackled incrementally as UT/IT work lands.
+Step 6 pass-1 closed the 3 critical findings + 1 high + 3 medium (R1–R4, R7–R9). Step 6 pass-2 closed R5 (guild invite TOCTOU), R6 (admin replay actorUserId), R11 (shop tests), R12 (admin tests), R13 (combat-runtime tests), R14 (auth tests). Remaining 4 open: R10 (matcher tick Lua future improvement, low) + R15–R17 (domain-sync/world/save test coverage, low).
 
 Numbering is sequential within this report.
 
@@ -48,6 +48,7 @@ Numbering is sequential within this report.
 - **Location**: `packages/domain-social/src/guild/service.ts:219–249`
 - **Issue**: `findFirst` for existing pending invite, then `create` — not atomic.
 - **Why**: Two concurrent invites both pass the check; the unique index will reject one but the loser's audit row already wrote a misleading payload. Use a unique constraint + `try/catch P2002`.
+- **Fixed (Step 6 pass-2)**: `guildInvite.create` now wrapped in `try/catch`; P2002 (unique constraint violation) is caught and re-thrown as `AppError.conflict`. The `findFirst` fast-path check is retained to avoid the DB error in the common case.
 
 ---
 
@@ -57,6 +58,7 @@ Numbering is sequential within this report.
 - **Location**: `packages/domain-admin/src/router.ts:101–120`
 - **Issue**: The query forwards `input.actorUserId` to the service unchanged.
 - **Why**: This is admin-only and gated by `adminProcedure`, but the field is still client-supplied. If the auth boundary regresses (e.g., a future role escalation), the audit log becomes a leak vector. Tighten by allowing only the calling admin's id, or restrict to specific role tags.
+- **Fixed (Step 6 pass-2)**: removed `actorUserId` from the `replay` input schema. Clients can still filter by `action`, `targetType`, `limit`, and `before`; filtering by actor identity is no longer exposed.
 
 ---
 
@@ -99,15 +101,19 @@ The following packages ship without a `__tests__/` directory. (Service code that
 
 ### R11 [high] `domain-shop` — no tests
 - Refund logic (R1), discount math, stock management would all be caught.
+- **Fixed (Step 6 pass-2)**: 17 unit tests added in `src/__tests__/service.test.ts` covering catalog, history, purchase (8 cases), and refund (5 cases).
 
 ### R12 [high] `domain-admin` — no tests
 - No coverage of role-gated permission matrix (ban / unban / grant / featureFlag).
+- **Fixed (Step 6 pass-2)**: 17 unit tests added in `src/__tests__/service.test.ts` covering banUser, unbanUser, grantItem, setFeatureFlag, and replay.
 
 ### R13 [medium] `domain-combat-runtime` — no tests
 - Per `CHANGELOG.md`, combat-domain validation in realtime PvP is deferred; runtime helpers should still have unit coverage for action evaluation.
+- **Fixed (Step 6 pass-2)**: 9 unit tests added in `src/__tests__/service.test.ts` covering start, submitAction, and replay (including tamper detection).
 
 ### R14 [medium] `domain-auth` — no tests
 - Token issuance, refresh, OAuth verification — all critical, all untested at the package level.
+- **Fixed (Step 6 pass-2)**: 16 unit tests added in `src/__tests__/tokens.test.ts` covering signAccessToken, signRefreshToken, issueTokenPair, verifyRefreshToken (happy path + error cases), and defaultTokenTtl constants.
 
 ### R15 [low] `domain-sync` — no tests.
 ### R16 [low] `domain-world` — no tests.

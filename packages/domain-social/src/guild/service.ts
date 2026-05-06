@@ -216,16 +216,27 @@ export class GuildService {
     }
 
     const now = this.clock();
-    const created = await this.mysql.guildInvite.create({
-      data: {
-        guildId: input.guildId,
-        targetUserId: input.targetUserId,
-        inviterUserId: input.actorUserId,
-        status: "pending",
-        createdAt: now,
-        expiresAt: inviteExpiresAt(now),
-      },
-    });
+    let created: Awaited<ReturnType<typeof this.mysql.guildInvite.create>>;
+    try {
+      created = await this.mysql.guildInvite.create({
+        data: {
+          guildId: input.guildId,
+          targetUserId: input.targetUserId,
+          inviterUserId: input.actorUserId,
+          status: "pending",
+          createdAt: now,
+          expiresAt: inviteExpiresAt(now),
+        },
+      });
+    } catch (e: unknown) {
+      if (
+        typeof e === "object" && e !== null &&
+        "code" in e && (e as { code: unknown }).code === "P2002"
+      ) {
+        throw AppError.conflict("Pending invite already exists");
+      }
+      throw e;
+    }
 
     await audit.write({
       actor: input.actorUserId,

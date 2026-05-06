@@ -101,21 +101,19 @@ export const createAdminRouter = (service: AdminService) =>
     replay: adminProcedure
       .input(
         z.object({
-          action: z.string().min(1).max(64).optional(),
-          actorUserId: bigIntId.optional(),
+          action:     z.string().min(1).max(64).optional(),
           targetType: z.string().min(1).max(64).optional(),
-          limit: z.number().int().min(1).max(500).optional(),
-          before: z.date().optional(),
+          limit:      z.number().int().min(1).max(500).optional(),
+          before:     z.date().optional(),
         }),
       )
       .query(async ({ input }) => {
         try {
           return await service.replay({
-            ...(input.action !== undefined ? { action: input.action } : {}),
-            ...(input.actorUserId !== undefined ? { actorUserId: input.actorUserId } : {}),
+            ...(input.action     !== undefined ? { action:     input.action }     : {}),
             ...(input.targetType !== undefined ? { targetType: input.targetType } : {}),
-            ...(input.limit !== undefined ? { limit: input.limit } : {}),
-            ...(input.before !== undefined ? { before: input.before } : {}),
+            ...(input.limit      !== undefined ? { limit:      input.limit }      : {}),
+            ...(input.before     !== undefined ? { before:     input.before }     : {}),
           });
         } catch (e) {
           throw asTrpcError(e);
