@@ -23,6 +23,7 @@ import { audit } from "@aetheria/core";
 import { AppError } from "@aetheria/schema-api";
 
 import { hashPassword, verifyPassword } from "./password.js";
+import { redactEmail } from "./redact.js";
 import {
   type IssuedTokens,
   type TokenConfig,
@@ -229,7 +230,7 @@ export class AuthService {
       action: "auth.signup",
       targetType: "user",
       targetId: created.id,
-      payload: { method: "email", email },
+      payload: { method: "email", emailRedacted: redactEmail(email) },
       ip: input.ip ?? null,
       userAgent: input.userAgent ?? null,
     });
@@ -628,7 +629,7 @@ export class AuthService {
       action: "auth.password_reset.request",
       targetType: "user",
       targetId: user.id,
-      payload: { email: user.email },
+      payload: { emailRedacted: redactEmail(user.email) },
       ip: input.ip ?? null,
       userAgent: input.userAgent ?? null,
     });
@@ -727,7 +728,7 @@ export class AuthService {
       action: "auth.email_verification.request",
       targetType: "user",
       targetId: user.id,
-      payload: { email: user.email },
+      payload: { emailRedacted: redactEmail(user.email) },
       ip: input.ip ?? null,
       userAgent: input.userAgent ?? null,
     });

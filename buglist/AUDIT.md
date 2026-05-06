@@ -11,6 +11,18 @@
 | Backend Security | 2 | 3 | 7 | 3 | 15 |
 | **TOTAL** | **13** | **3** | **13** | **6** | **35** |
 
+### Hardening pass 1 (post-audit)
+Fixed 8 of 35 findings in commit batch:
+- **F1, F2** — CSP + 5 security headers added to `apps/web/next.config.mjs`.
+- **B1, B4** — Per-IP auth-route rate limiter (10 req / 60s) over 6 sensitive procedures (`auth.login/signup/refreshToken/requestPasswordReset/confirmPasswordReset/requestEmailVerification`) in `apps/api/src/plugins.ts`.
+- **B7** — `redactEmail()` helper in `packages/domain-auth/src/redact.ts`; replaced 4 raw-email audit payloads with `emailRedacted: "a***@domain"` form. +4 tests.
+- **S2, S3** — `apps/web/src/app/sitemap.ts` + `apps/web/src/app/robots.ts` (auth-gated routes disallowed).
+- **S5** — Manifest icons now reference `/icon.svg` (vector, scales to any size); SVG asset shipped at `apps/web/public/icon.svg`.
+- **S8, S10** — Root layout extended: `metadataBase`, `openGraph`, `twitter`, `alternates.canonical`, `alternates.languages` + `viewport` export (themeColor / viewport-fit).
+- **B3 — false positive**: inventory router already passes `ctx.auth.userId` (not client input); finding closed without code change.
+
+### Remaining (27 open)
+
 These findings are **separate from the Step 5 review** (`buglist/REVIEW.md`). They are operational hardening + production readiness items, not Step 4 correctness bugs.
 
 ---
