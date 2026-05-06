@@ -20,6 +20,19 @@ const cfg: TokenConfig = {
 
 const UID = 42n;
 
+interface JwtPayload {
+  sub?:   string;
+  roles?: string[];
+  iss?:   string;
+  aud?:   string;
+  jti?:   string;
+  iat?:   number;
+  exp?:   number;
+}
+
+const decodePayload = (token: string): JwtPayload =>
+  JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString()) as JwtPayload;
+
 // ── signAccessToken ───────────────────────────────────────────────────────
 
 describe("signAccessToken", () => {
@@ -33,19 +46,19 @@ describe("signAccessToken", () => {
 
   it("encodes userId as 'sub' claim", async () => {
     const { token } = await signAccessToken(UID, ["player"], cfg);
-    const payload = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString());
+    const payload = decodePayload(token);
     expect(payload.sub).toBe(UID.toString());
   });
 
   it("embeds roles in the payload", async () => {
     const { token } = await signAccessToken(UID, ["player", "admin"], cfg);
-    const payload = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString());
+    const payload = decodePayload(token);
     expect(payload.roles).toEqual(["player", "admin"]);
   });
 
   it("sets issuer and audience", async () => {
     const { token } = await signAccessToken(UID, [], cfg);
-    const payload = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString());
+    const payload = decodePayload(token);
     expect(payload.iss).toBe("aetheria-test");
     expect(payload.aud).toBe("aetheria-app");
   });
@@ -63,7 +76,7 @@ describe("signRefreshToken", () => {
 
   it("embeds jti in the token payload", async () => {
     const { token, jti } = await signRefreshToken(UID, cfg);
-    const payload = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString());
+    const payload = decodePayload(token);
     expect(payload.jti).toBe(jti);
   });
 

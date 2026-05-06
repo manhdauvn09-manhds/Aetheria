@@ -10,12 +10,12 @@ const NOW   = new Date("2026-05-06T12:00:00Z");
 const PAST  = new Date("2026-01-01T00:00:00Z");
 const FUTURE = new Date("2026-12-31T00:00:00Z");
 
-type TxMock = {
+interface TxMock {
   profile:     { update: ReturnType<typeof vi.fn> };
   shopItem:    { update: ReturnType<typeof vi.fn> };
   inventory:   { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
   transaction: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
-};
+}
 
 function makeDeps() {
   const tx: TxMock = {

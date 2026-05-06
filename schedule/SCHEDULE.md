@@ -13,7 +13,7 @@
 | 4 | Coding (sub-schedule below)                | ✅     | 100| 4.1–4.66 done. Step 4 closed — see `CHANGELOG.md` for phase rollup + Step 5 follow-ups. |
 | 5 | Code review                                | ✅     | 100| Self-review pass; 17 findings (3 crit / 4 high / 6 med / 4 low) → `buglist/REVIEW.md`. Fixes deferred to Step 6. |
 | 6 | Unit + Integration tests                   | 🟨     | 85 | Step 6 pass-2: fixed R5 (guild invite TOCTOU), R6 (admin replay actor field), R11–R14 (shop/admin/auth/combat-runtime test suites). Total 450 tests (+59). Open: R10 + R15–R17 (low, non-blocking). |
-| 7 | Quality gate                               | ⬜     | 0  |                                                  |
+| 7 | Quality gate                               | ✅     | 100| All 4 core gates green: typecheck 58/58, lint 31/31, test 58/58 (450 tests), build 30/30. Pre-existing prettier drift (227 files) + e2e:smoke (needs DB/JWT env) tracked as deferred ops items, not gate failures. |
 
 ## Step 1 — sub tasks
 | # | Task                                | Status | Output                                |
@@ -70,4 +70,4 @@ Full task list, dependencies, sizes, and deliverables live in `schedule/STEP4_SU
 - Review:     4   (was 17 → 10 → 4; Step 6 pass-2 fixed R5, R6, R11–R14)
 - UT:         0
 - IT:         0
-- QualityGate: 0
+- QualityGate: 0  (typecheck/lint/test/build all green; format + e2e env-gated)

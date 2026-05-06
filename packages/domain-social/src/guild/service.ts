@@ -231,7 +231,7 @@ export class GuildService {
     } catch (e: unknown) {
       if (
         typeof e === "object" && e !== null &&
-        "code" in e && (e as { code: unknown }).code === "P2002"
+        "code" in e && e.code === "P2002"
       ) {
         throw AppError.conflict("Pending invite already exists");
       }

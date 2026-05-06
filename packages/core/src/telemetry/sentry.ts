@@ -21,7 +21,6 @@ export const startSentry = (opts: SentryOptions): SentryHandle => {
     enabled,
     captureException: (err): void => {
       if (!enabled) return;
-      // eslint-disable-next-line no-console
       console.error("[sentry]", err);
     },
     flush: () => Promise.resolve(true),
