@@ -62,8 +62,14 @@ export const useSession = create<SessionState>()(
     {
       name: "aetheria.session.v2",
       storage: createJSONStorage(() => localStorage),
-      // Only persist the user hint. Access token stays in memory.
-      partialize: (s) => ({ user: s.user }),
+      // Only persist the non-PII user hint. Email is excluded — it's PII and
+      // unnecessary for the "appears logged in" optimistic UI. Access token
+      // stays in memory only.
+      partialize: (s) => ({
+        user: s.user
+          ? { id: s.user.id, displayName: s.user.displayName, roles: s.user.roles, oauthProvider: s.user.oauthProvider }
+          : null,
+      }),
     },
   ),
 );

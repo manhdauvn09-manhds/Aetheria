@@ -77,7 +77,7 @@ export const buildRefreshCookie = (
     `${REFRESH_COOKIE}=${encodeURIComponent(token)}`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    "SameSite=Strict",
     `Max-Age=${ttlSec}`,
   ];
   if (process.env.NODE_ENV === "production") parts.push("Secure");
@@ -90,7 +90,7 @@ export const buildClearRefreshCookie = (): string => {
     `${REFRESH_COOKIE}=`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    "SameSite=Strict",
     "Max-Age=0",
   ];
   if (process.env.NODE_ENV === "production") parts.push("Secure");
