@@ -13,6 +13,7 @@ import { BattlePassService } from "@aetheria/domain-battlepass";
 import { CombatRunService } from "@aetheria/domain-combat-runtime";
 import { InventoryService } from "@aetheria/domain-inventory";
 import {
+  MmrService,
   PvpMatchmakingService,
   PvpMatchService,
   redisMatchPublisher,
@@ -95,8 +96,10 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const matchPublisher = pvpRedis
     ? redisMatchPublisher(pvpRedis, { warn: (o, m): void => app.log.warn(o, m) })
     : undefined;
+  const mmrService = new MmrService({ mysql });
   const matchService = new PvpMatchService({
     mysql,
+    mmrService,
     ...(matchPublisher ? { publisher: matchPublisher } : {}),
   });
   const pvpService = new PvpMatchmakingService({
@@ -136,6 +139,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     chatService,
     pvpService,
     pvpMatchService: matchService,
+    mmrService,
   });
 
   app.addHook("onClose", async () => {

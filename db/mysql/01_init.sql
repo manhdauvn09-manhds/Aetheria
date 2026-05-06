@@ -358,6 +358,8 @@ CREATE TABLE IF NOT EXISTS `mmr` (
   `user_id`      BIGINT UNSIGNED NOT NULL,
   `mode`         VARCHAR(8)      NOT NULL,
   `mmr`          INT             NOT NULL DEFAULT 1000,
+  `rd`           DOUBLE          NOT NULL DEFAULT 350.0,
+  `volatility`   DOUBLE          NOT NULL DEFAULT 0.06,
   `peak_mmr`     INT             NOT NULL DEFAULT 1000,
   `season_games` INT             NOT NULL DEFAULT 0,
   `season_wins`  INT             NOT NULL DEFAULT 0,

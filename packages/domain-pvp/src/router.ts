@@ -12,6 +12,7 @@ import {
 } from "@aetheria/schema-api/trpc";
 
 import type { PvpMatchService } from "./match.js";
+import type { MmrService } from "./mmr.js";
 import type { PvpMatchmakingService } from "./service.js";
 
 const modeSchema = z.union([z.literal("1v1"), z.literal("3v3")]);
@@ -31,6 +32,7 @@ const bigIntId = z
 export const createPvpRouter = (
   service: PvpMatchmakingService,
   matches: PvpMatchService,
+  mmr: MmrService,
 ) =>
   router({
     queue: protectedProcedure
@@ -93,6 +95,16 @@ export const createPvpRouter = (
         throw asTrpcError(e);
       }
     }),
+
+    mmr: protectedProcedure
+      .input(z.object({ mode: modeSchema }))
+      .query(async ({ input, ctx }) => {
+        try {
+          return await mmr.get(ctx.auth.userId, input.mode);
+        } catch (e) {
+          throw asTrpcError(e);
+        }
+      }),
   });
 
 export type PvpRouter = ReturnType<typeof createPvpRouter>;

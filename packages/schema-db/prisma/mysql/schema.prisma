@@ -463,6 +463,8 @@ model Mmr {
   userId       BigInt @map("user_id")
   mode         String @db.VarChar(8)
   mmr          Int    @default(1000)
+  rd           Float  @default(350.0)
+  volatility   Float  @default(0.06)
   peakMmr      Int    @default(1000) @map("peak_mmr")
   seasonGames  Int    @default(0)    @map("season_games")
   seasonWins   Int    @default(0)    @map("season_wins")

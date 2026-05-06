@@ -13,6 +13,22 @@ export {
 } from "./match.js";
 
 export {
+  MmrService,
+  type MmrDeps,
+  type MmrMysqlClient,
+  type MmrSnapshot,
+  type MmrDelta,
+} from "./mmr.js";
+
+export {
+  glicko2Single,
+  glicko2Update,
+  DEFAULT_RATING,
+  type GlickoRating,
+  type GlickoOpponent,
+} from "./glicko.js";
+
+export {
   REDIS_PVP_MATCH_CHANNEL,
   REDIS_PVP_MATCH_END_CHANNEL,
   toMatchStartEvent,

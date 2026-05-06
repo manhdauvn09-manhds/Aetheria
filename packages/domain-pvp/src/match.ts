@@ -16,6 +16,7 @@ import { audit } from "@aetheria/core";
 import { AppError } from "@aetheria/schema-api";
 import type { MysqlClient } from "@aetheria/schema-db/mysql";
 
+import type { MmrService } from "./mmr.js";
 import type { MatchPublisher } from "./publisher.js";
 import { toMatchStartEvent } from "./publisher.js";
 import { isPvpMode, isPvpRegion } from "./rules.js";
@@ -41,6 +42,8 @@ export interface MatchDeps {
   readonly publisher?: MatchPublisher;
   /** Optional override for `randomBytes` (deterministic in tests). */
   readonly seedFactory?: () => Buffer;
+  /** When set, `complete` runs Glicko-2 updates before returning. */
+  readonly mmrService?: MmrService;
 }
 
 const toStatus = (raw: string): PvpMatchStatus => {
@@ -67,10 +70,13 @@ export class PvpMatchService {
   private readonly publisher: MatchPublisher | undefined;
   private readonly seedFactory: () => Buffer;
 
+  private readonly mmrService: MmrService | undefined;
+
   constructor(deps: MatchDeps) {
     this.mysql = deps.mysql;
     this.publisher = deps.publisher;
     this.seedFactory = deps.seedFactory ?? ((): Buffer => randomBytes(64));
+    this.mmrService = deps.mmrService;
   }
 
   /**
@@ -184,6 +190,21 @@ export class PvpMatchService {
       ip: null,
       userAgent: null,
     });
+
+    // Glicko-2 update (1v1 only for now). Errors here are surfaced —
+    // MMR is part of the match contract.
+    if (this.mmrService && m.players.length === 2 && m.mode === "1v1") {
+      const [pa, pb] = m.players;
+      if (pa && pb) {
+        await this.mmrService.applyMatchResult({
+          matchId,
+          mode: "1v1",
+          playerA: pa.userId,
+          playerB: pb.userId,
+          winnerUserId,
+        });
+      }
+    }
 
     return this.get(matchId, m.players[0]?.userId ?? 0n);
   }
