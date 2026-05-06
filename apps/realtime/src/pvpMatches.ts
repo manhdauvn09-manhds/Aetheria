@@ -49,6 +49,14 @@ export const attachPvpMatches = (
     const t = setTimeout(() => {
       const cur = states.get(state.matchId);
       if (!cur || cur.status === "ended") return;
+      // R8: re-check the deadline at fire time. A `pvp:action` may have
+      // pushed `turnDeadline` forward between the timer being armed and
+      // it firing; if the fresh state isn't actually expired, bail and
+      // re-arm.
+      if (cur.turnDeadline > Date.now()) {
+        armDeadline(cur);
+        return;
+      }
       const { winnerUserId, loserUserId } = onDeadlineMiss(cur);
       states.set(cur.matchId, { ...cur, status: "ended" });
       io.to(matchRoom(cur.matchId)).emit("pvp:end", {
@@ -57,6 +65,10 @@ export const attachPvpMatches = (
         winnerUserId,
         loserUserId,
       });
+      // R9: drop in-memory state once the match is finalised so a long
+      // server uptime doesn't accumulate ended matches forever.
+      states.delete(cur.matchId);
+      deadlineTimers.delete(cur.matchId);
       void endPubClient
         .publish(
           REDIS_PVP_MATCH_END_CHANNEL,
@@ -155,6 +167,8 @@ export const attachPvpMatches = (
         const prior = deadlineTimers.get(state.matchId);
         if (prior) clearTimeout(prior);
         deadlineTimers.delete(state.matchId);
+        // R9: drop in-memory state on resolved-via-action paths too.
+        states.delete(state.matchId);
         const loser =
           result.ended.reason === "forfeit"
             ? state.players.find((p) => p !== result.ended?.winnerUserId) ?? null

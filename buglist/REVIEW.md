@@ -1,16 +1,18 @@
 # Aetheria — Step 5 Code Review
 
-*Generated: 5 May 2026 (self-review; full multi-agent `/ultrareview` is a separate Step 5 pass).*
+*Generated: 5 May 2026 (self-review; full multi-agent `/ultrareview` is a separate Step 5 pass). Step 6 status appended after each finding.*
 
 The numbers below feed the **Bug counters → Review** row in `schedule/SCHEDULE.md`.
 
-| Severity | Count |
-| -------- | ----- |
-| critical | 3     |
-| high     | 4     |
-| medium   | 6     |
-| low      | 4     |
-| **total**| **17**|
+| Severity | Found | Fixed (Step 6) | Open |
+| -------- | ----- | -------------- | ---- |
+| critical | 3     | 3              | 0    |
+| high     | 4     | 1              | 3    |
+| medium   | 6     | 3              | 3    |
+| low      | 4     | 0              | 4    |
+| **total**| **17**| **7**          | **10** |
+
+Step 6 closed the 3 critical findings + the 1 high correctness bug + 3 medium concurrency / atomicity issues. The remaining 10 entries are: 3 minor correctness/observability gaps (R5, R6, R10) + 7 test-coverage gaps (R11–R17) — those are tackled incrementally as UT/IT work lands.
 
 Numbering is sequential within this report.
 
@@ -22,21 +24,25 @@ Numbering is sequential within this report.
 - **Location**: `packages/domain-shop/src/service.ts:245`
 - **Issue**: `refundQty = Math.max(1, Math.floor(tx.amount / Math.max(1, tx.amount)))` always evaluates to `1`.
 - **Why**: A bulk purchase (qty > 1) can never be fully refunded. Either persist the original quantity on `Transaction` (schema follow-up) or refund the entire stack by setting inventory.quantity to 0 / using the price-derived count.
+- **Fixed (Step 6)**: extracted pure helper `refundQuantity(amount, unitPrice)` in `domain-economy`; `ShopService.refund` now divides `tx.amount` by `tx.shopItem.price`. 3 unit tests added.
 
 ### R2 [medium] Quest `progress()` not wrapped in `$transaction`
 - **Location**: `packages/domain-quests/src/service.ts:218–230`
 - **Issue**: Multiple `userQuest.upsert` calls happen in a loop without a single transactional boundary.
 - **Why**: A duplicate event delivery (bus retry, double-emit) can interleave updates and produce an inconsistent counter. Wrap the loop body in `$transaction` to make a single event atomic.
+- **Fixed (Step 6)**: wrapped the per-event upsert loop in `this.deps.mysql.$transaction(...)`.
 
 ### R3 [critical] PvP MMR update runs **after** the match-completion transaction commits
 - **Location**: `packages/domain-pvp/src/match.ts:199–206`
 - **Issue**: `complete()` updates `pvpMatch.status` + per-player `result` inside a transaction, then calls `mmrService.applyMatchResult(...)` outside it.
 - **Why**: A crash between commit and MMR write leaves `pvpMatchPlayer.mmrAfter == mmrBefore` with a `completed`/`won`/`lost` row. The match contract states `mmrAfter` reflects Glicko-2; this gap breaks it.
+- **Fixed (Step 6)**: `MmrService.applyMatchResult(params, client?)` now accepts an optional Prisma transaction client; `match.complete` opens one transaction that runs the status flip + per-player result update + MMR write in one atomic step.
 
 ### R4 [medium] Guild promote: only the leader-transfer path is transactional
 - **Location**: `packages/domain-social/src/guild/service.ts:346–365`
 - **Issue**: Officer/member promote uses a single `update` outside a transaction; only leader-transfer wraps three writes in `$transaction`.
 - **Why**: Concurrent kick + promote can reorder, leaving a stale role row. Cheap fix: wrap every mutation in `$transaction` to keep the contract uniform.
+- **Fixed (Step 6)**: officer/member promote path now also opens a `$transaction` (single-write) for symmetry with the leader-transfer path.
 
 ### R5 [low] Guild invite has TOCTOU window
 - **Location**: `packages/domain-social/src/guild/service.ts:219–249`
@@ -66,16 +72,19 @@ No mutations were found that skip `audit.write`. Counter stays 0 here.
 - **Location**: `packages/domain-pvp/src/service.ts:92–108`
 - **Issue**: `findUserQueue` then `redis.zadd` — no atomic check-then-add.
 - **Why**: Two concurrent `queue` calls can both pass the check and both ZADD into different scopes. Remediation: use a Lua script that does `EXISTS` across all scope keys then `ZADD` in one round-trip, or a per-user Redis lock.
+- **Fixed (Step 6)**: introduced per-user marker `aetheria:pvp:user:<userId>` written via `SET key val EX 1800 NX`. Atomic NX claim guarantees only one concurrent `queue()` wins; `cancelQueue` and the matcher tick both `DEL` the marker so a re-queue is allowed afterwards. `noopRedis` stub extended with `set`/`del` to keep dev-mode boots green.
 
 ### R8 [medium] Realtime deadline timer races with `pvp:action`
 - **Location**: `apps/realtime/src/pvpMatches.ts:45–77`
 - **Issue**: Deadline `setTimeout` reads the latest state map entry without a per-match mutex; an in-flight `pvp:action` can update state mid-fire.
 - **Why**: The timer can mark the match `ended` while a legitimate move is being applied, dropping the action. Cheap fix: when the timer fires, re-check `state.turnDeadline > Date.now()` and bail if the deadline was extended.
+- **Fixed (Step 6)**: timer now re-checks `cur.turnDeadline > Date.now()` and re-arms when an action extended the deadline before the fire instant.
 
 ### R9 [medium] Match-state map never garbage-collected
 - **Location**: `apps/realtime/src/pvpMatches.ts:42–77`
 - **Issue**: After `pvp:end`, `states.set(matchId, { ...ended })` writes the map entry but nothing ever removes it.
 - **Why**: Long-lived realtime instance accumulates `MatchState` objects indefinitely. Add a `states.delete(matchId)` after the end handler, paired with `deadlineTimers.delete(matchId)`.
+- **Fixed (Step 6)**: both end paths (timeout firing + action-driven end) now call `states.delete(matchId)` + `deadlineTimers.delete(matchId)`.
 
 ### R10 [low] Matcher tick read-then-remove gap
 - **Location**: `packages/domain-pvp/src/service.ts:174–194`

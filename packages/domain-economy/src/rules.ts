@@ -54,3 +54,13 @@ export const lineTotal = (basePrice: number, quantity: number, discountBp = 0): 
   if (quantity <= 0) return 0;
   return applyDiscount(basePrice, discountBp) * Math.floor(quantity);
 };
+
+/**
+ * Recover the original purchase quantity from a `Transaction.amount`
+ * when the row didn't store quantity explicitly. Returns at least 1
+ * for any positive amount + price, 0 when either input is non-positive.
+ */
+export const refundQuantity = (totalAmount: number, unitPrice: number): number => {
+  if (unitPrice <= 0 || totalAmount <= 0) return 0;
+  return Math.max(1, Math.floor(totalAmount / unitPrice));
+};

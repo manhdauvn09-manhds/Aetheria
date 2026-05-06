@@ -155,6 +155,16 @@ export class PvpMatchService {
     }
 
     const endedAt = new Date();
+    const applyMmr =
+      this.mmrService && m.players.length === 2 && m.mode === "1v1"
+        ? this.mmrService
+        : null;
+    const [pa, pb] = m.players;
+
+    // Single transaction: status flip + per-player result + MMR write.
+    // Closing R3 — MMR was previously applied after the tx committed,
+    // leaving a window where the row was finalised but mmrAfter still
+    // matched mmrBefore.
     await this.mysql.$transaction(async (tx) => {
       await tx.pvpMatch.update({
         where: { id: matchId },
@@ -176,6 +186,18 @@ export class PvpMatchService {
           data: { result },
         });
       }
+      if (applyMmr && pa && pb) {
+        await applyMmr.applyMatchResult(
+          {
+            matchId,
+            mode: "1v1",
+            playerA: pa.userId,
+            playerB: pb.userId,
+            winnerUserId,
+          },
+          tx,
+        );
+      }
     });
 
     await audit.write({
@@ -190,21 +212,6 @@ export class PvpMatchService {
       ip: null,
       userAgent: null,
     });
-
-    // Glicko-2 update (1v1 only for now). Errors here are surfaced —
-    // MMR is part of the match contract.
-    if (this.mmrService && m.players.length === 2 && m.mode === "1v1") {
-      const [pa, pb] = m.players;
-      if (pa && pb) {
-        await this.mmrService.applyMatchResult({
-          matchId,
-          mode: "1v1",
-          playerA: pa.userId,
-          playerB: pb.userId,
-          winnerUserId,
-        });
-      }
-    }
 
     return this.get(matchId, m.players[0]?.userId ?? 0n);
   }

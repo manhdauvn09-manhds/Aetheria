@@ -7,5 +7,6 @@ export {
   isShopItemActive,
   canAfford,
   lineTotal,
+  refundQuantity,
   type Currency,
 } from "./rules.js";

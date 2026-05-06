@@ -358,9 +358,14 @@ export class GuildService {
         });
       });
     } else {
-      await this.mysql.guildMember.update({
-        where: { guildId_userId: { guildId: input.guildId, userId: input.targetUserId } },
-        data: { role: input.newRole },
+      // R4: officer/member promotes share the same single-row update,
+      // but wrap in $transaction for symmetry with leader-transfer so
+      // every guild role change has uniform isolation semantics.
+      await this.mysql.$transaction(async (tx) => {
+        await tx.guildMember.update({
+          where: { guildId_userId: { guildId: input.guildId, userId: input.targetUserId } },
+          data: { role: input.newRole },
+        });
       });
     }
 

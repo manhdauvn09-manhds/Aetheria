@@ -12,6 +12,8 @@ const nullishNumber = (): Promise<number | null> => Promise.resolve(null);
 const empty = (): Promise<string[]> => Promise.resolve([]);
 const nullish = (): Promise<string | null> => Promise.resolve(null);
 
+const okString = (): Promise<string> => Promise.resolve("OK");
+
 export const noopRedis: PvpRedisClient & LbRedisClient = {
   zadd: zero,
   zrem: zero,
@@ -20,4 +22,7 @@ export const noopRedis: PvpRedisClient & LbRedisClient = {
   zrevrank: nullishNumber,
   zcard: zero,
   zscore: nullish,
+  // R7: fake `set NX` always wins so dev mode doesn't deadlock the queue.
+  set: okString,
+  del: zero,
 } as unknown as PvpRedisClient & LbRedisClient;

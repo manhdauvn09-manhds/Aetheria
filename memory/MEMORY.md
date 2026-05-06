@@ -767,7 +767,16 @@ games/Aetheria/
     - **Low**: R10 matcher read-then-remove gap; R15–R17 sync/world/save tests missing.
     - **Audit trail**: clean — no mutation skipped `audit.write` in the scan.
     - Bug counter `Review = 17` recorded in `schedule/SCHEDULE.md`. Fixes deferred to Step 6 (UT + IT) per the recommended fix order in `REVIEW.md`.
-61. **NEXT — Step 6 (UT + IT)**: implement the fixes in REVIEW.md order (R3 → R7 → R1 → R2 → R8/R9 → R4) and add the missing test suites (R11–R14). Step 7 quality gate blocks until `Review = 0`.
+61. **Step 6 — pass 1: closed 7 review findings** (5 May 2026):
+    - **R3 (critical) — MMR atomicity**: `MmrService.applyMatchResult(params, client?)` now optionally takes a Prisma tx client; `match.complete` runs status flip + per-player `result` + Glicko-2 write inside one `$transaction`.
+    - **R7 (critical) — queue race**: per-user marker `aetheria:pvp:user:<userId>` via `SET key val EX 1800 NX`. NX claim is the atomic gate; ZADD only runs on success. `cancelQueue` + matcher tick `DEL` the marker. `noopRedis` + `PvpRedisClient` extended with `set`/`del`.
+    - **R1 (high) — refund qty**: `refundQuantity(amount, unitPrice)` pure helper in `domain-economy`. `ShopService.refund` derives qty from `tx.amount / tx.shopItem.price`.
+    - **R2 (medium) — quest progress**: upsert loop wrapped in `mysql.$transaction`.
+    - **R4 (medium) — guild promote**: officer/member path also opens `$transaction` for symmetry.
+    - **R8 + R9 (medium) — realtime**: deadline `setTimeout` re-checks `cur.turnDeadline > Date.now()` and re-arms; both end paths now `states.delete` + `deadlineTimers.delete`.
+    - **Bug counter** `Review = 10` (was 17). Open: R5, R6, R10 + coverage gaps R11–R17.
+    - **Smoke**: `pnpm -r typecheck` 30/30 ✓, `pnpm -r lint` 30/30 ✓, `pnpm -r test` **391/391 ✓** (+3 refundQuantity tests).
+62. **NEXT — Step 6 pass 2**: backfill test coverage for `domain-shop` / `domain-admin` / `domain-combat-runtime` / `domain-auth` (R11–R14), close R5 / R6 / R10. Step 7 (quality gate) blocks until `Review = 0`.
 
 ## Step 3 Outcome (30 Apr 2026)
 **Architecture deviation from `docs/02_DATABASE_DESIGN.md`**: spec targets PostgreSQL 16 (single source of truth). Per user decision, we ship a **hybrid local-first** stack instead:

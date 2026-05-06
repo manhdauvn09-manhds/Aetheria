@@ -32,8 +32,17 @@ import {
 /** Subset of the ioredis client this service touches. */
 export type PvpRedisClient = Pick<
   Redis,
-  "zadd" | "zrem" | "zrange" | "zcard" | "zscore"
+  "zadd" | "zrem" | "zrange" | "zcard" | "zscore" | "set" | "del"
 >;
+
+/**
+ * Per-user marker key used to make `queue()` race-free. Lifetime ties to
+ * the queue entry: written via `SET NX EX` on join, deleted on cancel /
+ * match-found.
+ */
+const userQueueMarkerKey = (userId: bigint): string =>
+  `aetheria:pvp:user:${userId.toString()}`;
+const QUEUE_MARKER_TTL_SECONDS = 60 * 30;
 
 /** Subset of the Prisma client this service touches (for default MMR lookups). */
 export type PvpMysqlClient = Pick<MysqlClient, "mmr">;
@@ -92,12 +101,24 @@ export class PvpMatchmakingService {
   async queue(input: QueueInput): Promise<{ joinedAt: Date; mmr: number }> {
     if (input.mmr < 0) throw AppError.badRequest("mmr must be non-negative");
 
-    // Reject double-queue across any (mode, region).
-    const existing = await this.findUserQueue(input.userId);
-    if (existing) {
+    // R7: claim the per-user marker via SET NX so two concurrent queue
+    // calls can't both succeed. The marker stores the scope so cancel /
+    // tick can find the right ZSET to clean up.
+    const markerKey = userQueueMarkerKey(input.userId);
+    const markerVal = `${input.mode}:${input.region}`;
+    const claim = await this.redis.set(
+      markerKey,
+      markerVal,
+      "EX",
+      QUEUE_MARKER_TTL_SECONDS,
+      "NX",
+    );
+    if (claim !== "OK") {
+      // Read the prior scope from the marker for a precise error.
+      const prior = await this.findUserQueue(input.userId);
       throw AppError.conflict("Already queued", {
-        mode: existing.mode,
-        region: existing.region,
+        mode: prior?.mode ?? null,
+        region: prior?.region ?? null,
       });
     }
 
@@ -122,8 +143,13 @@ export class PvpMatchmakingService {
   async cancelQueue(input: CancelQueueInput): Promise<{ removed: boolean }> {
     const key = queueKey(input.mode, input.region);
     const member = await this.findMemberInKey(key, input.userId);
-    if (!member) return { removed: false };
+    if (!member) {
+      // Marker may still be lingering after a server crash; clear it.
+      await this.redis.del(userQueueMarkerKey(input.userId));
+      return { removed: false };
+    }
     const removed = await this.redis.zrem(key, member);
+    await this.redis.del(userQueueMarkerKey(input.userId));
 
     await audit.write({
       actor: input.userId,
@@ -186,6 +212,10 @@ export class PvpMatchmakingService {
           encodeMember(p.a.userId, p.a.joinedAt),
           encodeMember(p.b.userId, p.b.joinedAt),
         );
+        // R7: release the per-user markers so the players can re-queue
+        // after this match (or after a forfeit).
+        await this.redis.del(userQueueMarkerKey(p.a.userId));
+        await this.redis.del(userQueueMarkerKey(p.b.userId));
         proposals.push(p);
         if (this.onMatch) await this.onMatch(p);
       }

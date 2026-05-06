@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyDiscount,
   canAfford,
+  refundQuantity,
   isCurrency,
   isShopItemActive,
   isWithinRefundWindow,
@@ -88,5 +89,24 @@ describe("lineTotal", () => {
     expect(lineTotal(100, 3.7)).toBe(300); // floor
     expect(lineTotal(100, 0)).toBe(0);
     expect(lineTotal(100, -1)).toBe(0);
+  });
+});
+
+describe("refundQuantity (R1 fix)", () => {
+  it("recovers integer quantity from amount/price", () => {
+    expect(refundQuantity(300, 100)).toBe(3);
+    expect(refundQuantity(99, 100)).toBe(1);   // amount > 0 floors to ≥1
+    expect(refundQuantity(1000, 250)).toBe(4);
+  });
+
+  it("returns 0 on non-positive inputs", () => {
+    expect(refundQuantity(0, 100)).toBe(0);
+    expect(refundQuantity(100, 0)).toBe(0);
+    expect(refundQuantity(-50, 100)).toBe(0);
+    expect(refundQuantity(100, -1)).toBe(0);
+  });
+
+  it("never goes below 1 for positive inputs (rounding floor)", () => {
+    expect(refundQuantity(50, 100)).toBe(1);
   });
 });

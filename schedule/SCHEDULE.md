@@ -12,7 +12,7 @@
 | 3 | Database schema + scripts                  | ✅     | 100| Hybrid SQLite + MySQL; Prisma schemas + SQL init |
 | 4 | Coding (sub-schedule below)                | ✅     | 100| 4.1–4.66 done. Step 4 closed — see `CHANGELOG.md` for phase rollup + Step 5 follow-ups. |
 | 5 | Code review                                | ✅     | 100| Self-review pass; 17 findings (3 crit / 4 high / 6 med / 4 low) → `buglist/REVIEW.md`. Fixes deferred to Step 6. |
-| 6 | Unit + Integration tests                   | ⬜     | 0  |                                                  |
+| 6 | Unit + Integration tests                   | 🟨     | 50 | Step 6 pass-1: closed all 3 critical + 1 high + 3 medium review findings (R1, R2, R3, R4, R7, R8, R9). +3 vitest specs for `refundQuantity`. Remaining 10 review entries (R5, R6, R10 + R11–R17 coverage gaps) tracked in `buglist/REVIEW.md`. |
 | 7 | Quality gate                               | ⬜     | 0  |                                                  |
 
 ## Step 1 — sub tasks
@@ -67,7 +67,7 @@ Critical path (≈22 tasks) gets us to a single-player playable demo:
 Full task list, dependencies, sizes, and deliverables live in `schedule/STEP4_SUB_SCHEDULE.md`.
 
 ## Bug counters (rolling)
-- Review:     17
+- Review:     10  (was 17 — Step 6 fixed R1, R2, R3, R4, R7, R8, R9)
 - UT:         0
 - IT:         0
 - QualityGate: 0

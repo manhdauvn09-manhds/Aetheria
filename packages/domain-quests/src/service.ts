@@ -201,34 +201,39 @@ export class QuestService {
       existing.map((u) => [u.questId.toString(), u]),
     );
 
-    for (const { questId, requirement } of matches) {
-      const uq = existingById.get(questId.toString());
-      if (uq?.status === "claimed") continue; // terminal — don't re-progress
-      const currentProgress = parseProgress(uq?.progress ?? null);
-      const nextProgress = applyEventToProgress(requirement, currentProgress, event);
-      if (nextProgress.count === currentProgress.count) continue; // event didn't move the needle
-      const nowComplete = isRequirementComplete(requirement, nextProgress);
-      const nextStatus: QuestStatus = nowComplete
-        ? "completed"
-        : (uq?.status as QuestStatus | undefined) === "completed"
+    // R2: wrap the per-event upsert loop in a single transaction so a
+    // duplicate domain-event delivery can't interleave partial updates
+    // and corrupt the running counter.
+    await this.deps.mysql.$transaction(async (tx) => {
+      for (const { questId, requirement } of matches) {
+        const uq = existingById.get(questId.toString());
+        if (uq?.status === "claimed") continue; // terminal
+        const currentProgress = parseProgress(uq?.progress ?? null);
+        const nextProgress = applyEventToProgress(requirement, currentProgress, event);
+        if (nextProgress.count === currentProgress.count) continue;
+        const nowComplete = isRequirementComplete(requirement, nextProgress);
+        const nextStatus: QuestStatus = nowComplete
           ? "completed"
-          : "active";
-      const progressJson = nextProgress as unknown as MysqlPrisma.Prisma.InputJsonValue;
+          : (uq?.status as QuestStatus | undefined) === "completed"
+            ? "completed"
+            : "active";
+        const progressJson = nextProgress as unknown as MysqlPrisma.Prisma.InputJsonValue;
 
-      await this.deps.mysql.userQuest.upsert({
-        where: { userId_questId: { userId, questId } },
-        create: {
-          userId,
-          questId,
-          progress: progressJson,
-          status: nextStatus,
-        },
-        update: {
-          progress: progressJson,
-          status: nextStatus,
-        },
-      });
-    }
+        await tx.userQuest.upsert({
+          where: { userId_questId: { userId, questId } },
+          create: {
+            userId,
+            questId,
+            progress: progressJson,
+            status: nextStatus,
+          },
+          update: {
+            progress: progressJson,
+            status: nextStatus,
+          },
+        });
+      }
+    });
   }
 
   // ── Claim ─────────────────────────────────────────────────────────

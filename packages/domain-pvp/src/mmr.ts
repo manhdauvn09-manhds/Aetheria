@@ -79,18 +79,23 @@ export class MmrService {
   }
 
   /**
-   * 1v1 result writer. Computes Glicko-2 updates for both sides and
-   * persists into both `mmr` (per-mode) and `pvp_match_players.mmrAfter`
-   * inside a single transaction. `winnerUserId === null` is treated as a
-   * draw. Returns the per-player deltas for downstream broadcasting.
+   * 1v1 result writer. When `client` is provided (e.g., the parent
+   * `$transaction(tx => …)` callback in `match.complete`), the writes
+   * run inside that transaction so MMR persistence is atomic with the
+   * match-status update. Without `client`, the service opens its own
+   * transaction. Audit + leaderboard side-effects fire after the tx
+   * commits regardless.
    */
-  async applyMatchResult(params: {
-    readonly matchId: bigint;
-    readonly mode: PvpMode;
-    readonly playerA: bigint;
-    readonly playerB: bigint;
-    readonly winnerUserId: bigint | null;
-  }): Promise<readonly MmrDelta[]> {
+  async applyMatchResult(
+    params: {
+      readonly matchId: bigint;
+      readonly mode: PvpMode;
+      readonly playerA: bigint;
+      readonly playerB: bigint;
+      readonly winnerUserId: bigint | null;
+    },
+    client?: Pick<MysqlClient, "mmr" | "pvpMatchPlayer">,
+  ): Promise<readonly MmrDelta[]> {
     const [a, b] = await Promise.all([
       this.get(params.playerA, params.mode),
       this.get(params.playerB, params.mode),
@@ -107,7 +112,7 @@ export class MmrService {
     const resultA: PvpMatchResult = scoreA === 1 ? "win" : scoreA === 0 ? "loss" : "draw";
     const resultB: PvpMatchResult = scoreB === 1 ? "win" : scoreB === 0 ? "loss" : "draw";
 
-    await this.mysql.$transaction(async (tx) => {
+    const writeAll = async (tx: Pick<MysqlClient, "mmr" | "pvpMatchPlayer">): Promise<void> => {
       for (const [snap, after, result] of [
         [a, aAfter, resultA] as const,
         [b, bAfter, resultB] as const,
@@ -141,7 +146,13 @@ export class MmrService {
           data: { mmrAfter: after.rating },
         });
       }
-    });
+    };
+
+    if (client) {
+      await writeAll(client);
+    } else {
+      await this.mysql.$transaction(writeAll);
+    }
 
     await audit.write({
       actor: params.winnerUserId ?? params.playerA,

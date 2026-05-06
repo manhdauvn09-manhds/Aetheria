@@ -20,6 +20,7 @@ import {
   canAfford,
   isShopItemActive,
   isWithinRefundWindow,
+  refundQuantity,
   toCurrency,
   type Currency,
 } from "@aetheria/domain-economy";
@@ -215,7 +216,7 @@ export class ShopService {
     const now = this.clock();
     const tx = await this.mysql.transaction.findUnique({
       where: { id: input.transactionId },
-      include: { shopItem: { select: { itemId: true } } },
+      include: { shopItem: { select: { itemId: true, price: true } } },
     });
     if (!tx) throw AppError.notFound("transaction", input.transactionId);
     if (tx.userId !== input.userId) {
@@ -239,10 +240,10 @@ export class ShopService {
         where: { userId_itemId: { userId: input.userId, itemId: tx.shopItem.itemId } },
         select: { id: true, quantity: true },
       });
-      // The original purchase pinned quantity into the Transaction.amount /
-      // shop price; we don't store it explicitly so we use a single-unit
-      // refund as the conservative default. Bulk-refunds are an admin path.
-      const refundQty = Math.max(1, Math.floor(tx.amount / Math.max(1, tx.amount)));
+      // R1: recover the original purchase quantity from amount/price.
+      // The shop persists `Transaction.amount` (currency cost) but not
+      // a discrete qty, so we re-derive it via `refundQuantity`.
+      const refundQty = refundQuantity(tx.amount, tx.shopItem.price);
       if (inv) {
         const next = inv.quantity - refundQty;
         if (next <= 0) {
