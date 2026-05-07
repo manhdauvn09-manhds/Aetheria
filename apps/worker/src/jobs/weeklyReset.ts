@@ -1,5 +1,7 @@
 // Aetheria — weekly quest reset.
 
+import { audit } from "@aetheria/core";
+
 import type { JobDefinition } from "./types.js";
 
 export const weeklyResetJob: JobDefinition = {
@@ -16,5 +18,12 @@ export const weeklyResetJob: JobDefinition = {
       },
     });
     ctx.log.info({ resetCount: result.count }, "weeklyReset complete");
+    // B14: audit destructive cron ops with a system actor (null).
+    await audit.write({
+      actor: null,
+      action: "cron.weeklyReset",
+      targetType: "user_quest",
+      payload: { resetCount: result.count, kind: "weekly" },
+    });
   },
 };

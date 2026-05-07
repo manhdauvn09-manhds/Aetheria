@@ -9,6 +9,8 @@
 // production should run this from a `BattlePassSeason.endsAt < now`
 // trigger, but for the MVP we fire on a fixed cadence.
 
+import { audit } from "@aetheria/core";
+
 import type { JobDefinition } from "./types.js";
 
 export const seasonResetJob: JobDefinition = {
@@ -21,5 +23,12 @@ export const seasonResetJob: JobDefinition = {
       data: { seasonGames: 0, seasonWins: 0 },
     });
     ctx.log.info({ resetRows: result.count }, "seasonReset complete");
+    // B14: audit destructive cron ops with a system actor (null).
+    await audit.write({
+      actor: null,
+      action: "cron.seasonReset",
+      targetType: "mmr",
+      payload: { resetRows: result.count },
+    });
   },
 };

@@ -7,6 +7,8 @@
 // Schedule: every 24 h (cron-aligned firing is a follow-up; this runs
 // on `interval` semantics per the 4.53 scheduler).
 
+import { audit } from "@aetheria/core";
+
 import type { JobDefinition } from "./types.js";
 
 export const dailyResetJob: JobDefinition = {
@@ -23,5 +25,12 @@ export const dailyResetJob: JobDefinition = {
       },
     });
     ctx.log.info({ resetCount: result.count }, "dailyReset complete");
+    // B14: audit destructive cron ops with a system actor (null).
+    await audit.write({
+      actor: null,
+      action: "cron.dailyReset",
+      targetType: "user_quest",
+      payload: { resetCount: result.count, kind: "daily" },
+    });
   },
 };

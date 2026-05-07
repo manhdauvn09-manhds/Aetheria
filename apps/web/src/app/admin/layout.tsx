@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Admin",
   description: "Aetheria administration panel.",
+  alternates: { canonical: "/admin" },
   robots: { index: false, follow: false },
 };
 

@@ -16,6 +16,14 @@
 //
 // We treat the run row as the canonical source of truth: snapshot is
 // the live BattleState, action_log is the append-only history.
+//
+// B13 note (PII / integrity): the per-user SQLite file is hosted on the
+// server; clients never receive the snapshot. The replay-hash check above
+// detects action_log tampering, but if an operator with file-system access
+// edits BOTH snapshot and action_log to be self-consistent, hashState()
+// would still match. File-level integrity (signed snapshot, OS-level
+// integrity monitoring) is out-of-scope for this layer — the threat model
+// here only covers client-driven tampering, which the hash check defeats.
 
 import { audit } from "@aetheria/core";
 import {

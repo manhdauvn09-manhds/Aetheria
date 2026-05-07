@@ -239,10 +239,45 @@
       <tr><td>Security incident (account breach)</td><td>Security Officer</td><td>2 h response</td></tr>
     </table>
 
+    <h2>7. Security &amp; Hardening (v1.1)</h2>
+    <p>The platform underwent a 35-finding audit (SEO + frontend + backend) and two hardening passes. Operational notes admins should know:</p>
+
+    <h3>7.1. Authentication &amp; Sessions</h3>
+    <ul>
+      <li><strong>Per-IP auth rate limit:</strong> 10 req / 60 s on <code>auth.login / signup / refreshToken / requestPasswordReset / confirmPasswordReset / requestEmailVerification</code>. Brute-force a 10k password dictionary now takes ~16 hours instead of ~100 minutes.</li>
+      <li><strong>Argon2id:</strong> 19 MiB / t=2 / p=1 (OWASP 2024 baseline).</li>
+      <li><strong>Refresh tokens:</strong> stored as httpOnly + <code>SameSite=Strict</code> cookies; rotated on every refresh; revoked on logout / password reset.</li>
+      <li><strong>Access tokens:</strong> 15-min TTL with a <code>jti</code> claim. Realtime gateway tracks active JTIs and rejects a second concurrent WebSocket session for the same token.</li>
+      <li><strong>JWT secret:</strong> bounded 32–512 bytes; validated at boot.</li>
+    </ul>
+
+    <h3>7.2. PII Handling</h3>
+    <ul>
+      <li><strong>Audit payloads</strong> never contain raw email; <code>redactEmail()</code> masks the local-part to <code>a***@domain</code>. Junior staff querying audit_log cannot reconstruct full addresses.</li>
+      <li><strong>Browser storage:</strong> only <code>id / displayName / roles / oauthProvider</code> are persisted to <code>localStorage</code>; email and access tokens stay in memory only.</li>
+    </ul>
+
+    <h3>7.3. HTTP / Browser Hardening</h3>
+    <ul>
+      <li><strong>Content-Security-Policy</strong> + 5 headers (X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy lockdown, Strict-Transport-Security in prod).</li>
+      <li>tRPC errors strip <code>stack</code> in production; only the typed AppError envelope reaches clients.</li>
+    </ul>
+
+    <h3>7.4. Cron Audit Trail (B14)</h3>
+    <p>Every destructive worker job now writes an <code>audit_log</code> row with <code>actorUserId = NULL</code>. To verify cron health, run:</p>
+    <pre>SELECT action, target_type, payload, created_at
+FROM audit_log
+WHERE action LIKE 'cron.%'
+ORDER BY created_at DESC LIMIT 50;</pre>
+    <p>Expected actions: <code>cron.dailyReset</code>, <code>cron.weeklyReset</code>, <code>cron.seasonReset</code>.</p>
+
+    <h3>7.5. Combat Integrity (B13)</h3>
+    <p>The replay-hash check defeats <em>client-side</em> tampering by re-running the action_log against a fresh init and comparing hashes. File-level integrity (signed snapshot, OS-level monitoring) is out-of-scope — admins with file-system access are trusted by the threat model. Standard incident response (7.5.1) still applies for any operator action against the runs SQLite file.</p>
+
     <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
     <p style="text-align: center; color: #666; font-size: 0.9em;">
       <strong>Aetheria Admin Ops.</strong> Keep the realm safe. <br>
-      <em>Admin Guide v1.0 — May 2026. For authorized personnel only.</em>
+      <em>Admin Guide v1.1 — May 2026. For authorized personnel only.</em>
     </p>
   </div>
 </body>

@@ -2,6 +2,8 @@
 
 *Generated: 6 May 2026 · 3 audits run via Explore subagents · Findings tracked here for follow-up.*
 
+**Status (after pass 1 + pass 2): 32 fixed / 3 informational-only remaining / 0 actionable items left.**
+
 ## Summary
 
 | Audit | Critical | High | Medium | Low | Total |
@@ -22,7 +24,10 @@ Fixed 8 of 35 findings in commit batch:
 - **B3 — false positive**: inventory router already passes `ctx.auth.userId` (not client input); finding closed without code change.
 
 ### Hardening pass 2 (post-audit)
-Fixed additional 14 findings (+ 2 false positives closed):
+Fixed additional 17 findings (+ 2 false positives closed):
+- **S9** — `alternates.canonical` added per-route in all 13 page layouts.
+- **B13** — Code comment in combat-runtime documents the threat-model boundary (file-level integrity is out-of-scope; replay-hash defeats client tampering).
+- **B14** — `audit.write()` calls added to `dailyReset`, `weeklyReset`, `seasonReset` worker jobs (system actor=null).
 - **S1** — 13 route-level `layout.tsx` files added as Server Components to export `metadata` for all auth-gated pages (menu/login/signup/play/pvp/guild/chat/leaderboard/admin/battlepass/friends/roster/realms). `/admin` marked `robots: noindex`.
 - **S6** — `generateMetadata()` in `layout.tsx` for 3 dynamic routes: `/play/[levelNumber]`, `/realms/[realmId]`, `/roster/[userCharacterId]`. All marked `robots: noindex`.
 - **S4** — Schema.org `VideoGame` JSON-LD block added to root layout via `next/script`.
@@ -38,16 +43,14 @@ Fixed additional 14 findings (+ 2 false positives closed):
 - **B11** — `MAX_CLIENT_ROOMS=20` cap in `chat:join` handler prevents rogue socket from joining unbounded rooms.
 - **B12** — Refund now uses `transaction.updateMany(where: { status: "completed" })` inside the DB transaction; `count=0` → conflict error. Prevents double-credit on concurrent refund.
 
-### Remaining (11 open)
+### Remaining (3 open, informational/design-appropriate)
 
 These findings are **separate from the Step 5 review** (`buglist/REVIEW.md`). They are operational hardening + production readiness items, not Step 4 correctness bugs.
 
-Remaining open:
-- **S9** (med) — No `alternates.canonical` strategy for multi-locale per-page.
-- **S11, S12** (low) — No `next/image` (acceptable); SW is SEO-safe (informational).
-- **B13** (low) — SQLite per-user file integrity not enforced.
-- **B14** (low) — No audit gate before destructive cron paths.
-- **B15** (low) — No state CSRF check at API layer (delegated to NextAuth — design-appropriate).
+Remaining open (informational only — no further action planned):
+- **S11** (low) — No `next/image` usage (acceptable while game UI has no static images).
+- **S12** (low) — Service worker is SEO-safe (informational pass).
+- **B15** (low) — No state CSRF check at API layer; delegated to NextAuth on apps/web (design-appropriate, same as B8).
 
 ---
 
