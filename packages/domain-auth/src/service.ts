@@ -310,7 +310,27 @@ export class AuthService {
   async refreshToken(input: RefreshInput): Promise<AuthSessionResult> {
     const claims = await verifyRefreshToken(input.refreshToken, this.deps.tokenConfig);
     const record = await this.deps.refreshStore.get(claims.jti);
-    if (!record) throw AppError.unauthenticated("Refresh token revoked or unknown");
+    if (!record) {
+      // SECURITY — refresh token reuse detection (OWASP):
+      // Signature is valid (we issued this token), but the jti is absent from
+      // the store. That means it was either (a) already rotated (legitimate
+      // client rotated, then this same value was presented again — i.e. an
+      // attacker is replaying a stolen copy), (b) revoked by password reset,
+      // or (c) revoked by logout. In all three cases the safest response is
+      // to kill the entire refresh-token family for this user so the attacker
+      // can't pivot through any other concurrent session. The legitimate
+      // owner will be forced to re-login on every device — an acceptable cost
+      // for cutting the attack chain.
+      await this.deps.refreshStore.revokeAllForUser(claims.userId);
+      await audit.write({
+        actor: claims.userId,
+        action: "auth.refresh.reuse_detected",
+        targetType: "user",
+        targetId: claims.userId,
+        payload: { jti: claims.jti },
+      });
+      throw AppError.unauthenticated("Refresh token revoked or unknown");
+    }
     if (record.userId !== claims.userId) {
       // Defence in depth — claim & store agreed at issue time, so a mismatch
       // means the refresh secret has been rotated underneath us. Reject.
