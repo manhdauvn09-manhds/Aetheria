@@ -165,6 +165,35 @@ export const openSqliteAt = async (filePath: string): Promise<PrismaClient> => {
   return openCached(abs);
 };
 
+/**
+ * Time-based idle sweep. LRU eviction only kicks in when the cache is full,
+ * so a server with 90 sporadically-active users keeps every handle open even
+ * though most are idle. Periodically close clients whose `lastUsed` is older
+ * than `IDLE_TIMEOUT_MS` so file descriptors and Prisma's heavy internals
+ * return to the OS while the cache is under-capacity.
+ *
+ * Disabled in tests (NODE_ENV=test) to avoid races with vitest fixtures.
+ */
+const IDLE_TIMEOUT_MS = Number(process.env["AETHERIA_SQLITE_IDLE_MS"] ?? String(30 * 60 * 1000));
+const IDLE_SWEEP_INTERVAL_MS = Math.max(60_000, Math.floor(IDLE_TIMEOUT_MS / 4));
+
+if (typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
+  const sweep = setInterval(() => {
+    const cutoff = Date.now() - IDLE_TIMEOUT_MS;
+    // Snapshot keys first — the close path mutates the cache map.
+    const stale: string[] = [];
+    for (const [path, entry] of cache) {
+      if (entry.lastUsed <= cutoff) stale.push(path);
+    }
+    if (stale.length === 0) return;
+    // Fire-and-forget closes; we don't want the sweep timer to await IO.
+    for (const path of stale) {
+      void closeOne(path).catch(() => undefined);
+    }
+  }, IDLE_SWEEP_INTERVAL_MS);
+  sweep.unref?.();
+}
+
 export const closeSqliteFor = async (userId: UserId | bigint | string): Promise<void> => {
   await closeOne(sqlitePathFor(userId));
 };

@@ -285,7 +285,19 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     if (sharedRedis) await sharedRedis.quit();
     // Drain the MySQL pool so a graceful shutdown doesn't leave half-open
     // sockets queued in the OS until the platform yanks them.
-    await disconnectMysql();
+    //
+    // Cap the drain at 5s — if MySQL is unreachable (network partition during
+    // deploy, paused container, etc.) `$disconnect()` can hang indefinitely
+    // and leave the platform's SIGTERM-to-SIGKILL grace timer to clean up,
+    // which loses the connection's "QUIT" cooperatively-closed signal and
+    // shows up in MySQL logs as aborted connections. Time out and move on.
+    const drainTimeout = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        app.log.warn("mysql $disconnect timeout — moving on after 5s");
+        resolve();
+      }, 5_000),
+    );
+    await Promise.race([disconnectMysql(), drainTimeout]);
   });
 
   await app.register(fastifyTRPCPlugin<AppRouter>, {

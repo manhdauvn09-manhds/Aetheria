@@ -141,9 +141,14 @@ export const redisRefreshStore = (redis: Redis): RefreshTokenStore => {
       const k = userKey(userId);
       const jtis = await redis.smembers(k);
       if (jtis.length === 0) return;
+      // UNLINK is the async-delete variant of DEL (since Redis 4.0): the keys
+      // are removed from the keyspace synchronously but their memory is
+      // reclaimed in the background. For a refresh-reuse mass-revoke that may
+      // touch dozens of jtis at once, this keeps the main thread responsive.
+      // Falls back to DEL if the server is older — UNLINK is treated as DEL.
       const pipeline = redis.multi();
-      for (const j of jtis) pipeline.del(jtiKey(j));
-      pipeline.del(k);
+      for (const j of jtis) pipeline.unlink(jtiKey(j));
+      pipeline.unlink(k);
       await pipeline.exec();
     },
   };
