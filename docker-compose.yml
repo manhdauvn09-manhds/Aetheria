@@ -1,0 +1,219 @@
+# Aetheria — full stack docker compose.
+#
+# 7 services:
+#   - mysql      MySQL 8.0 master (persistent volume)
+#   - redis      Redis 7 (cache + pubsub + queue)
+#   - api        Fastify + tRPC HTTP API (port 3000)
+#   - web        Next.js (port 3001)
+#   - realtime   Socket.IO gateway (port 3002)
+#   - worker     cron job runner (no exposed port)
+#   - caddy      reverse proxy + auto-HTTPS for the 3 subdomains
+#
+# Local dev workflow from PowerShell:
+#   1. cp docker/.env.example .env.docker
+#   2. edit .env.docker (set strong JWT secrets)
+#   3. docker compose --env-file .env.docker up --build
+#
+# Production deploy (separate VPS): export ACME_AUTO_HTTPS=on, point DNS
+# at the box, swap the *_HOST vars to the real domains, then bring it up.
+
+services:
+  # ─── Databases ─────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: aetheria-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-aetheria}
+      MYSQL_USER: ${MYSQL_USER:-aetheria_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --default-authentication-plugin=caching_sha2_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      # Match the operational note in packages/schema-db/src/mysql.ts —
+      # 10 min idle timeout so load-balancer-killed connections clear out.
+      - --wait-timeout=600
+      - --interactive-timeout=600
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Local-only port mapping — comment out for prod-on-VPS so MySQL
+    # never listens on the public interface.
+    ports:
+      - "127.0.0.1:3306:3306"
+    networks:
+      - aetheria-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: aetheria-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --maxmemory
+      - "256mb"
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - aetheria-net
+
+  # ─── Application services ──────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: aetheria-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      DATABASE_URL_MYSQL: mysql://${MYSQL_USER:-aetheria_app}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-aetheria}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-aetheria}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-aetheria-web}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      ENFORCE_CLOUDFLARE: ${ENFORCE_CLOUDFLARE:-false}
+      MYSQL_SOCKET_TIMEOUT: "30"
+      PVP_SEASON_ID: ${PVP_SEASON_ID:-1}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@aetheria.games-core.com}
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL}
+      EMAIL_VERIFICATION_URL: ${EMAIL_VERIFICATION_URL}
+    expose:
+      - "3000"
+    networks:
+      - aetheria-net
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: aetheria-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+    expose:
+      - "3001"
+    networks:
+      - aetheria-net
+
+  realtime:
+    build:
+      context: .
+      dockerfile: apps/realtime/Dockerfile
+    container_name: aetheria-realtime
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      REALTIME_HOST: 0.0.0.0
+      REALTIME_PORT: 3002
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-aetheria}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-aetheria-web}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      REALTIME_INSTANCES: ${REALTIME_INSTANCES:-1}
+      REALTIME_MAX_SOCKETS: ${REALTIME_MAX_SOCKETS:-1000}
+    expose:
+      - "3002"
+    networks:
+      - aetheria-net
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: aetheria-worker
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_MYSQL: mysql://${MYSQL_USER:-aetheria_app}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-aetheria}
+      REDIS_URL: redis://redis:6379
+      PVP_SEASON_ID: ${PVP_SEASON_ID:-1}
+    networks:
+      - aetheria-net
+
+  # ─── Reverse proxy + TLS ───────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: aetheria-caddy
+    restart: unless-stopped
+    depends_on:
+      - web
+      - api
+      - realtime
+    environment:
+      WEB_HOST: ${CADDY_WEB_HOST:-http://aetheria.localhost}
+      API_HOST: ${CADDY_API_HOST:-http://api.aetheria.localhost}
+      WS_HOST: ${CADDY_WS_HOST:-http://ws.aetheria.localhost}
+      CADDY_AUTO_HTTPS: ${CADDY_AUTO_HTTPS:-off}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-admin@aetheria.games-core.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - aetheria-net
+
+networks:
+  aetheria-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  caddy-data:
+  caddy-config:

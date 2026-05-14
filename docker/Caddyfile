@@ -1,0 +1,54 @@
+# Aetheria — Caddy reverse proxy.
+#
+# Three subdomains under aetheria.games-core.com:
+#   aetheria.games-core.com         → web      (Next.js)
+#   api.aetheria.games-core.com     → api      (Fastify+tRPC)
+#   ws.aetheria.games-core.com      → realtime (Socket.IO)
+#
+# In local dev (`docker compose up`) Caddy starts in HTTP-only mode on
+# port 80 because no public DNS resolves to the laptop. Production
+# deploys swap `ACME_*` env vars (see docker/.env.example) so Caddy
+# provisions Let's Encrypt certs automatically.
+#
+# Use {$ENV_VAR:default} so the same Caddyfile drives both dev + prod.
+
+{
+	# Email goes to Let's Encrypt for cert lifecycle notices.
+	email {$CADDY_ACME_EMAIL:admin@aetheria.games-core.com}
+	# Comment out the next line in prod once DNS is live + ports 80/443
+	# are reachable from the public internet. In dev we serve HTTP only.
+	auto_https {$CADDY_AUTO_HTTPS:off}
+}
+
+# ─── Web (Next.js) ────────────────────────────────────────────────────
+{$WEB_HOST:http://aetheria.localhost} {
+	encode zstd gzip
+	# Forward the real client IP to the Next.js server so middleware can
+	# log it. NB: the upstream Fastify/Next code reads from x-forwarded-for.
+	reverse_proxy web:3001 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# ─── API (Fastify + tRPC) ─────────────────────────────────────────────
+{$API_HOST:http://api.aetheria.localhost} {
+	encode zstd gzip
+	reverse_proxy api:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# ─── Realtime (Socket.IO) ─────────────────────────────────────────────
+# Socket.IO needs WebSocket upgrades plus long-poll fallback — Caddy's
+# reverse_proxy handles both transparently because it relays the Upgrade
+# header by default. We disable buffering for low-latency event delivery.
+{$WS_HOST:http://ws.aetheria.localhost} {
+	encode zstd gzip
+	reverse_proxy realtime:3002 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		flush_interval -1
+	}
+}

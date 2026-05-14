@@ -1,0 +1,65 @@
+# Aetheria — files excluded from `docker build` context.
+# Keeps image small and prevents accidental leakage of dev artefacts.
+
+# Dependencies — installed inside the container
+node_modules
+**/node_modules
+.pnpm-store
+
+# Build artefacts — rebuilt inside the container
+**/dist
+**/build
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+
+# Generated Prisma clients — regenerated in the build stage
+**/src/generated
+**/.prisma
+
+# Secrets — never bake into an image
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.github
+
+# Test artefacts
+coverage
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+playwright-report
+test-results
+
+# Docs / planning
+docs
+buglist
+memory
+schedule
+*.md
+!README.md
+
+# Claude / scratch
+.claude
+SECURITY_PATCHES.md
+
+# Local SQLite files (legacy — kept for safety in case any linger)
+.dev
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-wal
+*.db-shm
+
+# Local logs
+*.log

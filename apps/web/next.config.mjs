@@ -73,6 +73,11 @@ const config = {
   poweredByHeader: false,
   typedRoutes: true,
   productionBrowserSourceMaps: false,
+  // `output: standalone` produces a self-contained server bundle in
+  // .next/standalone that the web Dockerfile copies into a minimal
+  // node:alpine runtime. Without this the runtime image would have to
+  // ship the full monorepo node_modules (~600 MB).
+  output: "standalone",
   // Strip console.log/.debug/.info from production bundles via Next's SWC
   // pipeline. Keep `error` + `warn` so genuine operational messages still
   // surface in browser devtools for support / forum bug reports. This is a
