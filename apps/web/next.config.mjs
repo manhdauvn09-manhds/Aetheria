@@ -43,6 +43,13 @@ const securityHeaders = [
   { key: "X-Content-Type-Options",    value: "nosniff" },
   { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // Block legacy Adobe Flash / Acrobat / Silverlight from loading any
+  // cross-domain policy file rooted on our origin. Modern browsers ignore
+  // the header entirely; this only takes effect for the dwindling set of
+  // installations that still have a plugin runtime, where it removes a
+  // path attackers occasionally use to bypass same-origin via a stale
+  // crossdomain.xml. Zero risk for everyone else.
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   // Cross-Origin isolation. COOP severs `window.opener` for cross-origin
   // tabs (mitigates the tab-nabbing chain where an attacker-controlled
   // popup steers our origin via window.opener.location). CORP refuses
