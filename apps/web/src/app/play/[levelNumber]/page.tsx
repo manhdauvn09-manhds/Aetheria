@@ -14,18 +14,22 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Action, Coord } from "@aetheria/domain-combat";
 import type { LevelMap } from "@aetheria/game-assets";
 
+import { AdComponent, type AdsConfig } from "@/components/ads/AdComponent";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { CombatHud } from "@/components/game/CombatHud";
-import { CombatScene } from "@/components/game/CombatScene";
 import { HexMapRenderer } from "@/components/game/HexMapRenderer";
 import { trpc } from "@/lib/trpc/client";
 import { useCombat } from "@/store/combat";
 import { useGameFlow } from "@/store/gameFlow";
+
+// Lazy-load CombatScene so pixi.js bundle is not included in main chunk.
+// Only loads when combatMode is true. Wrapped in Suspense with fallback.
+const CombatScene = lazy(() => import("@/components/game/CombatScene").then((m) => ({ default: m.CombatScene })));
 
 interface SelectedTile {
   q: number;
@@ -53,6 +57,8 @@ const InGameInner = (): JSX.Element => {
   const [targetId, setTargetId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<Coord | null>(null);
   const [combatError, setCombatError] = useState<string | null>(null);
+  const [showAds, setShowAds] = useState(false);
+  const [adsConfig, setAdsConfig] = useState<AdsConfig | null>(null);
 
   const setCombatState = useCombat((s) => s.setState);
   const applyOptimistic = useCombat((s) => s.applyOptimistic);
@@ -92,6 +98,26 @@ const InGameInner = (): JSX.Element => {
     },
     [resetCombat],
   );
+
+  // Check feature flag for ads on mount (disabled by default).
+  useEffect(() => {
+    // TODO: Replace with actual feature flag fetch from admin API
+    // For now, feature flag is disabled by default (showAds = false)
+    // When enabled via admin panel, it will return:
+    // { enabled: true, provider: "admob", placementId: "...", durationSec: 15 }
+    const fetchAdsConfig = async (): Promise<void> => {
+      try {
+        // Placeholder: fetch from admin.cacheMetrics or new admin.getFeatureFlag endpoint
+        // const config = await trpc.admin.getFeatureFlag.query({ key: "ads.enabled" });
+        // if (config?.enabled) {
+        //   setAdsConfig(config);
+        // }
+      } catch {
+        // Silently fail if ads config unavailable
+      }
+    };
+    fetchAdsConfig();
+  }, []);
 
   const onAbandon = (): void => {
     if (!activeRun) {
@@ -270,11 +296,13 @@ const InGameInner = (): JSX.Element => {
 
       {combatMode ? (
         <section className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_320px]">
-          <CombatScene
-            onActorClick={onActorClick}
-            onTileClick={onCombatTileClick}
-            highlightTile={highlight}
-          />
+          <Suspense fallback={<div className="rounded-md bg-zinc-900/40 p-4 text-sm text-zinc-400">Loading combat scene…</div>}>
+            <CombatScene
+              onActorClick={onActorClick}
+              onTileClick={onCombatTileClick}
+              highlightTile={highlight}
+            />
+          </Suspense>
           <CombatHud
             onSubmit={onSubmitAction}
             busy={submitCombat.isLoading}
@@ -334,6 +362,13 @@ const InGameInner = (): JSX.Element => {
             value={selected ? `q=${selected.q.toString()}, r=${selected.r.toString()}` : "—"}
           />
         </section>
+      ) : null}
+
+      {showAds && adsConfig ? (
+        <AdComponent
+          config={adsConfig}
+          onClose={() => setShowAds(false)}
+        />
       ) : null}
     </main>
   );

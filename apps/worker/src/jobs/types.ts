@@ -24,5 +24,11 @@ export interface JobDefinition {
    * `intervalMs` capped at 30 s.
    */
   readonly initialDelayMs?: number;
+  /**
+   * Optional timeout in ms for a single job execution. If the job takes
+   * longer, it's aborted and logged as an error. Defaults to no timeout.
+   * Should be less than `lockTtlMs - 100` to allow cleanup time.
+   */
+  readonly timeoutMs?: number;
   readonly run: (ctx: JobContext) => Promise<void>;
 }

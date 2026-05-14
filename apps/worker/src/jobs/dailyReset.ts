@@ -15,6 +15,7 @@ export const dailyResetJob: JobDefinition = {
   name: "cron.dailyReset",
   intervalMs: 24 * 60 * 60 * 1000,
   lockTtlMs: 5 * 60 * 1000,
+  timeoutMs: 4 * 60 * 1000, // 4 minutes — allow 1 min cleanup time before lock expires
   run: async (ctx): Promise<void> => {
     const result = await ctx.mysql.userQuest.updateMany({
       where: { quest: { type: "daily" } },

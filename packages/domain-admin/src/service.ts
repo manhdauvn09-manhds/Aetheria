@@ -5,7 +5,9 @@
 // actor is the calling admin (`adminProcedure` enforces the role
 // upstream — this layer just records who did what).
 
-import { audit } from "@aetheria/core";
+import type { Redis } from "ioredis";
+
+import { audit, getItemStats } from "@aetheria/core";
 import { AppError } from "@aetheria/schema-api";
 import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
 
@@ -26,6 +28,7 @@ export type AdminMysqlClient = Pick<
 
 export interface AdminDeps {
   readonly mysql: AdminMysqlClient;
+  readonly redis?: Redis | null;
 }
 
 const REPLAY_DEFAULT = 50;
@@ -33,9 +36,11 @@ const REPLAY_MAX = 500;
 
 export class AdminService {
   private readonly mysql: AdminMysqlClient;
+  private readonly redis: Redis | null;
 
   constructor(deps: AdminDeps) {
     this.mysql = deps.mysql;
+    this.redis = deps.redis ?? null;
   }
 
   // ──────────────────────────────────────────────────────────────────
@@ -102,10 +107,12 @@ export class AdminService {
   async grantItem(input: GrantItemInput): Promise<{ granted: number; newQuantity: number }> {
     if (input.quantity <= 0) throw AppError.badRequest("Quantity must be positive");
 
-    const item = await this.mysql.item.findUnique({
-      where: { id: input.itemId },
-      select: { id: true, maxStack: true },
-    });
+    const item = await getItemStats(input.itemId, this.redis, () =>
+      this.mysql.item.findUnique({
+        where: { id: input.itemId },
+        select: { id: true, maxStack: true },
+      }),
+    );
     if (!item) throw AppError.notFound("item", input.itemId);
 
     const inv = await this.mysql.inventory.findUnique({

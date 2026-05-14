@@ -8,6 +8,7 @@ export const weeklyResetJob: JobDefinition = {
   name: "cron.weeklyReset",
   intervalMs: 7 * 24 * 60 * 60 * 1000,
   lockTtlMs: 5 * 60 * 1000,
+  timeoutMs: 4 * 60 * 1000,
   run: async (ctx): Promise<void> => {
     const result = await ctx.mysql.userQuest.updateMany({
       where: { quest: { type: "weekly" } },

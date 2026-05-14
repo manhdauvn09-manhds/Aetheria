@@ -198,9 +198,20 @@ export class AccountService {
       patch.preferences = input.preferences as MysqlPrisma.Prisma.InputJsonValue;
     }
 
-    await this.deps.mysql.profile.update({
+    const updatedProfile = await this.deps.mysql.profile.update({
       where: { userId: input.userId },
       data: patch,
+      select: {
+        displayName: true,
+        avatarUrl: true,
+        country: true,
+        language: true,
+        accountLevel: true,
+        accountXp: true,
+        preferences: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     await audit.write({
@@ -215,7 +226,46 @@ export class AccountService {
       userAgent: input.userAgent ?? null,
     });
 
-    return this.getProfile(input.userId);
+    // Read user + profile separately but avoid double-read of profile via
+    // getProfile(): we already have the updated profile from the update().
+    const user = await this.deps.mysql.user.findUnique({
+      where: { id: input.userId },
+      select: {
+        id: true,
+        email: true,
+        emailVerifiedAt: true,
+        oauthProvider: true,
+        status: true,
+        createdAt: true,
+        deletedAt: true,
+        lastLoginAt: true,
+      },
+    });
+    if (!user) throw AppError.internal("User vanished after update");
+    if (user.deletedAt !== null) throw AppError.internal("User was deleted after update");
+
+    return {
+      user: {
+        id: user.id.toString(),
+        email: user.email,
+        emailVerifiedAt: user.emailVerifiedAt,
+        oauthProvider: (user.oauthProvider as OAuthProvider | null) ?? null,
+        status: user.status,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      },
+      profile: {
+        displayName: updatedProfile.displayName,
+        avatarUrl: updatedProfile.avatarUrl,
+        country: updatedProfile.country,
+        language: updatedProfile.language,
+        accountLevel: updatedProfile.accountLevel,
+        accountXp: updatedProfile.accountXp,
+        preferences: prefsAsObject(updatedProfile.preferences),
+        createdAt: updatedProfile.createdAt,
+        updatedAt: updatedProfile.updatedAt,
+      },
+    };
   }
 
   /**

@@ -206,16 +206,23 @@ export class PvpMatchmakingService {
       if (tickProposals.length === 0) continue;
 
       const key = queueKey(scope.mode, scope.region);
+      // Batch all Redis operations for this scope's matches into a single
+      // pipelined call — reduces N matches × 3 calls to 1 round-trip.
+      if (tickProposals.length > 0) {
+        const pipeline = this.redis.multi();
+        for (const p of tickProposals) {
+          pipeline.zrem(
+            key,
+            encodeMember(p.a.userId, p.a.joinedAt),
+            encodeMember(p.b.userId, p.b.joinedAt),
+          );
+          pipeline.del(userQueueMarkerKey(p.a.userId));
+          pipeline.del(userQueueMarkerKey(p.b.userId));
+        }
+        await pipeline.exec();
+      }
+      // Fire callbacks after Redis cleanup so state is consistent.
       for (const p of tickProposals) {
-        await this.redis.zrem(
-          key,
-          encodeMember(p.a.userId, p.a.joinedAt),
-          encodeMember(p.b.userId, p.b.joinedAt),
-        );
-        // R7: release the per-user markers so the players can re-queue
-        // after this match (or after a forfeit).
-        await this.redis.del(userQueueMarkerKey(p.a.userId));
-        await this.redis.del(userQueueMarkerKey(p.b.userId));
         proposals.push(p);
         if (this.onMatch) await this.onMatch(p);
       }

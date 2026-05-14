@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Aetheria — OG</title>
+<style>
+  :root{
+    --aetheric:#7c5cff;
+    --aetheric-2:#a78bfa;
+    --aetheric-3:#5b3df5;
+    --amber:#fbbf24;
+    --amber-2:#f59e0b;
+    --slate-900:#0b1020;
+    --zinc-800:#1f1d2b;
+    --ink:#0a0d1c;
+    --line: rgba(124,92,255,.18);
+  }
+  html,body{margin:0;padding:0;background:#000;}
+  body{
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", "SF Pro Display", Inter, system-ui, sans-serif;
+    color:#fff;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  .stage{
+    position: fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:#000;
+  }
+  .stage > .og{
+    transform-origin: center center;
+    /* scaled at runtime to fit viewport */
+  }
+
+  /* 1200x630 stage */
+  .og{
+    position:relative;
+    width:1200px; height:630px;
+    overflow:hidden;
+    background:
+      radial-gradient(120% 80% at 78% 18%, rgba(124,92,255,.32) 0%, rgba(124,92,255,0) 55%),
+      radial-gradient(90% 70% at 18% 92%, rgba(251,191,36,.14) 0%, rgba(251,191,36,0) 55%),
+      radial-gradient(140% 100% at 50% 50%, #0d1230 0%, #07091a 60%, #04050f 100%);
+  }
+
+  /* HEX GRID — pure CSS, big tactical lattice */
+  .hex-layer{
+    position:absolute; inset:-40px;
+    --s: 64px;       /* hex size */
+    --g: 1.6px;      /* line weight */
+    --c: rgba(124,92,255,.22);
+    background-image:
+      radial-gradient(circle at center, var(--c) 0 var(--g), transparent calc(var(--g) + .5px));
+    /* fallback dots — replaced by SVG below */
+    opacity:.0;
+  }
+
+  .grid-svg{
+    position:absolute; inset:-60px;
+    width: calc(100% + 120px);
+    height: calc(100% + 120px);
+    opacity:.55;
+    mask-image: radial-gradient(120% 90% at 50% 55%, #000 35%, rgba(0,0,0,.4) 65%, transparent 100%);
+    -webkit-mask-image: radial-gradient(120% 90% at 50% 55%, #000 35%, rgba(0,0,0,.4) 65%, transparent 100%);
+  }
+
+  /* Diagonal scanlines / texture */
+  .grain{
+    position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(
+        135deg,
+        rgba(255,255,255,.014) 0 2px,
+        transparent 2px 6px
+      );
+    mix-blend-mode: overlay;
+    pointer-events:none;
+  }
+
+  /* Floating tactical hex tiles */
+  .tile{
+    position:absolute;
+    width:140px; height:160px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background:
+      linear-gradient(160deg, rgba(124,92,255,.32), rgba(124,92,255,.06) 60%, transparent),
+      linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.4));
+    border: 0; /* clip-path ate it */
+    box-shadow: 0 0 0 1px rgba(124,92,255,.45) inset, 0 30px 60px rgba(0,0,0,.5);
+    filter: drop-shadow(0 12px 30px rgba(124,92,255,.25));
+  }
+  .tile::after{
+    content:"";
+    position:absolute; inset:8px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background: linear-gradient(180deg, rgba(124,92,255,.18), transparent 55%);
+    pointer-events:none;
+  }
+  .tile .rune{
+    position:absolute; left:50%; top:50%;
+    transform: translate(-50%,-50%);
+    color: rgba(255,255,255,.78);
+    font-weight:700;
+    letter-spacing:.18em;
+    font-size:13px;
+    text-shadow: 0 0 18px rgba(124,92,255,.9);
+  }
+  .tile .pip{
+    position:absolute;
+    width:6px;height:6px;border-radius:50%;
+    background:#a78bfa;
+    box-shadow:0 0 12px #a78bfa;
+  }
+
+  .tile.t1{
+    left:-30px; top:60px;
+    transform: rotate(-8deg) scale(.95);
+  }
+  .tile.t2{
+    right:-40px; top:30px;
+    width:170px; height:195px;
+    transform: rotate(7deg);
+    background:
+      linear-gradient(160deg, rgba(251,191,36,.32), rgba(251,191,36,.04) 60%, transparent),
+      linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.4));
+    box-shadow: 0 0 0 1px rgba(251,191,36,.55) inset, 0 30px 60px rgba(0,0,0,.55);
+    filter: drop-shadow(0 12px 30px rgba(251,191,36,.18));
+  }
+  .tile.t2::after{
+    background: linear-gradient(180deg, rgba(251,191,36,.22), transparent 55%);
+  }
+  .tile.t2 .rune{
+    text-shadow: 0 0 18px rgba(251,191,36,.9);
+  }
+  .tile.t3{
+    left:160px; bottom:-50px;
+    width:120px; height:138px;
+    transform: rotate(4deg);
+    opacity:.85;
+  }
+  .tile.t4{
+    right:120px; bottom:-60px;
+    width:130px; height:150px;
+    transform: rotate(-6deg);
+    opacity:.75;
+  }
+
+  /* Tactical reticle / movement arc */
+  .arc{
+    position:absolute;
+    left:50%; top:54%;
+    transform: translate(-50%,-50%);
+    width: 980px; height: 980px;
+    border-radius:50%;
+    border:1px dashed rgba(124,92,255,.25);
+    pointer-events:none;
+  }
+  .arc.inner{ width:680px; height:680px; border-color: rgba(124,92,255,.18); }
+  .arc.outer{ width:1240px; height:1240px; border-color: rgba(124,92,255,.10); }
+
+  /* Center stack */
+  .stack{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center;
+    padding: 0 80px;
+  }
+
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:10px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.10);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .22em;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+  }
+  .eyebrow .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: var(--amber);
+    box-shadow: 0 0 12px var(--amber);
+  }
+  .eyebrow .sep{
+    width:1px; height:12px; background: rgba(255,255,255,.18);
+  }
+
+  .logo{
+    font-family: "Cinzel", "Playfair Display", Georgia, serif;
+    font-weight: 800;
+    font-size: 168px;
+    line-height: .92;
+    letter-spacing: -0.01em;
+    margin: 0;
+    background: linear-gradient(180deg,
+      #ffffff 0%,
+      #e9defc 30%,
+      #b59bff 60%,
+      #7c5cff 100%
+    );
+    -webkit-background-clip:text;
+    background-clip:text;
+    color: transparent;
+    filter: drop-shadow(0 8px 28px rgba(124,92,255,.45));
+    position: relative;
+  }
+  .logo::after{
+    /* aetheric glow underline */
+    content:"";
+    position:absolute;
+    left:50%; bottom:-10px;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(124,92,255,.0) 5%, rgba(124,92,255,.9) 50%, rgba(124,92,255,0) 95%, transparent);
+    box-shadow: 0 0 20px rgba(124,92,255,.7);
+  }
+
+  .tagline{
+    margin-top: 26px;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: #e2e8f0;
+  }
+  .tagline .amber{
+    color: var(--amber);
+    text-shadow: 0 0 18px rgba(251,191,36,.4);
+  }
+
+  .sub{
+    margin-top: 14px;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+  .sub b{
+    color:#cbd5e1; font-weight:600;
+  }
+  .sub .pipe{
+    display:inline-block;
+    width:6px; height:6px;
+    border-radius:50%;
+    background:#7c5cff;
+    box-shadow:0 0 10px #7c5cff;
+    transform: translateY(-3px);
+    margin: 0 14px;
+  }
+
+  /* Bottom bar */
+  .bar{
+    position:absolute; left:0; right:0; bottom:0;
+    height: 56px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 0 32px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,.45));
+    border-top: 1px solid rgba(255,255,255,.06);
+    font-size: 13px;
+    color:#94a3b8;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    font-weight: 600;
+  }
+  .bar .l{ display:flex; align-items:center; gap:14px; }
+  .bar .crest{
+    width:22px; height:22px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background: linear-gradient(160deg, var(--aetheric), var(--amber));
+    box-shadow: 0 0 12px rgba(124,92,255,.7);
+  }
+  .bar .r{ display:flex; align-items:center; gap:12px; color:#cbd5e1; }
+  .bar .r .pill{
+    padding: 4px 10px; border-radius:999px;
+    background: rgba(124,92,255,.14);
+    border: 1px solid rgba(124,92,255,.35);
+    color: #c4b5fd;
+    letter-spacing:.18em;
+  }
+
+  /* corner brackets — tactical UI */
+  .bracket{
+    position:absolute; width:34px; height:34px;
+    border-color: rgba(124,92,255,.55);
+    border-style: solid;
+  }
+  .bracket.tl{ top:22px; left:22px; border-width: 2px 0 0 2px; }
+  .bracket.tr{ top:22px; right:22px; border-width: 2px 2px 0 0; }
+  .bracket.bl{ bottom:78px; left:22px; border-width: 0 0 2px 2px; }
+  .bracket.br{ bottom:78px; right:22px; border-width: 0 2px 2px 0; }
+
+  /* tiny tactical readout, top-right */
+  .readout{
+    position:absolute; top:24px; right:78px;
+    display:flex; align-items:center; gap:10px;
+    font-size:11px; letter-spacing:.3em; color:#94a3b8;
+    text-transform:uppercase; font-weight:700;
+  }
+  .readout .live{
+    width:7px; height:7px; border-radius:50%;
+    background: #34d399;
+    box-shadow: 0 0 10px #34d399;
+  }
+
+  /* tagline corner — top-left */
+  .topleft{
+    position:absolute; top:24px; left:78px;
+    display:flex; align-items:center; gap:12px;
+    font-size:11px; letter-spacing:.32em; color:#cbd5e1;
+    text-transform:uppercase; font-weight:700;
+  }
+  .topleft .mark{
+    width:18px;height:18px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background: var(--aetheric);
+    box-shadow: 0 0 10px rgba(124,92,255,.8);
+  }
+
+  /* faint silhouette suggestions in bottom corners */
+  .silhouette{
+    position:absolute; bottom: 56px;
+    width: 240px; height: 280px;
+    opacity:.18;
+    filter: blur(.4px);
+  }
+  .silhouette.left{ left: 30px; transform: scaleX(-1); }
+  .silhouette.right{ right: 30px; }
+
+  /* scoreboard chips next to logo (subtle) */
+  .chips{
+    position:absolute; left:50%; top:50%;
+    transform: translate(-50%, 178px);
+    display:flex; gap:14px;
+  }
+  .chip{
+    display:flex; align-items:center; gap:8px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: rgba(15,18,40,.55);
+    border: 1px solid rgba(124,92,255,.25);
+    font-size: 12px;
+    letter-spacing:.18em;
+    text-transform: uppercase;
+    color:#cbd5e1;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-weight:700;
+  }
+  .chip .icn{
+    width:14px; height:14px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  }
+  .chip.a .icn{ background: var(--aetheric); box-shadow: 0 0 10px var(--aetheric); }
+  .chip.b .icn{ background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+  .chip.c .icn{ background: #34d399; box-shadow: 0 0 10px #34d399; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+<div class="og" id="og">
+
+  <!-- HEX GRID via SVG pattern -->
+  <svg class="grid-svg" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="hex" x="0" y="0" width="84" height="73" patternUnits="userSpaceOnUse">
+        <!-- a single hex outline, tessellated -->
+        <path d="M21 1 L63 1 L84 36.5 L63 72 L21 72 L0 36.5 Z"
+              fill="none" stroke="rgba(124,92,255,0.35)" stroke-width="1"/>
+      </pattern>
+      <pattern id="hex2" x="42" y="36.5" width="84" height="73" patternUnits="userSpaceOnUse">
+        <path d="M21 1 L63 1 L84 36.5 L63 72 L21 72 L0 36.5 Z"
+              fill="none" stroke="rgba(124,92,255,0.18)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#hex)"/>
+    <rect width="100%" height="100%" fill="url(#hex2)"/>
+  </svg>
+
+  <!-- highlighted hex cells (tactical move-range) -->
+  <svg class="grid-svg" xmlns="http://www.w3.org/2000/svg" style="opacity:.9">
+    <g transform="translate(600 340)">
+      <!-- center cluster of softly lit hexes -->
+      <g fill="rgba(124,92,255,0.10)" stroke="rgba(124,92,255,0.45)">
+        <path d="M-21 -36.5 L21 -36.5 L42 0 L21 36.5 L-21 36.5 L-42 0 Z"/>
+        <path d="M63 -36.5 L105 -36.5 L126 0 L105 36.5 L63 36.5 L42 0 Z"/>
+        <path d="M-105 -36.5 L-63 -36.5 L-42 0 L-63 36.5 L-105 36.5 L-126 0 Z"/>
+        <path d="M21 36.5 L63 36.5 L84 73 L63 109.5 L21 109.5 L0 73 Z"/>
+        <path d="M-63 36.5 L-21 36.5 L0 73 L-21 109.5 L-63 109.5 L-84 73 Z"/>
+      </g>
+      <!-- amber objective hex -->
+      <g fill="rgba(251,191,36,0.16)" stroke="rgba(251,191,36,0.7)">
+        <path d="M-21 -109.5 L21 -109.5 L42 -73 L21 -36.5 L-21 -36.5 L-42 -73 Z"/>
+      </g>
+    </g>
+  </svg>
+
+  <!-- range arcs -->
+  <div class="arc outer"></div>
+  <div class="arc"></div>
+  <div class="arc inner"></div>
+
+  <!-- Floating tiles -->
+  <div class="tile t1">
+    <span class="rune">A·I</span>
+    <span class="pip" style="left:14px; top:14px;"></span>
+    <span class="pip" style="right:14px; bottom:18px;"></span>
+  </div>
+  <div class="tile t2">
+    <span class="rune">XII</span>
+    <span class="pip" style="left:14px; top:14px; background:#fbbf24; box-shadow:0 0 12px #fbbf24;"></span>
+  </div>
+  <div class="tile t3">
+    <span class="rune">VII</span>
+  </div>
+  <div class="tile t4">
+    <span class="rune">III</span>
+  </div>
+
+  <!-- Subtle player silhouettes (warrior + mage, side-on) -->
+  <svg class="silhouette left" viewBox="0 0 240 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="sg1" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#7c5cff" stop-opacity=".9"/>
+        <stop offset="1" stop-color="#7c5cff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- warrior silhouette -->
+    <g fill="url(#sg1)">
+      <!-- cloak/body -->
+      <path d="M120 30 c -22 0 -38 18 -38 40 c 0 14 8 22 8 30 c -8 6 -22 18 -28 36 c -8 22 -10 50 -8 84 c 14 4 30 6 50 6 c 0 8 0 16 -2 24 l 36 0 c -2 -8 -2 -16 -2 -24 c 22 -2 36 -4 50 -8 c 2 -34 0 -62 -8 -84 c -6 -18 -20 -28 -28 -34 c 0 -8 8 -16 8 -30 c 0 -22 -16 -40 -38 -40 z"/>
+      <!-- sword -->
+      <path d="M70 60 l 6 -4 l 60 130 l -6 4 z"/>
+      <path d="M64 56 l 18 0 l 0 8 l -18 0 z"/>
+    </g>
+  </svg>
+
+  <svg class="silhouette right" viewBox="0 0 240 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="sg2" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#fbbf24" stop-opacity=".75"/>
+        <stop offset="1" stop-color="#fbbf24" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- mage silhouette with staff -->
+    <g fill="url(#sg2)">
+      <path d="M120 22 c -16 0 -28 12 -28 28 c 0 8 4 14 6 18 c -10 4 -22 14 -28 30 c -8 22 -14 60 -10 122 c 14 4 30 6 50 6 c 6 6 0 24 -2 30 l 28 0 c -2 -6 -8 -24 -2 -30 c 20 0 36 -2 50 -6 c 4 -62 -2 -100 -10 -122 c -6 -16 -18 -26 -28 -30 c 2 -4 6 -10 6 -18 c 0 -16 -12 -28 -28 -28 z"/>
+      <!-- staff -->
+      <path d="M180 40 l 6 0 l 0 200 l -6 0 z"/>
+      <circle cx="183" cy="38" r="9"/>
+    </g>
+  </svg>
+
+  <!-- corner UI -->
+  <div class="bracket tl"></div>
+  <div class="bracket tr"></div>
+  <div class="bracket bl"></div>
+  <div class="bracket br"></div>
+
+  <div class="topleft">
+    <span class="mark"></span>
+    <span>Aetheria · Realm 01</span>
+  </div>
+  <div class="readout">
+    <span class="live"></span>
+    <span>Turn-Based · Hex Grid</span>
+  </div>
+
+  <!-- Center stack -->
+  <div class="stack">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      <span>Tactical Hex-Based Combat RPG</span>
+      <span class="sep"></span>
+      <span>Free to Play</span>
+    </div>
+
+    <h1 class="logo">Aetheria</h1>
+
+    <div class="tagline">Master <span class="amber">Tactical Combat</span></div>
+    <div class="sub">
+      <b>Plan</b><span class="pipe"></span><b>Position</b><span class="pipe"></span><b>Prevail</b>
+    </div>
+  </div>
+
+  <!-- chip row under logo -->
+  <div class="chips">
+    <div class="chip a"><span class="icn"></span>Hex Grid</div>
+    <div class="chip b"><span class="icn"></span>Campaign</div>
+    <div class="chip c"><span class="icn"></span>Co-Op</div>
+  </div>
+
+  <!-- bottom bar -->
+  <div class="bar">
+    <div class="l">
+      <span class="crest"></span>
+      <span>aetheria.game</span>
+    </div>
+    <div class="r">
+      <span>Season 01 · The Aetheric Front</span>
+      <span class="pill">Open Beta</span>
+    </div>
+  </div>
+
+  <!-- light grain -->
+  <div class="grain"></div>
+
+</div>
+</div>
+
+<script>
+  function fit(){
+    const sx = window.innerWidth / 1200;
+    const sy = window.innerHeight / 630;
+    const s = Math.min(sx, sy);
+    document.body.style.zoom = s;
+  }
+  fit();
+  window.addEventListener('resize', fit);
+</script>
+
+</body>
+</html>

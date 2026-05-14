@@ -119,6 +119,18 @@ export const createAdminRouter = (service: AdminService) =>
           throw asTrpcError(e);
         }
       }),
+
+    cacheMetrics: adminProcedure.query(async () => {
+      try {
+        const { getItemCacheMetrics, getCatalogCacheMetrics } = await import("@aetheria/core");
+        return {
+          itemCache: getItemCacheMetrics(),
+          catalogCache: getCatalogCacheMetrics(),
+        };
+      } catch (e) {
+        throw asTrpcError(e);
+      }
+    }),
   });
 
 export type AdminRouter = ReturnType<typeof createAdminRouter>;

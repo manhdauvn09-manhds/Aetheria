@@ -1,27 +1,58 @@
-// Aetheria — landing page. A Server Component that pings the API to
-// show the wiring is alive end-to-end. Falls back to a friendly error
-// box if the API isn't running so `pnpm dev --filter @aetheria/web`
-// alone still renders.
+import Link from "next/link";
+import type { Metadata } from "next";
 
 import { SessionBar } from "@/components/auth/SessionBar";
 import { serverTrpc } from "@/lib/trpc/server";
 
-// Hit the API on every request — without this Next would prerender at
-// build time and bake in whatever the API happened to say (often: down).
+// SEO: regenerate on every request to keep metadata fresh
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Aetheria — Tactical Hex-Based Combat RPG",
+  description:
+    "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay. Play now and master the realms.",
+  keywords: "tactical RPG, hex combat, strategy game, free-to-play RPG, turn-based combat",
+  openGraph: {
+    title: "Aetheria — Tactical Hex-Based Combat RPG",
+    description:
+      "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay.",
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["vi_VN"],
+    url: "https://aetheria.com",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Aetheria Combat Scene",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Aetheria — Tactical Hex-Based Combat RPG",
+    description: "Free-to-play tactical RPG with hex-grid combat. Master the realms.",
+  },
+  alternates: {
+    languages: {
+      "en-US": "https://aetheria.com",
+      "vi-VN": "https://aetheria.com/vi",
+    },
+  },
+};
 
 interface ApiStatus {
   readonly ok: boolean;
   readonly serverTime?: string;
-  readonly error?: string;
 }
 
 const fetchApiStatus = async (): Promise<ApiStatus> => {
   try {
     const res = await serverTrpc.health.ping.query();
     return { ok: res.ok, serverTime: res.serverTime };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "unknown" };
+  } catch {
+    return { ok: false };
   }
 };
 
@@ -29,39 +60,136 @@ const LandingPage = async (): Promise<JSX.Element> => {
   const status = await fetchApiStatus();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-6 py-16">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="font-display text-4xl tracking-tight text-realm-aetheric">
-            Aetheria
-          </h1>
-          <p className="text-sm text-zinc-400">
-            Online strategy, exploration, and combat. (Pre-alpha shell.)
-          </p>
-        </div>
-        <SessionBar />
-      </header>
+    <>
+      <main className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950">
+        {/* Header */}
+        <header className="border-b border-zinc-800 bg-zinc-950/50">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+            <h1 className="font-display text-2xl font-bold text-realm-aetheric">Aetheria</h1>
+            <SessionBar />
+          </div>
+        </header>
 
-      <section className="rounded-md border border-zinc-800 bg-zinc-900/40 p-4">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-zinc-300">
-          API health
-        </h2>
-        {status.ok ? (
-          <p className="text-sm text-emerald-400">
-            <span className="font-mono">/trpc/health.ping</span> ok ·{" "}
-            <span className="font-mono">{status.serverTime}</span>
+        {/* Hero Section */}
+        <section className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-8 px-6 py-24 text-center">
+          <div className="space-y-4">
+            <h1 className="font-display text-5xl font-bold tracking-tight text-realm-aetheric md:text-6xl">
+              Master Tactical Combat
+            </h1>
+            <p className="text-xl text-zinc-300">
+              A free-to-play hex-grid strategy RPG
+            </p>
+          </div>
+
+          <p className="max-w-2xl text-base text-zinc-400">
+            Aetheria features turn-based tactical combat on hex grids, character progression
+            across multiple realms, and strategic encounter design. Engage with dynamic gameplay,
+            unlock powerful characters, and discover hidden secrets.
           </p>
-        ) : (
-          <p className="text-sm text-rose-400">
-            unreachable: <span className="font-mono">{status.error ?? "n/a"}</span>
-          </p>
+
+          <div className="flex gap-4">
+            {status.ok && (
+              <Link
+                href="/realms"
+                className="rounded-lg bg-realm-aetheric px-8 py-3 font-semibold text-slate-900 hover:bg-realm-aetheric/90"
+              >
+                Play Now
+              </Link>
+            )}
+            <a
+              href="#features"
+              className="rounded-lg border border-zinc-700 px-8 py-3 text-zinc-200 hover:bg-zinc-800"
+            >
+              Learn More
+            </a>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="mx-auto max-w-5xl px-6 py-24">
+          <h2 className="mb-12 text-center text-3xl font-bold text-zinc-100">
+            Why Play Aetheria?
+          </h2>
+          <div className="grid gap-8 md:grid-cols-3">
+            <article className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
+              <h3 className="text-lg font-semibold text-amber-400">⚔️ Tactical Gameplay</h3>
+              <p className="text-sm text-zinc-400">
+                Master hex-grid combat with turn-based strategy and real-time decision-making.
+              </p>
+            </article>
+            <article className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
+              <h3 className="text-lg font-semibold text-amber-400">🎭 Character Roster</h3>
+              <p className="text-sm text-zinc-400">
+                Unlock and level up unique characters with special abilities and skill trees.
+              </p>
+            </article>
+            <article className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
+              <h3 className="text-lg font-semibold text-amber-400">🌍 Multiple Realms</h3>
+              <p className="text-sm text-zinc-400">
+                Explore diverse worlds with varying terrain, enemies, and strategic challenges.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="mx-auto max-w-5xl px-6 py-24 text-center">
+          <div className="space-y-6 rounded-lg border border-amber-700/50 bg-amber-950/20 p-12">
+            <h2 className="text-2xl font-bold text-amber-200">Ready to Enter the Realms?</h2>
+            <p className="text-zinc-400">
+              Join players in Aetheria's tactical combat experience.
+            </p>
+            {status.ok && (
+              <Link
+                href="/realms"
+                className="inline-block rounded-lg bg-realm-aetheric px-8 py-3 font-semibold text-slate-900 hover:bg-realm-aetheric/90"
+              >
+                Start Playing Free
+              </Link>
+            )}
+          </div>
+        </section>
+
+        {/* API Status (dev only) */}
+        {!status.ok && (
+          <section className="mx-auto max-w-5xl px-6 py-8">
+            <div className="rounded-md border border-rose-700/50 bg-rose-950/20 p-4">
+              <p className="text-sm text-rose-300">
+                API server is not running. Backend unavailable. Start with: <code>pnpm dev</code>
+              </p>
+            </div>
+          </section>
         )}
-      </section>
+      </main>
 
-      <section className="text-xs text-zinc-500">
-        Step 4.13 — auth UI live. World, save, and combat slices land in 4.15+.
-      </section>
-    </main>
+      {/* Schema.org Game Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "VideoGame",
+            name: "Aetheria",
+            url: "https://aetheria.com",
+            description:
+              "A free-to-play tactical RPG with hex-grid combat and strategic gameplay.",
+            genre: ["Tactical RPG", "Strategy", "Turn-Based"],
+            gamePlatform: "Web",
+            applicationCategory: "Game",
+            offers: {
+              "@type": "Offer",
+              price: "0",
+              priceCurrency: "USD",
+            },
+            image: "/og-image.jpg",
+            author: {
+              "@type": "Organization",
+              name: "Aetheria Studio",
+            },
+          }),
+        }}
+      />
+    </>
   );
 };
 

@@ -3,6 +3,16 @@
 // `transpilePackages` lets Next bundle workspace packages whose exports
 // point at TypeScript source (no precompiled dist). Mirrors the list in
 // tsconfig.base.json#paths to keep things explicit.
+//
+// Bundle Analysis:
+//   ANALYZE=true pnpm build    to generate bundle report in .next/analyze/
+//   Open bundles.html in a browser to explore dependency tree.
+
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -43,6 +53,7 @@ const config = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  productionBrowserSourceMaps: false,
   // AppRouter is `import type`-only, so domain/server packages are erased at
   // compile time and don't need transpiling. Schema-api + shared-types still
   // ship runtime values some day, so we keep them transpiled.
@@ -71,4 +82,4 @@ const config = {
   // needed for dev. Wire here when Phase 4-K (deploy dry-run) lands.
 };
 
-export default config;
+export default withBundleAnalyzer(config);

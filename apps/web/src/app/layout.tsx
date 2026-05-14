@@ -10,10 +10,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://aetheria.gg";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default:  "Aetheria — Reclaim the Aether",
+    default:  "Aetheria — Tactical Hex-Based Combat RPG",
     template: "%s · Aetheria",
   },
-  description: "Online turn-based strategy, exploration, and live PvP arenas in the realms of Aether.",
+  description:
+    "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay. Play now and master the realms.",
+  keywords: "tactical RPG, hex combat, strategy game, free-to-play RPG, turn-based combat",
   applicationName: "Aetheria",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -23,24 +25,36 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
     languages: {
-      en: "/",
-      vi: "/",
+      "en-US": "/",
+      "vi-VN": "/vi",
     },
   },
   openGraph: {
     type:        "website",
     siteName:    "Aetheria",
-    title:       "Aetheria — Reclaim the Aether",
-    description: "Online turn-based strategy + live PvP. Master the broken sky.",
+    title:       "Aetheria — Tactical Hex-Based Combat RPG",
+    description:
+      "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay.",
     url:         SITE_URL,
     locale:      "en_US",
+    alternateLocale: ["vi_VN"],
+    images: [
+      {
+        url:    `${SITE_URL}/og-image.jpg`,
+        width:  1200,
+        height: 630,
+        alt:    "Aetheria Combat Scene",
+        type:   "image/jpeg",
+      },
+    ],
   },
   twitter: {
     card:        "summary_large_image",
-    title:       "Aetheria — Reclaim the Aether",
-    description: "Online turn-based strategy + live PvP. Master the broken sky.",
+    title:       "Aetheria — Tactical Hex-Based Combat RPG",
+    description: "Free-to-play tactical RPG with hex-grid combat. Master the realms.",
+    images:      ["/og-image.jpg"],
   },
-  robots: { index: true, follow: true },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
 };
 
 export const viewport: Viewport = {
@@ -70,6 +84,8 @@ const RootLayout = ({ children }: { children: React.ReactNode }): JSX.Element =>
         <Script
           id="jsonld-game"
           type="application/ld+json"
+          // Security: JSON.stringify() output is trusted (no user input).
+          // Script tag content-type prevents interpretation as HTML/JS.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <Providers>{children}</Providers>

@@ -8,7 +8,7 @@ import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import Fastify, { type FastifyInstance } from "fastify";
 import { Redis } from "ioredis";
 
-import { startSentry, startTracing } from "@aetheria/core";
+import { CLOUDFLARE_CIDRS, startSentry, startTracing } from "@aetheria/core";
 
 import { AccountService } from "@aetheria/domain-account";
 import { AdminService } from "@aetheria/domain-admin";
@@ -36,7 +36,7 @@ import {
 import { SyncService } from "@aetheria/domain-sync";
 import { TelemetryService } from "@aetheria/domain-telemetry";
 import { WorldService } from "@aetheria/domain-world";
-import { mysql } from "@aetheria/schema-db/mysql";
+import { disconnectMysql, mysql } from "@aetheria/schema-db/mysql";
 
 import { attachMatchEndConsumer } from "./pvp/matchEndConsumer.js";
 import { noopRedis } from "./pvp/noopRedis.js";
@@ -61,17 +61,67 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
         : { level: "info" },
     requestIdHeader: "x-request-id",
     genReqId: () => randomUUID(),
-    trustProxy: true,
+    // Trust XFF only from Cloudflare in production; in dev/test trust the
+    // local proxy chain so `curl -H 'x-forwarded-for: …'` from localhost
+    // still works for debugging. Never `trustProxy: true` blanket — it lets
+    // any caller spoof their source IP and bypass per-IP rate limits.
+    trustProxy: env.ENFORCE_CLOUDFLARE ? Array.from(CLOUDFLARE_CIDRS) : "loopback",
     bodyLimit: 1_048_576, // 1 MiB
+    requestTimeout: 30_000, // 30s (DoS protection, matches DB query timeout)
   });
 
-  await registerPlugins(app, env);
+  // Single shared Redis client for *commands* (publish, ZADD/ZREM, SET,
+  // refresh-token store, oneshot token store, auth rate-limit bucket). A
+  // second client is duplicated below for SUBSCRIBE — ioredis requires the
+  // sub mode on its own connection. That's 2 redis connections per api
+  // process, down from 4 (audit finding #4).
+  const sharedRedis = env.REDIS_URL
+    ? new Redis(env.REDIS_URL, { maxRetriesPerRequest: 3 })
+    : null;
+
+  // Build auth before registerPlugins so the auth-route rate limiter can
+  // share the same Redis client (cluster-safe bucket).
+  const auth = buildAuth(env, sharedRedis);
+  await registerPlugins(app, env, { redis: sharedRedis });
 
   // Lightweight liveness probe — bypasses rate-limit (see plugins.ts allowList).
   app.get("/health", () => ({ ok: true as const, ts: Date.now() }));
 
+  // Global error handler. tRPC has its own onError below (sanitizes its own
+  // responses), but any non-tRPC route or pre-tRPC hook that throws would
+  // otherwise hit Fastify's default error response — which echoes the raw
+  // `error.message` and (in dev) the stack. Centralize the shape:
+  //   - log full structured error server-side
+  //   - return a stable `{ error: { code, message } }` envelope
+  //   - mask internal messages outside dev so we don't leak filesystem paths,
+  //     SQL fragments, or third-party stack traces to attackers probing for
+  //     fingerprints.
+  app.setErrorHandler((err, req, reply) => {
+    const status = typeof err.statusCode === "number" && err.statusCode >= 400 ? err.statusCode : 500;
+    app.log.error(
+      {
+        err,
+        path: req.url,
+        method: req.method,
+        reqId: req.id,
+        status,
+      },
+      "unhandled error",
+    );
+    const isClientError = status >= 400 && status < 500;
+    const safeMessage =
+      env.NODE_ENV === "development" || isClientError
+        ? err.message
+        : "Internal server error";
+    reply.code(status).send({
+      error: {
+        code: err.code ?? (isClientError ? "BAD_REQUEST" : "INTERNAL_ERROR"),
+        message: safeMessage,
+      },
+    });
+  });
+
   const createContext = buildContextFactory(env);
-  const auth = buildAuth(env);
   // AccountService re-uses the MySQL client + the same RefreshTokenStore
   // as the auth bundle so deleteAccount can revoke active sessions.
   const accountService = new AccountService({
@@ -83,23 +133,22 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   const syncService = new SyncService({ mysql });
   const combatService = new CombatRunService();
   const rosterService = new RosterService({ mysql });
-  const inventoryService = new InventoryService({ mysql });
+  const inventoryService = new InventoryService({ mysql, redis: sharedRedis });
   const questService = new QuestService({ mysql });
   const battlePassService = new BattlePassService({ mysql });
   const guildService = new GuildService({ mysql });
   const friendsService = new FriendsService({ mysql });
-  const shopService = new ShopService({ mysql });
+  const shopService = new ShopService({ mysql, redis: sharedRedis });
   const notificationsService = new NotificationsService({ mysql });
-  const adminService = new AdminService({ mysql });
+  const adminService = new AdminService({ mysql, redis: sharedRedis });
   const telemetryService = new TelemetryService();
 
   // Realtime fan-out is opt-in: when REDIS_URL is set, ChatService
   // publishes each accepted send to the bus that apps/realtime
   // subscribes to. Without Redis the writes are still durable but
   // clients only see them via the next history poll.
-  const chatRedis = env.REDIS_URL ? new Redis(env.REDIS_URL) : null;
-  const chatPublisher = chatRedis
-    ? redisChatPublisher(chatRedis, { warn: (o, m): void => app.log.warn(o, m) })
+  const chatPublisher = sharedRedis
+    ? redisChatPublisher(sharedRedis, { warn: (o, m): void => app.log.warn(o, m) })
     : undefined;
   const chatService = new ChatService({
     mysql,
@@ -109,12 +158,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   // PvP matchmaking: Redis-backed queue + matcher loop. Without
   // REDIS_URL we wire a no-op redis stub so the API still boots; the
   // queue endpoints will reply but no matches will be made.
-  const pvpRedis = env.REDIS_URL ? new Redis(env.REDIS_URL) : null;
-  const matchPublisher = pvpRedis
-    ? redisMatchPublisher(pvpRedis, { warn: (o, m): void => app.log.warn(o, m) })
+  const matchPublisher = sharedRedis
+    ? redisMatchPublisher(sharedRedis, { warn: (o, m): void => app.log.warn(o, m) })
     : undefined;
   const lbService = new LeaderboardService({
-    redis: pvpRedis ?? noopRedis,
+    redis: sharedRedis ?? noopRedis,
     seasonId: env.PVP_SEASON_ID,
   });
   const mmrService = new MmrService({ mysql, leaderboard: lbService });
@@ -124,7 +172,7 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     ...(matchPublisher ? { publisher: matchPublisher } : {}),
   });
   const pvpService = new PvpMatchmakingService({
-    redis: pvpRedis ?? noopRedis,
+    redis: sharedRedis ?? noopRedis,
     mysql,
     onMatch: (proposal): Promise<void> =>
       matchService.createFromProposal(proposal).then(
@@ -134,9 +182,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
         },
       ),
   });
-  const stopPvp = pvpRedis ? pvpService.start() : (): void => undefined;
+  const stopPvp = sharedRedis ? pvpService.start() : (): void => undefined;
   // match-end subscriber: realtime publishes match results, api persists them.
-  const matchEndSub = pvpRedis ? pvpRedis.duplicate() : null;
+  // Subscriber must be on its own connection — ioredis blocks commands on a
+  // client that has entered subscribe mode.
+  const matchEndSub = sharedRedis ? sharedRedis.duplicate() : null;
   const matchEndConsumer = matchEndSub
     ? attachMatchEndConsumer(matchEndSub, matchService, app.log)
     : null;
@@ -168,14 +218,50 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     telemetryService,
   });
 
+  // Monitor connection health every 60s
+  const metricsInterval = setInterval(() => {
+    try {
+      const poolSize = mysql._engine?.client?.connection?.pool?.size ?? "unknown";
+      const poolMax = mysql._engine?.client?.connection?.pool?.max ?? "unknown";
+      const poolAvailable = mysql._engine?.client?.connection?.pool?.available?.length ?? "unknown";
+      const poolQueued = mysql._engine?.client?.connection?.pool?.waitQueue?.length ?? 0;
+      const poolStatus = {
+        timestamp: new Date().toISOString(),
+        mysql_pool_size: poolSize,
+        mysql_pool_max: poolMax,
+        mysql_pool_available: poolAvailable,
+        mysql_pool_queued: poolQueued,
+        mysql_pool_utilization:
+          typeof poolSize === "number" && typeof poolMax === "number"
+            ? `${Math.round((poolSize / poolMax) * 100)}%`
+            : "unknown",
+        redis_connected: sharedRedis?.status === "ready",
+      };
+      app.log.info(poolStatus, "connection metrics");
+      // Alert if pool queue is growing (indicates exhaustion risk)
+      if (poolQueued > 2) {
+        app.log.warn({ queued: poolQueued, size: poolSize }, "pool queue backlog");
+      }
+    } catch (err) {
+      app.log.error({ err }, "metrics collection failed");
+    }
+  }, 60_000);
+
   app.addHook("onClose", async () => {
+    clearInterval(metricsInterval);
     for (const off of questUnsubscribes) off();
     for (const off of bpUnsubscribes) off();
     stopPvp();
+    // matchEndConsumer.close() quits its dedicated subscribe connection.
     if (matchEndConsumer) await matchEndConsumer.close();
-    if (chatRedis) await chatRedis.quit();
-    if (pvpRedis) await pvpRedis.quit();
-    if (auth.redis) await auth.redis.quit();
+    // Owned redis is only set when no shared client was passed in (e.g. a
+    // future caller who builds auth in isolation). When a shared client is
+    // used, the server owns it and quits it below.
+    if (auth.ownedRedis) await auth.ownedRedis.quit();
+    if (sharedRedis) await sharedRedis.quit();
+    // Drain the MySQL pool so a graceful shutdown doesn't leave half-open
+    // sockets queued in the OS until the platform yanks them.
+    await disconnectMysql();
   });
 
   await app.register(fastifyTRPCPlugin<AppRouter>, {
@@ -184,7 +270,18 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
       router: appRouter,
       createContext: ({ req }) => createContext(req),
       onError: ({ path, error }) => {
-        app.log.warn({ path, code: error.code, msg: error.message }, "trpc error");
+        // Security: Log full error server-side for debugging, but tRPC's
+        // response layer sanitizes detailed messages from client responses
+        // to avoid leaking implementation details (see schema-api/trpc).
+        app.log.warn(
+          {
+            path,
+            code: error.code,
+            msg: error.message,
+            stack: env.NODE_ENV === "development" ? error.stack : undefined,
+          },
+          "trpc error",
+        );
       },
     },
   });

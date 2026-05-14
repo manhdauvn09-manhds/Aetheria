@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aetheria — Hướng dẫn Quảng cáo cho Admin</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+      color: #e5e7eb;
+      line-height: 1.6;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      color: #fbbf24;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+    }
+    .subtitle {
+      color: #9ca3af;
+      margin-bottom: 40px;
+      font-size: 1.1em;
+    }
+    h2 {
+      color: #60a5fa;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      font-size: 1.8em;
+      border-bottom: 2px solid #374151;
+      padding-bottom: 10px;
+    }
+    h3 {
+      color: #a78bfa;
+      margin-top: 25px;
+      margin-bottom: 15px;
+      font-size: 1.3em;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .step-box {
+      background: #111827;
+      border-left: 4px solid #fbbf24;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+    .step-number {
+      display: inline-block;
+      background: #fbbf24;
+      color: #111827;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 30px;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    code {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: "Courier New", monospace;
+      color: #e0f2fe;
+    }
+    .code-block {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 15px 0;
+      font-family: "Courier New", monospace;
+      font-size: 0.9em;
+      color: #e0f2fe;
+    }
+    .warning {
+      background: #7c2d12;
+      border: 1px solid #ea580c;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      color: #fed7aa;
+    }
+    .success {
+      background: #064e3b;
+      border: 1px solid #10b981;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      color: #a7f3d0;
+    }
+    .table-container {
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #111827;
+    }
+    th {
+      background: #1f2937;
+      color: #fbbf24;
+      padding: 12px;
+      text-align: left;
+      border-bottom: 2px solid #374151;
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #374151;
+    }
+    tr:hover {
+      background: #1f2937;
+    }
+    .feature-list {
+      list-style: none;
+      margin: 15px 0;
+    }
+    .feature-list li {
+      padding: 10px 0;
+      padding-left: 30px;
+      position: relative;
+    }
+    .feature-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #10b981;
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+    .danger {
+      color: #fca5a5;
+    }
+    .success-text {
+      color: #86efac;
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid #374151;
+      color: #6b7280;
+      text-align: center;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Aetheria — Admin Quảng cáo</h1>
+    <p class="subtitle">Hướng dẫn kích hoạt hệ thống quảng cáo (Ads System)</p>
+
+    <div class="section">
+      <h2>📋 Tổng quan</h2>
+      <p>Hệ thống quảng cáo Aetheria được thiết kế để:</p>
+      <ul class="feature-list">
+        <li>Hiển thị quảng cáo sau khi người chơi hoàn thành level</li>
+        <li>Không làm gián đoạn gameplay (chỉ hiển thị ở màn kết thúc)</li>
+        <li>Dễ dàng bật/tắt qua Database (không cần deploy code)</li>
+        <li>Hỗ trợ nhiều nhà cung cấp quảng cáo (Google AdMob, custom API, ...)</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>🔄 Kiến trúc hệ thống</h2>
+      <p>Quảng cáo được điều khiển bởi <code>Feature Flag</code> lưu trong Database:</p>
+      <div class="code-block">
+Database: featureFlag table
+Key: "ads.enabled"
+Value: {
+  "enabled": true,
+  "provider": "admob",
+  "placementId": "ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy",
+  "durationSec": 15
+}
+      </div>
+      <p>Khi bạn update Database, hệ thống tự động sử dụng cấu hình mới (không cần restart).</p>
+    </div>
+
+    <div class="section">
+      <h2>🚀 Các bước kích hoạt quảng cáo</h2>
+
+      <div class="step-box">
+        <span class="step-number">1</span>
+        <strong>Chuẩn bị Ad Provider Account</strong>
+        <p style="margin-top: 10px; color: #d1d5db;">
+          Đăng ký tài khoản với nhà cung cấp quảng cáo:
+        </p>
+        <ul style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li><strong>Google AdMob:</strong> https://admob.google.com</li>
+          <li><strong>Custom API:</strong> Nếu dùng server riêng</li>
+        </ul>
+        <p style="margin-top: 15px; color: #d1d5db;">
+          <strong>Cần lấy:</strong> App ID, Placement ID (hoặc Ad Unit ID)
+        </p>
+      </div>
+
+      <div class="step-box">
+        <span class="step-number">2</span>
+        <strong>Lấy Placement ID từ Ad Provider</strong>
+        <p style="margin-top: 10px; color: #d1d5db;">
+          Trong AdMob dashboard:
+        </p>
+        <ol style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li>Apps → Chọn app Aetheria</li>
+          <li>Ad Units → Tạo "Interstitial" unit (loại quảng cáo full-screen)</li>
+          <li>Copy <code>Ad Unit ID</code> (ví dụ: <code>ca-app-pub-xxxxxxxx/zzzzzzzz</code>)</li>
+        </ol>
+      </div>
+
+      <div class="step-box">
+        <span class="step-number">3</span>
+        <strong>Update Feature Flag trong Database</strong>
+        <p style="margin-top: 10px; color: #d1d5db;">
+          Truy cập Database (MySQL):
+        </p>
+        <div class="code-block" style="margin-top: 10px;">
+INSERT INTO featureFlag (key, value, updatedBy, updatedAt)
+VALUES (
+  'ads.enabled',
+  '{"enabled":true,"provider":"admob","placementId":"ca-app-pub-xxxxxxxx/zzzzzzzz","durationSec":15}',
+  'admin_user_id',
+  NOW()
+)
+ON DUPLICATE KEY UPDATE
+  value = VALUES(value),
+  updatedBy = VALUES(updatedBy),
+  updatedAt = VALUES(updatedAt);
+        </div>
+        <p style="margin-top: 10px; color: #d1d5db;">
+          <strong>Thay thế:</strong>
+        </p>
+        <ul style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li><code>ca-app-pub-xxxxxxxx/zzzzzzzz</code> → Placement ID từ AdMob</li>
+          <li><code>admin_user_id</code> → ID admin đang setup (tùy chọn)</li>
+          <li><code>durationSec</code> → Thời gian hiển thị (10-20 giây khuyến nghị)</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <span class="step-number">4</span>
+        <strong>Xác minh quảng cáo hoạt động</strong>
+        <p style="margin-top: 10px; color: #d1d5db;">
+          Sau khi update Database:
+        </p>
+        <ol style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li>Đợi 1-5 phút (cache refresh)</li>
+          <li>Vào game, hoàn thành 1 level</li>
+          <li>Quan sát màn hình kết thúc → Nên thấy quảng cáo</li>
+          <li>Check Admin Panel → <code>/admin.cacheMetrics</code> để monitor cache hits</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📊 Database Config Reference</h2>
+      <p>Bảng <code>featureFlag</code> lưu cấu hình:</p>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Trường</th>
+              <th>Kiểu</th>
+              <th>Ví dụ</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>key</code></td>
+              <td>VARCHAR</td>
+              <td><code>ads.enabled</code></td>
+              <td>Tên flag (không đổi)</td>
+            </tr>
+            <tr>
+              <td><code>value</code></td>
+              <td>JSON</td>
+              <td><code>{"enabled":true,...}</code></td>
+              <td>Config JSON</td>
+            </tr>
+            <tr>
+              <td><code>enabled</code></td>
+              <td>Boolean</td>
+              <td><code>true</code></td>
+              <td>Bật/tắt quảng cáo</td>
+            </tr>
+            <tr>
+              <td><code>provider</code></td>
+              <td>String</td>
+              <td><code>admob</code></td>
+              <td>Nhà cung cấp</td>
+            </tr>
+            <tr>
+              <td><code>placementId</code></td>
+              <td>String</td>
+              <td><code>ca-app-pub-xxx/yyy</code></td>
+              <td>ID từ Ad Provider</td>
+            </tr>
+            <tr>
+              <td><code>durationSec</code></td>
+              <td>Number</td>
+              <td><code>15</code></td>
+              <td>Thời gian hiển thị (giây)</td>
+            </tr>
+            <tr>
+              <td><code>updatedBy</code></td>
+              <td>BIGINT</td>
+              <td><code>12345</code></td>
+              <td>User ID admin (audit)</td>
+            </tr>
+            <tr>
+              <td><code>updatedAt</code></td>
+              <td>TIMESTAMP</td>
+              <td><code>2024-01-15 10:30:00</code></td>
+              <td>Thời gian update</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>⚙️ Cách tắt/bật nhanh</h2>
+
+      <h3>Tắt quảng cáo ngay lập tức:</h3>
+      <div class="code-block">
+UPDATE featureFlag
+SET value = '{"enabled":false}'
+WHERE key = 'ads.enabled';
+      </div>
+
+      <h3>Bật lại:</h3>
+      <div class="code-block">
+UPDATE featureFlag
+SET value = '{"enabled":true,"provider":"admob","placementId":"YOUR_PLACEMENT_ID","durationSec":15}'
+WHERE key = 'ads.enabled';
+      </div>
+
+      <p style="margin-top: 15px;">
+        <strong>Lưu ý:</strong> Thay đổi có hiệu lực sau 1-5 phút (cache refresh tự động).
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>🔧 Troubleshooting</h2>
+
+      <h3>❌ Vẫn không thấy quảng cáo sau update DB</h3>
+      <div class="step-box">
+        <strong>Cách kiểm tra:</strong>
+        <ul style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li>Kiểm tra <code>featureFlag</code> table: <code>SELECT * FROM featureFlag WHERE key = 'ads.enabled';</code></li>
+          <li>Đợi 5 phút rồi reload game</li>
+          <li>Mở Dev Console (F12) → Check console errors</li>
+          <li>Kiểm tra admin panel metrics: <code>/admin.cacheMetrics</code></li>
+        </ul>
+      </div>
+
+      <h3>❌ Quảng cáo không tắt được (vẫn hiển thị sau khi set enabled=false)</h3>
+      <div class="step-box">
+        <strong>Giải pháp:</strong>
+        <ul style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li>Cache có thể chưa refresh → Đợi 5 phút</li>
+          <li>Hoặc bạn đổi <code>placementId</code> để force reset cache</li>
+          <li>Trong trường hợp khẩn cấp: Restart API server</li>
+        </ul>
+      </div>
+
+      <h3>❌ AdMob không hiển thị quảng cáo thật</h3>
+      <div class="step-box">
+        <strong>Nguyên nhân:</strong>
+        <ul style="margin-left: 20px; margin-top: 10px; color: #d1d5db;">
+          <li>Placement ID sai → Kiểm tra lại ở AdMob dashboard</li>
+          <li>App chưa publish → Mới tạo app cần 24h để AdMob approve</li>
+          <li>Test mode → Cần publish app trước</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>💡 Best Practices</h2>
+      <ul class="feature-list">
+        <li>Test với quảng cáo tắt (enabled=false) trước khi bật</li>
+        <li>Bắt đầu với durationSec=10 (nhỏ để không làm phiền user)</li>
+        <li>Tăng dần (15, 20 giây) dựa trên feedback người chơi</li>
+        <li>Theo dõi CTR (click-through rate) trong AdMob dashboard</li>
+        <li>Không bắt buộc user xem (cho nút "Close Ad" để skip)</li>
+        <li>Audit log tự động ghi lại khi ai update flag (check table: auditLog)</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>📞 Cần hỗ trợ?</h2>
+      <p>
+        Nếu gặp vấn đề:
+      </p>
+      <ol style="margin-left: 20px;">
+        <li>Check <code>auditLog</code> để xem lịch update flag</li>
+        <li>Xem Admin Panel → <code>/admin.cacheMetrics</code> để monitor system</li>
+        <li>Restart API server nếu cần reset cache ngay lập tức</li>
+        <li>Liên hệ dev team với thông tin error từ browser console</li>
+      </ol>
+    </div>
+
+    <div class="success">
+      <strong>✓ Hoàn tất setup!</strong> Quảng cáo sẽ hiển thị sau khi người chơi hoàn thành level.
+      Bạn có thể bật/tắt bất cứ lúc nào chỉ bằng 1 lệnh SQL.
+    </div>
+
+    <footer>
+      <p>Aetheria Ads System v1.0 | Last updated: 2024</p>
+      <p>Tài liệu này nên cập nhật khi có thay đổi hệ thống</p>
+    </footer>
+  </div>
+</body>
+</html>

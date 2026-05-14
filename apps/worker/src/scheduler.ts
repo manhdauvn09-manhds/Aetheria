@@ -43,17 +43,33 @@ export const buildScheduler = (
   const tick = async (job: JobDefinition): Promise<void> => {
     const start = Date.now();
     const ctx = deps.buildContext(new Date());
+
+    const runWithTimeout = async (): Promise<void> => {
+      if (!job.timeoutMs) {
+        await job.run(ctx);
+        return;
+      }
+      // Wrap with a timeout: if job exceeds timeoutMs, reject.
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const t = setTimeout(() => {
+          reject(new Error(`Job timeout after ${job.timeoutMs}ms`));
+        }, job.timeoutMs);
+        t.unref();
+      });
+      await Promise.race([job.run(ctx), timeoutPromise]);
+    };
+
     if (!deps.redis) {
       // No-Redis fallback: run unconditionally. Production should always
       // have Redis so the lock is the canonical guard.
       try {
-        await job.run(ctx);
+        await runWithTimeout();
       } catch (e) {
         deps.log.error({ err: e, job: job.name }, "job failed (unlocked)");
       }
       return;
     }
-    const r = await runLocked(deps.redis, job.name, job.lockTtlMs, () => job.run(ctx));
+    const r = await runLocked(deps.redis, job.name, job.lockTtlMs, runWithTimeout);
     if (r.ran) {
       deps.log.debug(
         { job: job.name, ms: Date.now() - start },

@@ -114,9 +114,16 @@ export const redisRefreshStore = (redis: Redis): RefreshTokenStore => {
       await pipeline.exec();
     },
     async get(jti) {
-      const userIdStr = await redis.get(jtiKey(jti));
+      // GET + PTTL pipelined into a single round trip. The hot path on
+      // every refresh would otherwise pay 2× network latency.
+      const key = jtiKey(jti);
+      const results = await redis.multi().get(key).pttl(key).exec();
+      if (!results || results.length !== 2) return null;
+      const [getResult, pttlResult] = results;
+      if (!getResult || !pttlResult) return null;
+      const userIdStr = getResult[1] as string | null;
+      const ttl = pttlResult[1] as number;
       if (userIdStr === null) return null;
-      const ttl = await redis.pttl(jtiKey(jti));
       // Without a TTL Redis returns -1; treat that as "no record".
       if (ttl < 0) return null;
       return { userId: BigInt(userIdStr), expiresAt: Date.now() + ttl };

@@ -66,19 +66,41 @@ export type SocketIoMiddleware = (
  * concurrent WebSocket session (B5).
  *
  * Call `jtiRegistry.release(jti)` in the socket's "disconnect" handler.
+ *
+ * JTIs are also given a TTL (access token lifetime, typically 15 min) so that
+ * orphaned entries from crashed sockets are automatically cleaned up. This
+ * prevents unbounded growth if disconnect handlers are skipped.
  */
 export interface JtiRegistry {
   /** Returns false if the jti is already claimed. */
-  claim(jti: string): boolean;
+  claim(jti: string, expiresAtMs: number): boolean;
   release(jti: string): void;
 }
 
 export const buildJtiRegistry = (): JtiRegistry => {
-  const active = new Set<string>();
+  const active = new Map<string, number>(); // jti -> expiresAtMs
+
+  // Cleanup timer: every 30s, sweep expired JTIs.
+  const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [jti, expiresAt] of active.entries()) {
+      if (expiresAt <= now) {
+        active.delete(jti);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) {
+      // Ops will see this on realtime logs if cleanup is frequent
+      // (sign of many socket crashes).
+    }
+  }, 30_000);
+  cleanupTimer.unref();
+
   return {
-    claim(jti) {
+    claim(jti, expiresAtMs) {
       if (active.has(jti)) return false;
-      active.add(jti);
+      active.set(jti, expiresAtMs);
       return true;
     },
     release(jti) {
@@ -116,7 +138,12 @@ export const buildAuthMiddleware = (
           return;
         }
 
-        if (!jtiRegistry.claim(jti)) {
+        // Extract token expiration to use as JTI TTL. If token is expired,
+        // jwtVerify would have thrown above, so exp is guaranteed valid.
+        const exp = result.payload.exp;
+        const expiresAtMs = typeof exp === "number" ? exp * 1000 : Date.now() + 15 * 60_000;
+
+        if (!jtiRegistry.claim(jti, expiresAtMs)) {
           next(new Error("UNAUTHENTICATED: token already in use"));
           return;
         }

@@ -14,7 +14,9 @@
 //    the economy refund window (24 h) by reversing the debit and the
 //    inventory grant in another `$transaction`.
 
-import { audit } from "@aetheria/core";
+import type { Redis } from "ioredis";
+
+import { audit, catalogCache } from "@aetheria/core";
 import {
   applyDiscount,
   canAfford,
@@ -43,6 +45,7 @@ export type ShopMysqlClient = Pick<
 
 export interface ShopDeps {
   readonly mysql: ShopMysqlClient;
+  readonly redis?: Redis | null;
   readonly clock?: () => Date;
 }
 
@@ -60,32 +63,44 @@ const debitField = (c: Currency): "gold" | "aether" => (c === "gold" ? "gold" : 
 
 export class ShopService {
   private readonly mysql: ShopMysqlClient;
+  private readonly redis: Redis | null;
   private readonly clock: () => Date;
 
   constructor(deps: ShopDeps) {
     this.mysql = deps.mysql;
+    this.redis = deps.redis ?? null;
     this.clock = deps.clock ?? ((): Date => new Date());
   }
 
   async catalog(): Promise<readonly ShopItemRow[]> {
     const now = this.clock();
-    const rows = await this.mysql.shopItem.findMany({
-      where: { availableFrom: { lte: now }, availableTo: { gt: now } },
-      include: { item: { select: { name: true, tier: true } } },
-      orderBy: { id: "asc" },
-    });
-    return rows.map(
-      (r): ShopItemRow => ({
-        shopItemId: r.id,
-        itemId: r.itemId,
-        itemName: r.item.name,
-        itemTier: r.item.tier,
-        currency: toCurrency(r.currencyType),
-        price: r.price,
-        availableFrom: r.availableFrom,
-        availableTo: r.availableTo,
-        stock: r.stock,
-      }),
+    // Cache the catalog with a 1-hour TTL. The cache key rotates hourly
+    // so we naturally serve fresh catalogs as time progresses and
+    // availableFrom/availableTo windows shift.
+    return catalogCache.get(
+      this.redis,
+      "shop:catalog",
+      async () => {
+        const rows = await this.mysql.shopItem.findMany({
+          where: { availableFrom: { lte: now }, availableTo: { gt: now } },
+          include: { item: { select: { name: true, tier: true } } },
+          orderBy: { id: "asc" },
+        });
+        return rows.map(
+          (r): ShopItemRow => ({
+            shopItemId: r.id,
+            itemId: r.itemId,
+            itemName: r.item.name,
+            itemTier: r.item.tier,
+            currency: toCurrency(r.currencyType),
+            price: r.price,
+            availableFrom: r.availableFrom,
+            availableTo: r.availableTo,
+            stock: r.stock,
+          }),
+        );
+      },
+      3600, // 1 hour TTL
     );
   }
 

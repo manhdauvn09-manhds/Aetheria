@@ -87,17 +87,16 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
   let chatBusSub: Redis | null = null;
   let chatBus: ChatBusSubscriber | null = null;
   let pvpMatchSub: Redis | null = null;
-  let pvpEndPub: Redis | null = null;
   let pvpMatches: PvpMatchesRuntime | null = null;
   if (env.REDIS_URL) {
     pubClient = new Redis(env.REDIS_URL);
     subClient = pubClient.duplicate();
     chatBusSub = pubClient.duplicate();
     pvpMatchSub = pubClient.duplicate();
-    pvpEndPub = pubClient.duplicate();
     io.adapter(createAdapter(pubClient, subClient));
     chatBus = attachChatBus(io, chatBusSub, log);
-    pvpMatches = attachPvpMatches(io, pvpMatchSub, pvpEndPub, log);
+    // pvpEndPub reuses pubClient for .publish() — it's only pub, never subscribe
+    pvpMatches = attachPvpMatches(io, pvpMatchSub, pubClient, log);
     log.info("redis adapter + chat bus + pvp matches attached");
   } else {
     log.warn("REDIS_URL not set — running single-instance (no cross-process chat/pvp bus)");
@@ -116,19 +115,33 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
     ),
   );
 
+  // Connection cap: reject new sockets if we exceed REALTIME_MAX_SOCKETS.
+  // Protects against connection storms exhausting memory/fds.
+  let activeSocketCount = 0;
+  const MAX_CLIENT_ROOMS = 20;
+
   io.on("connection", (socket) => {
+    if (activeSocketCount >= env.REALTIME_MAX_SOCKETS) {
+      log.warn(
+        { activeCount: activeSocketCount, max: env.REALTIME_MAX_SOCKETS },
+        "connection rejected — max sockets reached",
+      );
+      socket.disconnect(true);
+      return;
+    }
+    activeSocketCount++;
+
     const userId = socket.auth?.userId ?? "?";
     const jti = socket.auth?.jti;
     void socket.join(`user:${userId}`);
     void socket.join("channel:global");
-    log.debug({ userId, socketId: socket.id }, "socket connected");
+    log.debug({ userId, socketId: socket.id, activeCount: activeSocketCount }, "socket connected");
 
     // Client-driven join/leave for guild + party rooms. Whisper rooms
     // are derived from `user:<id>` and never joined explicitly. Guild
     // membership is verified by the API before it fans out messages;
     // the realtime layer adds a room-count cap (B11) so a rogue socket
     // cannot join an unbounded number of rooms.
-    const MAX_CLIENT_ROOMS = 20;
     socket.on("chat:join", (payload: unknown) => {
       const room = parseRoomPayload(payload);
       if (!room) return;
@@ -145,7 +158,8 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
     });
 
     socket.on("disconnect", (reason) => {
-      log.debug({ userId, socketId: socket.id, reason }, "socket disconnected");
+      activeSocketCount--;
+      log.debug({ userId, socketId: socket.id, reason, activeCount: activeSocketCount }, "socket disconnected");
       if (jti) jtiRegistry.release(jti);
     });
   });
@@ -160,9 +174,9 @@ export const buildRealtime = (env: Env): RealtimeBundle => {
     });
     if (pubClient) await pubClient.quit();
     if (subClient) await subClient.quit();
-    if (pvpEndPub) await pvpEndPub.quit();
-    chatBusSub = null; // already closed via chatBus.close()
-    pvpMatchSub = null; // already closed via pvpMatches.close()
+    // chatBusSub + pvpMatchSub already closed via chatBus.close() + pvpMatches.close()
+    chatBusSub = null;
+    pvpMatchSub = null;
     await new Promise<void>((resolve) => {
       http.close(() => {
         resolve();

@@ -17,6 +17,22 @@ import { ZodError } from "zod";
 import { AppError, isAppError } from "./errors.js";
 import type { AuthedContext, BaseContext } from "./context.js";
 
+const isProd = (): boolean => process.env.NODE_ENV === "production";
+
+/**
+ * Strip the fields tRPC's default shape would leak in production:
+ *   - `stack`     internal Node call stack (path disclosure)
+ *   - `zodError`  raw zod issue tree (we already mirror it under `data.app`
+ *                 in a wire-shape both server and client agree on)
+ */
+const stripLeaksInProd = <T extends { data?: Record<string, unknown> }>(shape: T): T => {
+  if (!isProd()) return shape;
+  const data = { ...(shape.data ?? {}) };
+  delete data["stack"];
+  delete data["zodError"];
+  return { ...shape, data };
+};
+
 const t = initTRPC.context<BaseContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
@@ -26,27 +42,23 @@ const t = initTRPC.context<BaseContext>().create({
         { issues: error.cause.flatten() },
         "Validation failed",
       );
-      return {
+      return stripLeaksInProd({
         ...shape,
         message: validation.message,
         data: { ...shape.data, app: validation.toJSON() },
-      };
+      });
     }
     // 2) Domain AppError (server threw via .toTRPCError() or directly as cause)
     const cause = error.cause;
     if (isAppError(cause)) {
-      return {
+      return stripLeaksInProd({
         ...shape,
         message: cause.message,
         data: { ...shape.data, app: cause.toJSON() },
-      };
+      });
     }
-    // Strip internal stack traces in production so they never reach clients.
-    // tRPC omits them by default, but we enforce it explicitly here.
-    if (process.env.NODE_ENV === "production") {
-      return { ...shape, data: { ...shape.data, stack: undefined } };
-    }
-    return shape;
+    // 3) Anything else — generic shape with leak guards in prod.
+    return stripLeaksInProd(shape);
   },
 });
 

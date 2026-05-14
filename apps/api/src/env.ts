@@ -3,22 +3,64 @@
 
 import { z } from "zod";
 
+import { hasSufficientEntropy } from "@aetheria/core";
+
+// Reject low-entropy JWT secrets (e.g. "a".repeat(32)) — see @aetheria/core/secret.
+const strongSecret = (label: string): z.ZodString =>
+  z
+    .string()
+    .min(32, `${label} must be ≥32 bytes`)
+    .max(512, `${label} must be ≤512 bytes`)
+    .refine(
+      hasSufficientEntropy,
+      `${label} entropy too low (use \`openssl rand -base64 32\`)`,
+    ) as unknown as z.ZodString;
+
+// Validate each comma-separated origin parses as a URL. Rejects "localhost",
+// trailing-slash typos, and accidental whitespace at boot rather than at
+// first cross-origin request.
+const corsOrigins = z
+  .string()
+  .default("http://localhost:3001")
+  .transform((s, ctx) => {
+    const items = s.split(",").map((o) => o.trim()).filter((o) => o.length > 0);
+    for (const item of items) {
+      try {
+        new URL(item);
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Invalid origin (not a URL): "${item}"`,
+        });
+        return z.NEVER;
+      }
+    }
+    return items;
+  });
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
   API_HOST: z.string().default("0.0.0.0"),
   API_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
 
-  CORS_ORIGIN: z
-    .string()
-    .default("http://localhost:3001")
-    .transform((s) => s.split(",").map((o) => o.trim()).filter((o) => o.length > 0)),
+  CORS_ORIGIN: corsOrigins,
+
+  /**
+   * Require `cf-connecting-ip` on every inbound request and trust XFF only
+   * from Cloudflare CIDRs. Default ON in production, OFF in dev/test so
+   * `curl localhost:3000` still works.
+   */
+  ENFORCE_CLOUDFLARE: z
+    .union([z.boolean(), z.string()])
+    .default(false)
+    .transform((v) => (typeof v === "string" ? v === "true" || v === "1" : v)),
 
   RATE_LIMIT_MAX:        z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS:  z.coerce.number().int().positive().default(60_000),
 
-  JWT_SECRET:         z.string().min(32, "JWT_SECRET must be ≥32 bytes").max(512, "JWT_SECRET must be ≤512 bytes"),
-  JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be ≥32 bytes").max(512, "JWT_REFRESH_SECRET must be ≤512 bytes"),
+  JWT_SECRET:         strongSecret("JWT_SECRET"),
+  JWT_REFRESH_SECRET: strongSecret("JWT_REFRESH_SECRET"),
   JWT_ISSUER:   z.string().default("aetheria"),
   JWT_AUDIENCE: z.string().default("aetheria-web"),
 

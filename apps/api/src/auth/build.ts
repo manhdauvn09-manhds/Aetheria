@@ -29,12 +29,19 @@ import type { Env } from "../env.js";
 
 export interface AuthBundle {
   readonly service: AuthService;
+  /**
+   * Redis client the bundle created and is responsible for closing. `null`
+   * when (a) Redis is disabled, or (b) the caller passed in a shared client
+   * — in case (b) the caller owns shutdown, we only borrowed the handle.
+   */
+  readonly ownedRedis: Redis | null;
+  /** Read-only view of the redis client used (owned or shared). */
   readonly redis: Redis | null;
   /** Exposed so other domains (account.deleteAccount) can revoke sessions. */
   readonly refreshStore: RefreshTokenStore;
 }
 
-export const buildAuth = (env: Env): AuthBundle => {
+export const buildAuth = (env: Env, sharedRedis?: Redis | null): AuthBundle => {
   const tokenConfig: TokenConfig = {
     accessSecret: env.JWT_SECRET,
     refreshSecret: env.JWT_REFRESH_SECRET,
@@ -44,11 +51,17 @@ export const buildAuth = (env: Env): AuthBundle => {
     refreshTtlSeconds: defaultTokenTtl.refreshTtlSeconds,
   };
 
+  let ownedRedis: Redis | null = null;
   let redis: Redis | null = null;
   let refreshStore: RefreshTokenStore;
   let oneShotStore: OneShotTokenStore;
-  if (env.REDIS_URL) {
+  if (sharedRedis) {
+    redis = sharedRedis;
+    refreshStore = redisRefreshStore(sharedRedis);
+    oneShotStore = redisOneShotStore(sharedRedis);
+  } else if (env.REDIS_URL) {
     const r = new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 3 });
+    ownedRedis = r;
     redis = r;
     refreshStore = redisRefreshStore(r);
     oneShotStore = redisOneShotStore(r);
@@ -77,5 +90,5 @@ export const buildAuth = (env: Env): AuthBundle => {
     emailVerification: { redirectUrl: env.EMAIL_VERIFICATION_URL },
   });
 
-  return { service, redis, refreshStore };
+  return { service, ownedRedis, redis, refreshStore };
 };
