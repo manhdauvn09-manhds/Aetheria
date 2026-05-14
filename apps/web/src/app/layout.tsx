@@ -24,9 +24,13 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "/",
+    // NOTE — only advertise hreflang for locales that actually resolve. The
+    // previous "vi-VN": "/vi" entry pointed at a route that does not exist
+    // yet (no app/vi/* folder), which surfaces as a "Broken hreflang" error
+    // in Google Search Console and slightly weights the canonical signal
+    // against us. Restore the vi-VN entry once the /vi locale ships.
     languages: {
       "en-US": "/",
-      "vi-VN": "/vi",
     },
   },
   openGraph: {
@@ -37,7 +41,6 @@ export const metadata: Metadata = {
       "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay.",
     url:         SITE_URL,
     locale:      "en_US",
-    alternateLocale: ["vi_VN"],
     images: [
       {
         url:    `${SITE_URL}/og-image.jpg`,

@@ -17,9 +17,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://aetheria.gg";
 export const metadata: Metadata = {
   alternates: {
     canonical: "/",
+    // vi-VN hreflang intentionally absent — the /vi locale route is not
+    // built yet, and advertising a broken alternate trips Google Search
+    // Console warnings. Reinstate when app/vi ships.
     languages: {
       "en-US": SITE_URL,
-      "vi-VN": `${SITE_URL}/vi`,
     },
   },
 };
