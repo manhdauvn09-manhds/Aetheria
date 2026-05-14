@@ -218,13 +218,37 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     telemetryService,
   });
 
-  // Monitor connection health every 60s
+  // Monitor connection health every 60s.
+  //
+  // NOTE — we read Prisma internals (`mysql._engine.client.connection.pool`)
+  // because the public client doesn't expose pool stats unless `metrics` is
+  // enabled as a previewFeature in schema.prisma (a bigger change that
+  // regenerates the client). Optional chaining keeps us crash-safe, but the
+  // shape can drift when Prisma upgrades — at which point we'd silently log
+  // "unknown" forever. Raise a single boot-time warning when the internals
+  // aren't accessible so operators know the metric is dead and can either
+  // (a) enable Prisma's official $metrics, or (b) update the access path.
+  let internalsAvailable: boolean | null = null;
   const metricsInterval = setInterval(() => {
     try {
-      const poolSize = mysql._engine?.client?.connection?.pool?.size ?? "unknown";
-      const poolMax = mysql._engine?.client?.connection?.pool?.max ?? "unknown";
-      const poolAvailable = mysql._engine?.client?.connection?.pool?.available?.length ?? "unknown";
-      const poolQueued = mysql._engine?.client?.connection?.pool?.waitQueue?.length ?? 0;
+      const pool = mysql._engine?.client?.connection?.pool;
+      const poolSize = pool?.size ?? "unknown";
+      const poolMax = pool?.max ?? "unknown";
+      const poolAvailable = pool?.available?.length ?? "unknown";
+      const poolQueued = pool?.waitQueue?.length ?? 0;
+      // First successful tick decides whether the internals path resolves at
+      // all. If it doesn't, warn once (instead of silently shipping "unknown"
+      // every 60s forever — the kind of metric drift that hides for months).
+      if (internalsAvailable === null) {
+        internalsAvailable = pool !== undefined;
+        if (!internalsAvailable) {
+          app.log.warn(
+            "mysql pool stats unavailable — Prisma internals path likely changed " +
+              "(mysql._engine.client.connection.pool). Enable `previewFeatures = [\"metrics\"]` " +
+              "in schema.prisma to use $metrics, or update the access path in server.ts.",
+          );
+        }
+      }
       const poolStatus = {
         timestamp: new Date().toISOString(),
         mysql_pool_size: poolSize,
