@@ -43,8 +43,12 @@ const securityHeaders = [
   { key: "X-Content-Type-Options",    value: "nosniff" },
   { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // HSTS: 2 years is the minimum to qualify for the Chrome HSTS preload
+  // list (hstspreload.org). `includeSubDomains` + `preload` are also
+  // required by the submission policy. Only emit in production — dev needs
+  // http://localhost to stay accessible after a single https visit.
   ...(isProd
-    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" }]
+    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
     : []),
 ];
 
