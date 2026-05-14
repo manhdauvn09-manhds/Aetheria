@@ -7,7 +7,17 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"],
+        allow: [
+          "/",
+          "/login",
+          "/signup",
+          "/forgot-password",
+          "/reset-password",
+          "/verify-email",
+          // Public marketing showcase — kept here so it survives any future
+          // tightening of the disallow list under /docs/*.
+          "/docs/aetheria-showcase.html",
+        ],
         disallow: [
           "/admin",
           "/menu",
@@ -22,6 +32,9 @@ export default function robots(): MetadataRoute.Robots {
           "/realms",
           "/api/",
           "/trpc/",
+          // Internal operations document — must never appear in SERPs even
+          // though the file is served from /public for the admin team.
+          "/docs/ADS_ADMIN_GUIDE.html",
         ],
       },
     ],

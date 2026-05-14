@@ -12,6 +12,12 @@ const STATIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  // Public marketing collateral. The bilingual showcase is the de-facto
+  // landing for press / partner referrals; not advertising it in the
+  // sitemap means Googlebot has to discover it via inbound links alone.
+  // ADS_ADMIN_GUIDE.html is internal and intentionally absent here — it is
+  // disallowed in robots.ts so search engines won't surface it either.
+  "/docs/aetheria-showcase.html",
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
