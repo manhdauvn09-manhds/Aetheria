@@ -7,37 +7,19 @@ import { serverTrpc } from "@/lib/trpc/server";
 // SEO: regenerate on every request to keep metadata fresh
 export const dynamic = "force-dynamic";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://aetheria.gg";
+
+// NOTE — most of these fields (title/description/openGraph/twitter/alternates)
+// are inherited from `app/layout.tsx`. We override only what diverges per-page;
+// keeping the rest unset prevents the canonical-domain drift that the previous
+// version of this file caused (page.tsx hard-coded aetheria.com while layout
+// used the SITE_URL env, splitting search-engine signal across two hostnames).
 export const metadata: Metadata = {
-  title: "Aetheria — Tactical Hex-Based Combat RPG",
-  description:
-    "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay. Play now and master the realms.",
-  keywords: "tactical RPG, hex combat, strategy game, free-to-play RPG, turn-based combat",
-  openGraph: {
-    title: "Aetheria — Tactical Hex-Based Combat RPG",
-    description:
-      "Aetheria is a free-to-play tactical RPG with hex-grid combat, dynamic encounters, and strategic gameplay.",
-    type: "website",
-    locale: "en_US",
-    alternateLocale: ["vi_VN"],
-    url: "https://aetheria.com",
-    images: [
-      {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Aetheria Combat Scene",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Aetheria — Tactical Hex-Based Combat RPG",
-    description: "Free-to-play tactical RPG with hex-grid combat. Master the realms.",
-  },
   alternates: {
+    canonical: "/",
     languages: {
-      "en-US": "https://aetheria.com",
-      "vi-VN": "https://aetheria.com/vi",
+      "en-US": SITE_URL,
+      "vi-VN": `${SITE_URL}/vi`,
     },
   },
 };
@@ -162,33 +144,12 @@ const LandingPage = async (): Promise<JSX.Element> => {
         )}
       </main>
 
-      {/* Schema.org Game Schema */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "VideoGame",
-            name: "Aetheria",
-            url: "https://aetheria.com",
-            description:
-              "A free-to-play tactical RPG with hex-grid combat and strategic gameplay.",
-            genre: ["Tactical RPG", "Strategy", "Turn-Based"],
-            gamePlatform: "Web",
-            applicationCategory: "Game",
-            offers: {
-              "@type": "Offer",
-              price: "0",
-              priceCurrency: "USD",
-            },
-            image: "/og-image.jpg",
-            author: {
-              "@type": "Organization",
-              name: "Aetheria Studio",
-            },
-          }),
-        }}
-      />
+      {/*
+        Schema.org VideoGame structured data is emitted ONCE in
+        app/layout.tsx — see the `jsonld-game` <Script> there. Don't add a
+        second copy here: duplicate JSON-LD with conflicting fields confuses
+        search engines and dilutes rich-result eligibility.
+      */}
     </>
   );
 };
