@@ -18,12 +18,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "turbo run clean && rimraf .turbo node_modules",
-    "db:generate":       "pnpm --filter @aetheria/schema-db generate",
-    "db:migrate:mysql":  "pnpm --filter @aetheria/schema-db migrate:mysql",
-    "db:migrate:sqlite": "pnpm --filter @aetheria/schema-db migrate:sqlite",
-    "db:studio:mysql":   "pnpm --filter @aetheria/schema-db studio:mysql",
-    "db:studio:sqlite":  "pnpm --filter @aetheria/schema-db studio:sqlite",
-    "e2e:smoke":         "tsx scripts/e2e-smoke.ts"
+    "db:generate":  "pnpm --filter @aetheria/schema-db generate",
+    "db:migrate":   "pnpm --filter @aetheria/schema-db migrate",
+    "db:studio":    "pnpm --filter @aetheria/schema-db studio",
+    "e2e:smoke":    "tsx scripts/e2e-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

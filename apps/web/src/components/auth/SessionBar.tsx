@@ -13,7 +13,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { bootstrapLocalQuiet } from "@/lib/auth/bootstrap";
 import { AuthApiError, postJSON } from "@/lib/auth/client";
 import type { SessionResponseBody } from "@/lib/auth/proxy";
 import { useSession } from "@/store/session";
@@ -36,8 +35,6 @@ export const SessionBar = (): JSX.Element => {
         const res = await postJSON<SessionResponseBody>("/api/auth/refresh", {});
         if (!cancelled) {
           setSession(res.user, res.access);
-          // Fire-and-forget — local SQLite bootstrap is non-blocking.
-          void bootstrapLocalQuiet(res.access.value);
         }
       } catch {
         if (!cancelled) clearSession();

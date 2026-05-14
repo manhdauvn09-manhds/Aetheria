@@ -9,7 +9,6 @@
   "globalEnv": [
     "NODE_ENV",
     "DATABASE_URL_MYSQL",
-    "DATABASE_URL_SQLITE",
     "REDIS_URL",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET"

@@ -10,7 +10,6 @@ import {
   FormError,
   Submit,
 } from "@/components/auth/AuthShell";
-import { bootstrapLocalQuiet } from "@/lib/auth/bootstrap";
 import { AuthApiError, postJSON } from "@/lib/auth/client";
 import type { SessionResponseBody } from "@/lib/auth/proxy";
 import { useSession } from "@/store/session";
@@ -40,7 +39,6 @@ const SignupPage = (): JSX.Element => {
         password,
       });
       setSession(res.user, res.access);
-      await bootstrapLocalQuiet(res.access.value);
       router.push("/menu");
     } catch (e) {
       setError(e instanceof AuthApiError ? e.body.message : "Signup failed");

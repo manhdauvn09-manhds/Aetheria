@@ -1,5 +1,5 @@
 // Domain enums as TS literal unions. Mirror the `VARCHAR` discriminators used
-// in db/mysql/01_init.sql and db/sqlite/01_init.sql.
+// in db/mysql/01_init.sql.
 
 export const UserStatuses = ["active", "banned", "suspended"] as const;
 export type UserStatus = (typeof UserStatuses)[number];

@@ -1,7 +1,7 @@
 // Aetheria — combat runtime service.
 //
-// Bridges the pure-domain engine (`@aetheria/domain-combat`) to the
-// per-user SQLite `runs` table. Three flows:
+// Bridges the pure-domain engine (`@aetheria/domain-combat`) to the shared
+// MySQL `runs` table. Three flows:
 //
 //   start({runId})         build a fresh BattleState from the run's
 //                          level + a synthesised party / encounter,
@@ -14,16 +14,18 @@
 //                          and compare the final hash to the stored
 //                          snapshot's hash; flags tampering
 //
-// We treat the run row as the canonical source of truth: snapshot is
-// the live BattleState, action_log is the append-only history.
+// We treat the run row as the canonical source of truth: snapshot is the
+// live BattleState (serialized to a stable JSON envelope), action_log is
+// the append-only history. Both columns are MySQL `JSON` type.
 //
-// B13 note (PII / integrity): the per-user SQLite file is hosted on the
-// server; clients never receive the snapshot. The replay-hash check above
-// detects action_log tampering, but if an operator with file-system access
-// edits BOTH snapshot and action_log to be self-consistent, hashState()
-// would still match. File-level integrity (signed snapshot, OS-level
-// integrity monitoring) is out-of-scope for this layer — the threat model
-// here only covers client-driven tampering, which the hash check defeats.
+// Authorisation note: every query is scoped by `userId` so a user can't
+// touch another user's run even if they discover a numeric runId.
+//
+// B13 note (integrity): the replay-hash check defeats client-driven
+// tampering of action_log + snapshot — they have to remain self-
+// consistent under deterministic replay, which is intractable without
+// knowing the engine seed. Operator-level tampering (DB row edit) is out
+// of scope for this layer.
 
 import { audit } from "@aetheria/core";
 import {
@@ -34,7 +36,6 @@ import {
   hydrate,
   replayActions,
   serializeState,
-  stringifyState,
   type Action,
   type Actor,
   type BattleState,
@@ -42,12 +43,12 @@ import {
   type Tile,
 } from "@aetheria/domain-combat";
 import { AppError } from "@aetheria/schema-api";
-import type { SqliteClient } from "@aetheria/schema-db";
-import { applyInitSchema, sqliteFor } from "@aetheria/schema-db";
+import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
+
+export type CombatMysqlClient = Pick<MysqlClient, "run">;
 
 export interface CombatRunDeps {
-  /** Override the per-user SQLite resolver. Tests stub this. */
-  readonly sqliteFor?: (userId: bigint) => Promise<SqliteClient>;
+  readonly mysql: CombatMysqlClient;
 }
 
 export interface RunRef {
@@ -74,64 +75,50 @@ export interface CombatReplayResult {
 type RunStatus = "in_progress" | "completed" | "failed" | "abandoned";
 
 interface RunRow {
-  id: bigint | number;
-  level_id: bigint | number;
-  status: string;
-  action_log: string;
-  snapshot: string | null;
-}
-
-interface LevelRow {
-  id: bigint | number;
-  level_number: bigint | number;
-  name: string;
+  readonly id: bigint;
+  readonly levelId: bigint;
+  readonly status: string;
+  readonly actionLog: unknown;
+  readonly snapshot: unknown;
+  readonly level: { readonly levelNumber: number; readonly name: string };
 }
 
 export class CombatRunService {
-  private readonly openSqlite: (userId: bigint) => Promise<SqliteClient>;
-  private readonly schemaApplied = new Set<string>();
-
-  constructor(deps: CombatRunDeps = {}) {
-    this.openSqlite = deps.sqliteFor ?? ((id) => sqliteFor(id));
-  }
+  constructor(private readonly deps: CombatRunDeps) {}
 
   // ── Public flows ──────────────────────────────────────────────────
 
   async start(ref: RunRef): Promise<CombatStartResult> {
-    const db = await this.openUserDb(ref.userId);
-    const run = await this.loadRun(db, ref.runId);
+    const run = await this.loadRun(ref);
     if (run.status !== "in_progress") {
       throw AppError.invalidAction("Run is not in progress", { status: run.status });
     }
-    const level = await this.loadLevel(db, BigInt(run.level_id));
-    const init = synthesiseInit(ref, level);
+    const init = synthesiseInit(ref, run.level);
     const fresh = createBattle(init);
-    await db.$executeRawUnsafe(
-      `UPDATE runs SET snapshot = ?, action_log = '[]', dirty = 1 WHERE id = ?`,
-      stringifyState(fresh),
-      Number(ref.runId),
-    );
+    await this.deps.mysql.run.update({
+      where: { id: ref.runId },
+      data: {
+        snapshot: fresh as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        actionLog: [] as unknown as MysqlPrisma.Prisma.InputJsonValue,
+      },
+    });
     await audit.write({
       actor: ref.userId,
       action: "combat.start",
       targetType: "run",
       targetId: ref.runId,
-      payload: { battleId: fresh.battleId, levelNumber: Number(level.level_number) },
+      payload: { battleId: fresh.battleId, levelNumber: run.level.levelNumber },
     });
     return { state: fresh };
   }
 
-  async submitAction(
-    ref: RunRef,
-    action: Action,
-  ): Promise<CombatSubmitResult> {
-    const db = await this.openUserDb(ref.userId);
-    const run = await this.loadRun(db, ref.runId);
+  async submitAction(ref: RunRef, action: Action): Promise<CombatSubmitResult> {
+    const run = await this.loadRun(ref);
     if (run.status !== "in_progress") {
       throw AppError.invalidAction("Run is not in progress", { status: run.status });
     }
     const state = this.hydrateOrThrow(run);
-    const log = parseActionLog(run.action_log);
+    const log = parseActionLog(run.actionLog);
 
     let result: ReturnType<typeof applyAction>;
     try {
@@ -155,18 +142,16 @@ export class CombatRunService {
         : phase === "draw" ? "completed"
         : "in_progress";
 
-    await db.$executeRawUnsafe(
-      `UPDATE runs
-          SET snapshot = ?, action_log = ?, status = ?, dirty = 1,
-              ended_at = CASE WHEN ? = 'in_progress' THEN ended_at
-                              ELSE strftime('%Y-%m-%dT%H:%M:%fZ','now') END
-        WHERE id = ?`,
-      stringifyState(result.state),
-      JSON.stringify(nextLog),
-      runStatus,
-      runStatus,
-      Number(ref.runId),
-    );
+    await this.deps.mysql.run.update({
+      where: { id: ref.runId },
+      data: {
+        snapshot: result.state as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        actionLog: nextLog as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        status: runStatus,
+        ...(runStatus === "in_progress" ? {} : { endedAt: new Date() }),
+      },
+    });
+
     await audit.write({
       actor: ref.userId,
       action: "combat.submit_action",
@@ -183,12 +168,10 @@ export class CombatRunService {
   }
 
   async replay(ref: RunRef): Promise<CombatReplayResult> {
-    const db = await this.openUserDb(ref.userId);
-    const run = await this.loadRun(db, ref.runId);
-    const level = await this.loadLevel(db, BigInt(run.level_id));
-    const log = parseActionLog(run.action_log);
+    const run = await this.loadRun(ref);
+    const log = parseActionLog(run.actionLog);
     const stored = this.hydrateOrThrow(run);
-    const init = synthesiseInit(ref, level);
+    const init = synthesiseInit(ref, run.level);
     // Replay against the same init seed, then compare against the
     // snapshot's serialized hash. Mismatch ⇒ tampered run.
     const replayed = replayActions({ init, actions: log });
@@ -202,48 +185,30 @@ export class CombatRunService {
 
   // ── Internals ─────────────────────────────────────────────────────
 
-  private async openUserDb(userId: bigint): Promise<SqliteClient> {
-    const db = await this.openSqlite(userId);
-    const key = userId.toString();
-    if (!this.schemaApplied.has(key)) {
-      await applyInitSchema(db);
-      this.schemaApplied.add(key);
-    }
-    return db;
-  }
-
-  private async loadRun(db: SqliteClient, runId: bigint): Promise<RunRow> {
-    const rows = await db.$queryRawUnsafe<RunRow[]>(
-      `SELECT id, level_id, status, action_log, snapshot
-         FROM runs
-        WHERE id = ?
-        LIMIT 1`,
-      Number(runId),
-    );
-    const row = rows[0];
-    if (!row) throw AppError.notFound("run", runId);
-    return row;
-  }
-
-  private async loadLevel(db: SqliteClient, levelId: bigint): Promise<LevelRow> {
-    const rows = await db.$queryRawUnsafe<LevelRow[]>(
-      `SELECT id, level_number, name FROM levels WHERE id = ? LIMIT 1`,
-      Number(levelId),
-    );
-    const row = rows[0];
-    if (!row) throw AppError.notFound("level", levelId);
+  private async loadRun(ref: RunRef): Promise<RunRow> {
+    const row = await this.deps.mysql.run.findFirst({
+      where: { id: ref.runId, userId: ref.userId },
+      select: {
+        id: true,
+        levelId: true,
+        status: true,
+        actionLog: true,
+        snapshot: true,
+        level: { select: { levelNumber: true, name: true } },
+      },
+    });
+    if (!row) throw AppError.notFound("run", ref.runId);
     return row;
   }
 
   private hydrateOrThrow(run: RunRow): BattleState {
-    if (!run.snapshot) {
+    if (run.snapshot === null || run.snapshot === undefined) {
       throw AppError.invalidAction("Combat hasn't started for this run", {
         runId: String(run.id),
       });
     }
     try {
-      const raw: unknown = JSON.parse(run.snapshot);
-      return hydrate(raw);
+      return hydrate(run.snapshot);
     } catch (e) {
       throw AppError.internal("Run snapshot is corrupted", e);
     }
@@ -257,7 +222,10 @@ export class CombatRunService {
 // synthesise a 6×4 plain grid with one player + one enemy so the
 // engine has a valid starting state that's deterministic per run.
 
-const synthesiseInit = (ref: RunRef, _level: LevelRow): CreateBattleInput => {
+const synthesiseInit = (
+  ref: RunRef,
+  _level: { levelNumber: number; name: string },
+): CreateBattleInput => {
   const tiles: Tile[] = [];
   for (let q = 0; q < 6; q++) {
     for (let r = 0; r < 4; r++) {
@@ -305,15 +273,20 @@ const synthActor = (
   defeated: false,
 });
 
-const parseActionLog = (raw: string): readonly Action[] => {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed as readonly Action[];
-  } catch {
-    return [];
+const parseActionLog = (raw: unknown): readonly Action[] => {
+  // MySQL JSON column returns a parsed value already, but tolerate the
+  // legacy string form in case a stale row lingers from before the
+  // 1-DB consolidation.
+  if (Array.isArray(raw)) return raw as readonly Action[];
+  if (typeof raw === "string" && raw.length > 0) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? (parsed as readonly Action[]) : [];
+    } catch {
+      return [];
+    }
   }
+  return [];
 };
 
 void serializeState; // keep import warm for stable JSON contract reference

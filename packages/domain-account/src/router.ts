@@ -94,14 +94,6 @@ export const createAccountRouter = (service: AccountService) =>
           throw asTrpcError(e);
         }
       }),
-
-    bootstrapLocal: protectedProcedure.mutation(async ({ ctx }) => {
-      try {
-        return await service.bootstrapLocal(ctx.auth.userId);
-      } catch (e) {
-        throw asTrpcError(e);
-      }
-    }),
   });
 
 export type AccountRouter = ReturnType<typeof createAccountRouter>;

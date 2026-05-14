@@ -3,7 +3,7 @@
 // Surfaces the catalog (realms, levels) plus run lifecycle:
 //   - realms()              list of realms (id, name, theme, color, order)
 //   - levelsForRealm(id)    levels in that realm
-//   - startLevel(input)     creates a `runs` row in the user's SQLite
+//   - startLevel(input)     creates a `runs` row in MySQL
 //   - resumeRun(input)      fetches an in-progress run
 //   - abandonRun(input)     marks a run abandoned
 //
@@ -12,8 +12,9 @@
 // JSON files in `@aetheria/game-assets`. This keeps the single-player
 // shell playable on an empty database, which is a common dev case.
 //
-// Run state is per-user → it lives in the user's SQLite file, opened via
-// `sqliteFor(userId)`.
+// Run state lives in the shared MySQL `runs` table (one row per attempt,
+// scoped by `user_id`). The dual-DB sync layer was removed in the 1-DB
+// migration; CombatRunService writes the same row directly.
 
 import { audit } from "@aetheria/core";
 import {
@@ -21,18 +22,12 @@ import {
   loadAllLevels,
 } from "@aetheria/game-assets";
 import { AppError } from "@aetheria/schema-api";
-import type { MysqlClient, SqliteClient } from "@aetheria/schema-db";
-import { applyInitSchema, sqliteFor } from "@aetheria/schema-db";
+import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
 
-export type WorldMysqlClient = Pick<MysqlClient, "realm" | "level">;
+export type WorldMysqlClient = Pick<MysqlClient, "realm" | "level" | "run">;
 
 export interface WorldDeps {
   readonly mysql: WorldMysqlClient;
-  /**
-   * Override the per-user SQLite resolver. Tests stub this; production
-   * uses the schema-db default.
-   */
-  readonly sqliteFor?: (userId: bigint) => Promise<SqliteClient>;
 }
 
 // ── Result shapes ────────────────────────────────────────────────────
@@ -99,25 +94,7 @@ export interface StartLevelResult {
 // ── Service ──────────────────────────────────────────────────────────
 
 export class WorldService {
-  private readonly openSqlite: (userId: bigint) => Promise<SqliteClient>;
-  /** Track which per-user SQLite files have had `applyInitSchema` run
-   *  this process. Idempotent at the SQL level, but skipping the work on
-   *  every call keeps `startLevel` cheap. */
-  private readonly schemaApplied = new Set<string>();
-
-  constructor(private readonly deps: WorldDeps) {
-    this.openSqlite = deps.sqliteFor ?? ((id) => sqliteFor(id));
-  }
-
-  private async openUserDb(userId: bigint): Promise<SqliteClient> {
-    const db = await this.openSqlite(userId);
-    const key = userId.toString();
-    if (!this.schemaApplied.has(key)) {
-      await applyInitSchema(db);
-      this.schemaApplied.add(key);
-    }
-    return db;
-  }
+  constructor(private readonly deps: WorldDeps) {}
 
   async realms(): Promise<readonly RealmOut[]> {
     // Dev fallback when MySQL is empty OR unreachable — keeps the
@@ -183,105 +160,102 @@ export class WorldService {
 
   async startLevel(input: StartLevelInput): Promise<StartLevelResult> {
     const detail = await this.loadLevelDetail(input.levelNumber);
-
-    const db = await this.openUserDb(input.userId);
-    // Prisma's SQLite `level` table mirrors the catalog cache. We assume
-    // the catalog has been pulled (or the dev fallback path inserts a stub
-    // row on demand). For now write a minimal row so the FK on `runs.levelId`
-    // is satisfied even on a fresh SQLite file.
-    await this.ensureLevelCacheRow(db, detail);
-
-    // Raw SQL: the DDL stores timestamps as ISO TEXT but Prisma's
-    // generated SQLite client wants epoch-ms numerics for `DateTime`.
-    // We control format here so reads + writes stay consistent.
-    const startedAtIso = new Date().toISOString();
-    const insertedId = await db.$queryRawUnsafe<{ id: bigint }[]>(
-      `INSERT INTO runs (level_id, status, started_at, score, stars, action_log, snapshot, dirty)
-       VALUES (?, 'in_progress', ?, 0, 0, '[]', NULL, 1)
-       RETURNING id`,
-      Number(BigInt(detail.id)),
-      startedAtIso,
-    );
-    const runId = insertedId[0]?.id;
-    if (runId === undefined) {
-      throw AppError.internal("Run insert returned no id");
-    }
+    const created = await this.deps.mysql.run.create({
+      data: {
+        userId: input.userId,
+        levelId: BigInt(detail.id),
+        status: "in_progress",
+        score: 0,
+        stars: 0,
+        actionLog: [] as unknown as MysqlPrisma.Prisma.InputJsonValue,
+      },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        endedAt: true,
+        score: true,
+        stars: true,
+        snapshot: true,
+      },
+    });
 
     await audit.write({
       actor: input.userId,
       action: "world.run.start",
       targetType: "level",
       targetId: BigInt(detail.id),
-      payload: { runId: runId.toString(), levelNumber: detail.levelNumber },
+      payload: { runId: created.id.toString(), levelNumber: detail.levelNumber },
     });
 
     return {
       run: {
-        id: runId.toString(),
+        id: created.id.toString(),
         levelId: detail.id,
         levelNumber: detail.levelNumber,
-        status: "in_progress",
-        startedAt: new Date(startedAtIso),
-        endedAt: null,
-        score: 0,
-        stars: 0,
-        snapshot: null,
+        status: castStatus(created.status),
+        startedAt: created.startedAt,
+        endedAt: created.endedAt,
+        score: created.score,
+        stars: created.stars,
+        snapshot: snapshotAsObject(created.snapshot),
       },
       level: detail,
     };
   }
 
   async resumeRun(input: ResumeRunInput): Promise<StartLevelResult> {
-    const db = await this.openUserDb(input.userId);
-    const rows = await db.$queryRawUnsafe<RunRow[]>(
-      `SELECT r.id AS id, r.level_id AS level_id, r.status AS status,
-              r.started_at AS started_at, r.ended_at AS ended_at,
-              r.score AS score, r.stars AS stars, r.snapshot AS snapshot,
-              l.level_number AS level_number
-         FROM runs r JOIN levels l ON l.id = r.level_id
-        WHERE r.id = ? LIMIT 1`,
-      Number(input.runId),
-    );
-    const row = rows[0];
+    // Scope by userId so users can't resume someone else's run.
+    const row = await this.deps.mysql.run.findFirst({
+      where: { id: input.runId, userId: input.userId },
+      select: {
+        id: true,
+        levelId: true,
+        status: true,
+        startedAt: true,
+        endedAt: true,
+        score: true,
+        stars: true,
+        snapshot: true,
+        level: { select: { levelNumber: true } },
+      },
+    });
     if (!row) throw AppError.notFound("run", input.runId);
     if (row.status !== "in_progress") {
       throw AppError.invalidAction("Run is not resumable", { status: row.status });
     }
 
-    const detail = await this.loadLevelDetail(Number(row.level_number));
+    const detail = await this.loadLevelDetail(row.level.levelNumber);
 
     return {
       run: {
         id: row.id.toString(),
-        levelId: String(row.level_id),
-        levelNumber: Number(row.level_number),
+        levelId: row.levelId.toString(),
+        levelNumber: row.level.levelNumber,
         status: castStatus(row.status),
-        startedAt: parseSqliteDate(row.started_at),
-        endedAt: row.ended_at !== null ? parseSqliteDate(row.ended_at) : null,
-        score: Number(row.score),
-        stars: Number(row.stars),
-        snapshot: parseSnapshot(row.snapshot),
+        startedAt: row.startedAt,
+        endedAt: row.endedAt,
+        score: row.score,
+        stars: row.stars,
+        snapshot: snapshotAsObject(row.snapshot),
       },
       level: detail,
     };
   }
 
   async abandonRun(input: AbandonRunInput): Promise<{ ok: true }> {
-    const db = await this.openUserDb(input.userId);
-    const rows = await db.$queryRawUnsafe<{ status: string }[]>(
-      `SELECT status FROM runs WHERE id = ? LIMIT 1`,
-      Number(input.runId),
-    );
-    const row = rows[0];
+    const row = await this.deps.mysql.run.findFirst({
+      where: { id: input.runId, userId: input.userId },
+      select: { status: true },
+    });
     if (!row) throw AppError.notFound("run", input.runId);
     if (row.status !== "in_progress") {
       throw AppError.invalidAction("Run is not in progress", { status: row.status });
     }
-    await db.$executeRawUnsafe(
-      `UPDATE runs SET status = 'abandoned', ended_at = ?, dirty = 1 WHERE id = ?`,
-      new Date().toISOString(),
-      Number(input.runId),
-    );
+    await this.deps.mysql.run.update({
+      where: { id: input.runId },
+      data: { status: "abandoned", endedAt: new Date() },
+    });
     await audit.write({
       actor: input.userId,
       action: "world.run.abandon",
@@ -336,48 +310,6 @@ export class WorldService {
     if (!asset) throw AppError.notFound("level", levelNumber);
     return assetToDetail(asset);
   }
-
-  /**
-   * The per-user SQLite has FK `runs.level_id → levels.id`. On a fresh
-   * file the catalog cache is empty until the sync pull runs, so we
-   * upsert a minimal row here so `startLevel` doesn't break in dev.
-   */
-  private async ensureLevelCacheRow(db: SqliteClient, detail: LevelDetailOut): Promise<void> {
-    // Insert order matters: levels FK → realms, runs FK → levels.
-    // We use raw SQL here because the Prisma generated SQLite client maps
-    // `cached_at` to a `DateTime` and writes it as epoch millis, which then
-    // fails to round-trip as a string. The DDL stores timestamps as ISO
-    // text — letting the column default fire keeps both sides consistent.
-    const realmStub = realmStubFor(BigInt(detail.realmId));
-    await db.$executeRawUnsafe(
-      `INSERT OR IGNORE INTO realms (id, name, theme, color_hex, order_index) VALUES (?, ?, ?, ?, ?)`,
-      Number(realmStub.id),
-      realmStub.name,
-      realmStub.theme,
-      realmStub.colorHex,
-      realmStub.orderIndex,
-    );
-    await db.$executeRawUnsafe(
-      `INSERT OR IGNORE INTO levels
-         (id, realm_id, level_number, name, type, map, encounter, rewards,
-          difficulty, min_account_level, discovery_secrets, version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      Number(BigInt(detail.id)),
-      Number(BigInt(detail.realmId)),
-      detail.levelNumber,
-      detail.name,
-      detail.type,
-      JSON.stringify(detail.map),
-      JSON.stringify(detail.encounter),
-      JSON.stringify(detail.rewards),
-      detail.difficulty,
-      detail.minAccountLevel,
-      detail.discoverySecrets !== null
-        ? JSON.stringify(detail.discoverySecrets)
-        : null,
-      detail.version,
-    );
-  }
 }
 
 // ── Pure helpers ─────────────────────────────────────────────────────
@@ -387,15 +319,9 @@ const castStatus = (s: string): RunOut["status"] => {
   return "in_progress";
 };
 
-const parseSnapshot = (raw: string | null): Readonly<Record<string, unknown>> | null => {
-  if (raw === null || raw.length === 0) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    return parsed as Readonly<Record<string, unknown>>;
-  } catch {
-    return null;
-  }
+const snapshotAsObject = (raw: unknown): Readonly<Record<string, unknown>> | null => {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw as Readonly<Record<string, unknown>>;
 };
 
 const slugFromName = (name: string, levelNumber: number): string =>
@@ -434,22 +360,6 @@ const DEV_FALLBACK_REALMS: readonly RealmOut[] = [
   { id: "5", name: "Hollow Vault", theme: "void", colorHex: "#311B92", orderIndex: 5 },
 ];
 
-const realmStubFor = (
-  id: bigint,
-): { id: bigint; name: string; theme: string; colorHex: string; orderIndex: number } => {
-  const found = DEV_FALLBACK_REALMS.find((r) => r.id === id.toString());
-  if (found) {
-    return {
-      id,
-      name: found.name,
-      theme: found.theme,
-      colorHex: found.colorHex,
-      orderIndex: found.orderIndex,
-    };
-  }
-  return { id, name: `Realm ${id.toString()}`, theme: "unknown", colorHex: "#444444", orderIndex: Number(id) };
-};
-
 /**
  * Treat any thrown DB error (no MySQL host, schema missing, …) as
  * "table empty" so callers can fall back to game-assets data. Real
@@ -463,24 +373,4 @@ const tolerateDbMiss = async <T>(call: () => Promise<T>): Promise<T | null> => {
     console.warn("[world] catalog DB unavailable, using game-assets fallback", e);
     return null;
   }
-};
-
-/** Shape of a `runs JOIN levels` row from raw SQL. */
-interface RunRow {
-  id: bigint | number;
-  level_id: bigint | number;
-  level_number: bigint | number;
-  status: string;
-  started_at: string;
-  ended_at: string | null;
-  score: bigint | number;
-  stars: bigint | number;
-  snapshot: string | null;
-}
-
-/** Our DDL stores timestamps as ISO TEXT. Parse defensively in case a
- *  legacy row holds an epoch number from earlier (broken) writes. */
-const parseSqliteDate = (raw: string): Date => {
-  if (/^\d+$/.test(raw)) return new Date(Number(raw));
-  return new Date(raw);
 };

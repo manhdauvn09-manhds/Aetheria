@@ -128,8 +128,8 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     refreshStore: auth.refreshStore,
   });
   const worldService = new WorldService({ mysql });
-  const saveService = new SaveService();
-  const combatService = new CombatRunService();
+  const saveService = new SaveService({ mysql });
+  const combatService = new CombatRunService({ mysql });
   const rosterService = new RosterService({ mysql });
   const inventoryService = new InventoryService({ mysql, redis: sharedRedis });
   const questService = new QuestService({ mysql });

@@ -4,69 +4,80 @@ vi.mock("@aetheria/core", () => ({
   audit: { write: vi.fn().mockResolvedValue(undefined) },
 }));
 
-vi.mock("@aetheria/schema-db", () => ({
-  applyInitSchema: vi.fn().mockResolvedValue(undefined),
-  sqliteFor:       vi.fn(),
-}));
-
 import { stringifyState } from "@aetheria/domain-combat";
 
 import { CombatRunService } from "../service.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
-type DbRow = Record<string, unknown>;
-
-const LEVEL_ROW = { id: 1, level_number: 1, name: "Tutorial" };
-
-/** Minimal in-progress run row with no snapshot yet. */
-const PENDING_RUN: DbRow = {
-  id:         1,
-  level_id:   1,
-  status:     "in_progress",
-  action_log: "[]",
-  snapshot:   null,
-};
-
-function makeDb(rows: { runs?: DbRow[]; levels?: DbRow[] } = {}) {
-  const runRows   = rows.runs   ?? [PENDING_RUN];
-  const levelRows = rows.levels ?? [LEVEL_ROW];
-  return {
-    $executeRawUnsafe: vi.fn().mockResolvedValue(1),
-    $queryRawUnsafe:   vi.fn().mockImplementation((sql: string) => {
-      if (sql.includes("FROM runs"))   return Promise.resolve(runRows);
-      if (sql.includes("FROM levels")) return Promise.resolve(levelRows);
-      return Promise.resolve([]);
-    }),
-  };
+interface RunRow {
+  id: bigint;
+  levelId: bigint;
+  status: string;
+  actionLog: unknown;
+  snapshot: unknown;
+  level: { levelNumber: number; name: string };
 }
+
+const LEVEL = { levelNumber: 1, name: "Tutorial" };
+
+const pendingRun = (overrides: Partial<RunRow> = {}): RunRow => ({
+  id: 1n,
+  levelId: 1n,
+  status: "in_progress",
+  actionLog: [],
+  snapshot: null,
+  level: LEVEL,
+  ...overrides,
+});
+
+/** Minimal Prisma-shaped mock — only the `run.findFirst` + `run.update` paths the service exercises. */
+const makeMysql = (initial: RunRow | null = pendingRun()) => {
+  let row: RunRow | null = initial;
+  const findFirst = vi.fn().mockImplementation(() => Promise.resolve(row));
+  const update = vi.fn().mockImplementation(({ data }: { data: Partial<RunRow> }) => {
+    if (row) row = { ...row, ...data };
+    return Promise.resolve(row);
+  });
+  return {
+    run: { findFirst, update },
+    /** Direct setter — tests use this to seed snapshots between flow stages. */
+    _set(next: RunRow | null): void {
+      row = next;
+    },
+    _row(): RunRow | null {
+      return row;
+    },
+  };
+};
 
 // ── CombatRunService.start ────────────────────────────────────────────────
 
 describe("CombatRunService.start", () => {
   it("creates a battle state and persists snapshot", async () => {
-    const db  = makeDb();
-    const svc = new CombatRunService({ sqliteFor: () => Promise.resolve(db as never) });
+    const mysql = makeMysql();
+    const svc = new CombatRunService({ mysql: mysql as never });
     const result = await svc.start({ userId: 1n, runId: 1n });
 
     expect(result.state.battleId).toBe("run-1");
     expect(result.state.phase).toMatch(/player_turn|enemy_turn/);
-    expect(db.$executeRawUnsafe).toHaveBeenCalledWith(
-      expect.stringContaining("UPDATE runs"),
-      expect.any(String),
-      1,
+    expect(mysql.run.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1n },
+        data: expect.objectContaining({ snapshot: expect.any(Object), actionLog: [] }),
+      }),
     );
   });
 
   it("throws invalidAction when run is not in_progress", async () => {
-    const db = makeDb({ runs: [{ ...PENDING_RUN, status: "completed", snapshot: '{"x":1}' }] });
-    const svc = new CombatRunService({ sqliteFor: () => Promise.resolve(db as never) });
+    const mysql = makeMysql(pendingRun({ status: "completed", snapshot: { x: 1 } }));
+    const svc = new CombatRunService({ mysql: mysql as never });
     await expect(svc.start({ userId: 1n, runId: 1n })).rejects.toThrow("in progress");
   });
 
   it("throws not-found when run row is missing", async () => {
-    const db = makeDb({ runs: [] });
-    const svc = new CombatRunService({ sqliteFor: () => Promise.resolve(db as never) });
+    const mysql = makeMysql(null);
+    const svc = new CombatRunService({ mysql: mysql as never });
     await expect(svc.start({ userId: 1n, runId: 99n })).rejects.toThrow();
   });
 });
@@ -74,53 +85,48 @@ describe("CombatRunService.start", () => {
 // ── CombatRunService.submitAction ─────────────────────────────────────────
 
 describe("CombatRunService.submitAction", () => {
-  let db: ReturnType<typeof makeDb>;
+  let mysql: ReturnType<typeof makeMysql>;
   let svc: CombatRunService;
 
   beforeEach(async () => {
-    db  = makeDb();
-    svc = new CombatRunService({ sqliteFor: () => Promise.resolve(db as never) });
+    mysql = makeMysql();
+    svc = new CombatRunService({ mysql: mysql as never });
     // Seed a real snapshot by calling start() first.
     const { state } = await svc.start({ userId: 1n, runId: 1n });
-    const snapshot   = stringifyState(state);
-    // Update the db mock so subsequent queries return the seeded snapshot.
-    db.$queryRawUnsafe.mockImplementation((sql: string) => {
-      if (sql.includes("FROM runs"))
-        return Promise.resolve([{ ...PENDING_RUN, snapshot, action_log: "[]" }]);
-      if (sql.includes("FROM levels"))
-        return Promise.resolve([LEVEL_ROW]);
-      return Promise.resolve([]);
-    });
+    // Replace stored row's snapshot with the fresh BattleState object —
+    // MySQL JSON columns return the parsed object, not a string.
+    mysql._set(pendingRun({ snapshot: state, actionLog: [] }));
   });
 
   it("applies end_turn and returns updated state", async () => {
     const result = await svc.submitAction({ userId: 1n, runId: 1n }, {
-      kind:    "end_turn",
+      kind: "end_turn",
       actorId: "hero",
     });
     expect(result.state).toBeDefined();
     expect(["in_progress", "completed", "failed"]).toContain(result.runStatus);
-    expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(2); // start + submit
+    expect(mysql.run.update).toHaveBeenCalledTimes(2); // start + submit
   });
 
   it("appends action to log on each submit", async () => {
     await svc.submitAction({ userId: 1n, runId: 1n }, { kind: "end_turn", actorId: "hero" });
-    const call = db.$executeRawUnsafe.mock.calls.at(-1);
-    const logArg: unknown = call?.[2];
-    const log = JSON.parse(String(logArg)) as unknown[];
+    const lastCall = mysql.run.update.mock.calls.at(-1) as
+      | [{ data: { actionLog: readonly { kind: string }[] } }]
+      | undefined;
+    const log = lastCall?.[0].data.actionLog ?? [];
     expect(log).toHaveLength(1);
-    expect((log[0] as { kind: string }).kind).toBe("end_turn");
+    expect(log[0]?.kind).toBe("end_turn");
   });
 
   it("throws invalidAction when run is not in_progress", async () => {
-    db.$queryRawUnsafe.mockResolvedValue([{ ...PENDING_RUN, status: "completed", snapshot: null }]);
+    mysql._set(pendingRun({ status: "completed", snapshot: null }));
     await expect(
       svc.submitAction({ userId: 1n, runId: 1n }, { kind: "end_turn", actorId: "hero" }),
     ).rejects.toThrow("in progress");
   });
 
-  it("throws invalidAction for an illegal move (no snapshot)", async () => {
-    db.$queryRawUnsafe.mockResolvedValue([{ ...PENDING_RUN, snapshot: null }]);
+  it("throws invalidAction when there is no snapshot yet", async () => {
+    mysql._set(pendingRun({ snapshot: null }));
     await expect(
       svc.submitAction({ userId: 1n, runId: 1n }, { kind: "end_turn", actorId: "hero" }),
     ).rejects.toThrow();
@@ -131,19 +137,10 @@ describe("CombatRunService.submitAction", () => {
 
 describe("CombatRunService.replay", () => {
   it("returns ok=true when snapshot matches replay", async () => {
-    const db  = makeDb();
-    const svc = new CombatRunService({ sqliteFor: () => Promise.resolve(db as never) });
-    // Start builds a snapshot from scratch.
+    const mysql = makeMysql();
+    const svc = new CombatRunService({ mysql: mysql as never });
     const { state } = await svc.start({ userId: 1n, runId: 1n });
-    const snapshot   = stringifyState(state);
-
-    db.$queryRawUnsafe.mockImplementation((sql: string) => {
-      if (sql.includes("FROM runs"))
-        return Promise.resolve([{ ...PENDING_RUN, snapshot, action_log: "[]" }]);
-      if (sql.includes("FROM levels"))
-        return Promise.resolve([LEVEL_ROW]);
-      return Promise.resolve([]);
-    });
+    mysql._set(pendingRun({ snapshot: state, actionLog: [] }));
 
     const result = await svc.replay({ userId: 1n, runId: 1n });
     expect(result.ok).toBe(true);
@@ -151,21 +148,16 @@ describe("CombatRunService.replay", () => {
   });
 
   it("returns ok=false when snapshot is tampered", async () => {
-    const db  = makeDb();
-    const svc = new CombatRunService({ sqliteFor: () => Promise.resolve(db as never) });
+    const mysql = makeMysql();
+    const svc = new CombatRunService({ mysql: mysql as never });
     const { state } = await svc.start({ userId: 1n, runId: 1n });
-    // Tamper: mutate hp inside the serialized envelope.
-    const serial  = JSON.parse(stringifyState(state)) as { schemaVersion: number; state: { actors: { stats: { hp: number } }[] } };
+    // Tamper: mutate hp via the stable JSON envelope round-trip.
+    const serial = JSON.parse(stringifyState(state)) as {
+      schemaVersion: number;
+      state: { actors: { stats: { hp: number } }[] };
+    };
     if (serial.state.actors[0]) serial.state.actors[0].stats.hp = 9999;
-    const snapshot = JSON.stringify(serial);
-
-    db.$queryRawUnsafe.mockImplementation((sql: string) => {
-      if (sql.includes("FROM runs"))
-        return Promise.resolve([{ ...PENDING_RUN, snapshot, action_log: "[]" }]);
-      if (sql.includes("FROM levels"))
-        return Promise.resolve([LEVEL_ROW]);
-      return Promise.resolve([]);
-    });
+    mysql._set(pendingRun({ snapshot: serial, actionLog: [] }));
 
     const result = await svc.replay({ userId: 1n, runId: 1n });
     expect(result.ok).toBe(false);
