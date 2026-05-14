@@ -43,6 +43,14 @@ const securityHeaders = [
   { key: "X-Content-Type-Options",    value: "nosniff" },
   { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // Cross-Origin isolation. COOP severs `window.opener` for cross-origin
+  // tabs (mitigates the tab-nabbing chain where an attacker-controlled
+  // popup steers our origin via window.opener.location). CORP refuses
+  // cross-site embedders from loading our HTML / API responses as a
+  // subresource (e.g. <img src="our-private-page">). NextAuth uses full
+  // redirects rather than popups, so COOP same-origin is safe here.
+  { key: "Cross-Origin-Opener-Policy",   value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-site" },
   // HSTS: 2 years is the minimum to qualify for the Chrome HSTS preload
   // list (hstspreload.org). `includeSubDomains` + `preload` are also
   // required by the submission policy. Only emit in production — dev needs
@@ -58,6 +66,14 @@ const config = {
   poweredByHeader: false,
   typedRoutes: true,
   productionBrowserSourceMaps: false,
+  // Strip console.log/.debug/.info from production bundles via Next's SWC
+  // pipeline. Keep `error` + `warn` so genuine operational messages still
+  // surface in browser devtools for support / forum bug reports. This is a
+  // defense-in-depth — even if a future PR slips `console.log(user)` past
+  // review, the production bundle won't ship it to end users.
+  compiler: isProd
+    ? { removeConsole: { exclude: ["error", "warn"] } }
+    : undefined,
   // AppRouter is `import type`-only, so domain/server packages are erased at
   // compile time and don't need transpiling. Schema-api + shared-types still
   // ship runtime values some day, so we keep them transpiled.
