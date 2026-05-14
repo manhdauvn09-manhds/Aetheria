@@ -32,7 +32,6 @@
     "@aetheria/domain-save":            "workspace:*",
     "@aetheria/domain-shop":            "workspace:*",
     "@aetheria/domain-social":          "workspace:*",
-    "@aetheria/domain-sync":            "workspace:*",
     "@aetheria/domain-telemetry":       "workspace:*",
     "@aetheria/domain-world":           "workspace:*",
     "@aetheria/game-assets":    "workspace:*",

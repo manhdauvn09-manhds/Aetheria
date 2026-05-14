@@ -33,7 +33,6 @@ import {
   GuildService,
   redisChatPublisher,
 } from "@aetheria/domain-social";
-import { SyncService } from "@aetheria/domain-sync";
 import { TelemetryService } from "@aetheria/domain-telemetry";
 import { WorldService } from "@aetheria/domain-world";
 import { disconnectMysql, mysql } from "@aetheria/schema-db/mysql";
@@ -130,7 +129,6 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   });
   const worldService = new WorldService({ mysql });
   const saveService = new SaveService();
-  const syncService = new SyncService({ mysql });
   const combatService = new CombatRunService();
   const rosterService = new RosterService({ mysql });
   const inventoryService = new InventoryService({ mysql, redis: sharedRedis });
@@ -199,7 +197,6 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     accountService,
     worldService,
     saveService,
-    syncService,
     combatService,
     rosterService,
     inventoryService,

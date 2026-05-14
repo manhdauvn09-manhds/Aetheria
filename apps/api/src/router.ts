@@ -29,10 +29,6 @@ import {
   type SaveService,
 } from "@aetheria/domain-save";
 import {
-  createSyncRouter,
-  type SyncService,
-} from "@aetheria/domain-sync";
-import {
   createCombatRouter,
   type CombatRunService,
 } from "@aetheria/domain-combat-runtime";
@@ -82,7 +78,6 @@ export interface AppDeps {
   readonly accountService: AccountService;
   readonly worldService: WorldService;
   readonly saveService: SaveService;
-  readonly syncService: SyncService;
   readonly combatService: CombatRunService;
   readonly rosterService: RosterService;
   readonly inventoryService: InventoryService;
@@ -108,7 +103,6 @@ export const createAppRouter = (deps: AppDeps) =>
     account: createAccountRouter(deps.accountService),
     world: createWorldRouter(deps.worldService),
     save: createSaveRouter(deps.saveService),
-    sync: createSyncRouter(deps.syncService),
     combat: createCombatRouter(deps.combatService),
     roster: createRosterRouter(deps.rosterService),
     skills: createSkillsRouter(deps.rosterService),

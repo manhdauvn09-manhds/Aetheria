@@ -39,7 +39,6 @@
       "@aetheria/domain-auth":      ["packages/domain-auth/src"],
       "@aetheria/domain-account":   ["packages/domain-account/src"],
       "@aetheria/domain-save":      ["packages/domain-save/src"],
-      "@aetheria/domain-sync":      ["packages/domain-sync/src"],
       "@aetheria/domain-world":     ["packages/domain-world/src"],
       "@aetheria/domain-combat":    ["packages/domain-combat/src"],
       "@aetheria/domain-combat-runtime":["packages/domain-combat-runtime/src"],
