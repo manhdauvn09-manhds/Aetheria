@@ -1,0 +1,246 @@
+# =============================================================================
+# Aetheria — PRODUCTION compose (server-side).
+# =============================================================================
+# Designed to co-exist with PrivateDatingLevel on the same host:
+#   - Project name `aetheria-prod` — isolates from `pld-prod`.
+#   - Internal bridge network `aetheria-internal` (not shared with pld-internal).
+#   - Bind to 127.0.0.1:1810x range only. PLD uses 127.0.0.1:18080.
+#   - Volumes bound to /var/data/aetheria/* (PLD uses /var/data/pld/*).
+#   - A HOST-level reverse proxy (Caddy on the host, or Cloudflare Tunnel)
+#     handles the public ports 80/443 and routes per-domain into us:
+#         aetheria.games-core.com         → 127.0.0.1:18100   (web)
+#         api.aetheria.games-core.com     → 127.0.0.1:18101   (api)
+#         ws.aetheria.games-core.com      → 127.0.0.1:18102   (realtime)
+#   - Resource limits so a runaway service doesn't starve PLD or MySQL.
+#
+# Apply: docker compose -p aetheria-prod -f docker-compose.prod.yml \
+#        --env-file .env.prod up -d --build
+# =============================================================================
+
+name: aetheria-prod
+
+x-app-defaults: &app-defaults
+  restart: unless-stopped
+  networks:
+    - aetheria-internal
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  # ── Databases ─────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: aetheria_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-aetheria}
+      MYSQL_USER: ${MYSQL_USER:-aetheria_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --default-authentication-plugin=caching_sha2_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --wait-timeout=600
+      - --interactive-timeout=600
+    volumes:
+      - /var/data/aetheria/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - aetheria-internal
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    # INTENTIONALLY no host port binding — MySQL only reachable inside
+    # aetheria-internal. To inspect from host: docker compose exec mysql mysql -u root -p
+
+  redis:
+    image: redis:7-alpine
+    container_name: aetheria_redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --maxmemory
+      - "256mb"
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+    volumes:
+      - /var/data/aetheria/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aetheria-internal
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 320M
+        reservations:
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+    # INTENTIONALLY no host port binding.
+
+  # ── Application services ──────────────────────────────────────────
+  api:
+    <<: *app-defaults
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: aetheria/api:prod
+    container_name: aetheria_api
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      DATABASE_URL_MYSQL: mysql://${MYSQL_USER:-aetheria_app}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-aetheria}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-aetheria}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-aetheria-web}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://aetheria.games-core.com}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      ENFORCE_CLOUDFLARE: ${ENFORCE_CLOUDFLARE:-false}
+      MYSQL_SOCKET_TIMEOUT: "30"
+      PVP_SEASON_ID: ${PVP_SEASON_ID:-1}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@aetheria.games-core.com}
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-https://aetheria.games-core.com/reset-password}
+      EMAIL_VERIFICATION_URL: ${EMAIL_VERIFICATION_URL:-https://aetheria.games-core.com/verify-email}
+    ports:
+      - "127.0.0.1:18101:3000"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  web:
+    <<: *app-defaults
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: aetheria/web:prod
+    container_name: aetheria_web
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.aetheria.games-core.com}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://aetheria.games-core.com}
+      NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-https://ws.aetheria.games-core.com}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://aetheria.games-core.com}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://aetheria.games-core.com}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+    ports:
+      - "127.0.0.1:18100:3001"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  realtime:
+    <<: *app-defaults
+    build:
+      context: .
+      dockerfile: apps/realtime/Dockerfile
+    image: aetheria/realtime:prod
+    container_name: aetheria_realtime
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      REALTIME_HOST: 0.0.0.0
+      REALTIME_PORT: 3002
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-aetheria}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-aetheria-web}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://aetheria.games-core.com}
+      REALTIME_INSTANCES: ${REALTIME_INSTANCES:-1}
+      REALTIME_MAX_SOCKETS: ${REALTIME_MAX_SOCKETS:-1000}
+    ports:
+      - "127.0.0.1:18102:3002"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+        reservations:
+          memory: 96M
+
+  worker:
+    <<: *app-defaults
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: aetheria/worker:prod
+    container_name: aetheria_worker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_MYSQL: mysql://${MYSQL_USER:-aetheria_app}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-aetheria}
+      REDIS_URL: redis://redis:6379
+      PVP_SEASON_ID: ${PVP_SEASON_ID:-1}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 256M
+        reservations:
+          memory: 64M
+
+networks:
+  aetheria-internal:
+    name: aetheria-internal
+    driver: bridge

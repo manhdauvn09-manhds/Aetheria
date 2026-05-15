@@ -1,0 +1,66 @@
+# =============================================================================
+# HOST-level Caddy reverse proxy — for VPS 77.42.35.9.
+# =============================================================================
+# This file lives at /etc/caddy/Caddyfile on the host (NOT inside any docker
+# stack). Caddy on the host owns the public ports 80 + 443, auto-provisions
+# Let's Encrypt certificates, and forwards each domain into the right
+# docker stack on its 127.0.0.1 loopback port.
+#
+# Stack port allocations on the host:
+#   PrivateDatingLevel:
+#     privatedatinglevelup.allin1site.com → 127.0.0.1:18080  (nginx in pld-prod)
+#   Aetheria:
+#     aetheria.games-core.com             → 127.0.0.1:18100  (web)
+#     api.aetheria.games-core.com         → 127.0.0.1:18101  (api)
+#     ws.aetheria.games-core.com          → 127.0.0.1:18102  (realtime)
+#
+# Install / reload: see docker/host/install-host-caddy.sh on first run, then
+# `sudo caddy reload --config /etc/caddy/Caddyfile` after edits.
+# =============================================================================
+
+{
+	# Let's Encrypt registration email — bounce notices come here.
+	email admin@aetheria.games-core.com
+}
+
+# ─── Aetheria — game web ─────────────────────────────────────────────
+aetheria.games-core.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:18100 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# ─── Aetheria — tRPC HTTP API ────────────────────────────────────────
+api.aetheria.games-core.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:18101 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# ─── Aetheria — Socket.IO realtime gateway ───────────────────────────
+ws.aetheria.games-core.com {
+	encode zstd gzip
+	# Caddy relays the Upgrade header automatically; flush_interval -1 keeps
+	# event delivery prompt instead of waiting for buffer fill.
+	reverse_proxy 127.0.0.1:18102 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		flush_interval -1
+	}
+}
+
+# ─── PrivateDatingLevel ──────────────────────────────────────────────
+# This block lives here so a single host Caddy serves both products. Edit
+# the upstream port only if PLD's nginx binding ever changes (it is
+# currently 127.0.0.1:18080 per /opt/apps/pld/src/docker-compose.prod.yml).
+privatedatinglevelup.allin1site.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:18080 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
