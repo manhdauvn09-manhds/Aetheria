@@ -40,6 +40,29 @@ const AUTH_WINDOW_MS = 60_000;
 
 const isAuthRoute = (url: string): boolean => AUTH_PROCS.some((p) => url.includes(p));
 
+/**
+ * Build a rate-limit 429 body. For /trpc/* paths we have to mimic the tRPC
+ * batched-error envelope so @trpc/client can parse it and propagate the
+ * `httpStatus: 429` upward — otherwise the proxy in apps/web turns the
+ * unparseable body into a confusing HTTP 500. Code `-32029` is tRPC's
+ * `TOO_MANY_REQUESTS`.
+ */
+const rateLimitBody = (url: string, message: string): unknown => {
+  if (url.startsWith("/trpc/")) {
+    const path = url.replace(/^\/trpc\//, "").split("?")[0] ?? "";
+    return [{
+      error: {
+        json: {
+          message,
+          code: -32029,
+          data: { code: "TOO_MANY_REQUESTS", httpStatus: 429, path },
+        },
+      },
+    }];
+  }
+  return { error: { code: "RATE_LIMITED", message } };
+};
+
 // Production CSP for a JSON-only API. helmet's defaults assume an HTML
 // origin; we tighten because every legitimate response is `application/json`.
 const apiCspDirectives = {
@@ -120,12 +143,8 @@ export const registerPlugins = async (
     // Skip the public `/health` probe so monitors don't burn the budget.
     allowList: (req) => req.url === "/health",
     keyGenerator: (req) => buildRateLimitKey(req),
-    errorResponseBuilder: (_req, ctx) => ({
-      error: {
-        code: "RATE_LIMITED",
-        message: `Too many requests. Retry in ${Math.ceil(ctx.ttl / 1000)}s.`,
-      },
-    }),
+    errorResponseBuilder: (req, ctx): object =>
+      rateLimitBody(req.url, `Too many requests. Retry in ${Math.ceil(ctx.ttl / 1000)}s.`) as object,
   });
 
   // Strict per-IP throttle on auth-sensitive procedures (B1, B4 in AUDIT.md).
@@ -142,12 +161,9 @@ export const registerPlugins = async (
       if (count > AUTH_MAX) {
         const ttl = await redis.pttl(key);
         const retryS = Math.ceil(Math.max(ttl, 0) / 1000);
-        reply.code(429).send({
-          error: {
-            code: "RATE_LIMITED",
-            message: `Too many auth attempts. Retry in ${String(retryS)}s.`,
-          },
-        });
+        reply
+          .code(429)
+          .send(rateLimitBody(req.url, `Too many auth attempts. Retry in ${String(retryS)}s.`));
       }
     });
   } else {
@@ -163,9 +179,9 @@ export const registerPlugins = async (
       }
       if (b.count >= AUTH_MAX) {
         const retryS = Math.ceil((b.resetAt - now) / 1000);
-        reply.code(429).send({
-          error: { code: "RATE_LIMITED", message: `Too many auth attempts. Retry in ${String(retryS)}s.` },
-        });
+        reply
+          .code(429)
+          .send(rateLimitBody(req.url, `Too many auth attempts. Retry in ${String(retryS)}s.`));
         return;
       }
       b.count++;
