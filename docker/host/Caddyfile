@@ -1,14 +1,28 @@
 # =============================================================================
-# HOST-level Caddy reverse proxy — Cloudflare Flexible SSL topology.
+# HOST-level Caddy reverse proxy.
 # =============================================================================
-# Cloudflare terminates TLS at its edge and forwards HTTP (port 80) to this
-# origin. Caddy speaks HTTP only — auto_https off so it doesn't try to
-# provision LE certs (would fail behind CF anyway).
+# Two CF SSL topologies on this box, both targeting Full (strict):
 #
-# Real client IP arrives via `CF-Connecting-IP`. We forward that header
-# upstream as X-Real-IP / X-Forwarded-For without bothering with the
-# `trusted_proxies` plumbing — for Flexible-mode behind CF, the immediate
-# peer is *always* a CF edge, so trusting them implicitly is fine.
+#  Zone games-core.com (Aetheria)  -> CF Full (strict)  -> origin HTTPS required
+#     Aetheria has two blocks per host (one :80, one :443). :443 uses a
+#     Cloudflare Origin CA cert (free, valid 15 years, trusted by CF only —
+#     browsers see CF edge cert). Cert: /etc/caddy/certs/games-core-origin.{pem,key}.
+#
+#  Zone allin1site.com (PLD)       -> CF Full/Strict -> origin HTTPS required
+#     Same pattern. Cert: /etc/caddy/certs/pld-origin.{pem,key}.
+#
+# The :80 blocks survive for:
+#   - ACME challenges (if you ever migrate to Let's Encrypt)
+#   - a temporary fallback if CF flips back to Flexible during debugging
+# CF won't normally hit them once SSL mode is Full (strict).
+#
+# Global `auto_https off` keeps Caddy from trying to grab LE certs for the
+# http:// blocks (would fail behind CF proxy anyway). HTTPS is wired
+# explicitly via `tls` directive against the Origin CA cert.
+#
+# Real client IP arrives via `CF-Connecting-IP` — forwarded upstream as
+# X-Real-IP / X-Forwarded-For. For CF-fronted traffic the immediate peer is
+# always a CF edge, so trusting CF-Connecting-IP implicitly is fine.
 #
 # Stack ports (127.0.0.1 loopback only):
 #   18080  PrivateDatingLevel nginx (pld-prod)
@@ -27,16 +41,15 @@
 	header_up X-Forwarded-Proto https
 }
 
-# ─── Aetheria — game web ─────────────────────────────────────────────
-http://aetheria.games-core.com {
+# ─── Upstream snippets (one per backend) ─────────────────────────────
+(aetheria_web_upstream) {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18100 {
 		import cf_headers
 	}
 }
 
-# ─── Aetheria — tRPC HTTP API ────────────────────────────────────────
-http://aetheria-api.games-core.com {
+(aetheria_api_upstream) {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18101 {
 		import cf_headers
@@ -46,8 +59,7 @@ http://aetheria-api.games-core.com {
 	}
 }
 
-# ─── Aetheria — Socket.IO realtime gateway ───────────────────────────
-http://aetheria-ws.games-core.com {
+(aetheria_ws_upstream) {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18102 {
 		import cf_headers
@@ -55,12 +67,52 @@ http://aetheria-ws.games-core.com {
 	}
 }
 
-# ─── PrivateDatingLevel ──────────────────────────────────────────────
-# Single shared edge serves both products. PLD's nginx binds 127.0.0.1:18080
-# (see /opt/apps/pld/src/docker-compose.prod.yml when they redeploy).
-http://privatedatinglevelup.allin1site.com {
+(pld_upstream) {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18080 {
 		import cf_headers
 	}
+}
+
+# ─── Aetheria — :80 (debug + ACME fallback) ──────────────────────────
+http://aetheria.games-core.com {
+	import aetheria_web_upstream
+}
+
+http://aetheria-api.games-core.com {
+	import aetheria_api_upstream
+}
+
+http://aetheria-ws.games-core.com {
+	import aetheria_ws_upstream
+}
+
+# ─── Aetheria — :443 with Origin CA cert (required for Full strict) ──
+https://aetheria.games-core.com {
+	tls /etc/caddy/certs/games-core-origin.pem /etc/caddy/certs/games-core-origin.key
+	import aetheria_web_upstream
+}
+
+https://aetheria-api.games-core.com {
+	tls /etc/caddy/certs/games-core-origin.pem /etc/caddy/certs/games-core-origin.key
+	import aetheria_api_upstream
+}
+
+https://aetheria-ws.games-core.com {
+	tls /etc/caddy/certs/games-core-origin.pem /etc/caddy/certs/games-core-origin.key
+	import aetheria_ws_upstream
+}
+
+# ─── PrivateDatingLevel — HTTP :80 (debug + ACME fallback) ───────────
+http://privatedatinglevelup.allin1site.com {
+	import pld_upstream
+}
+
+# ─── PrivateDatingLevel — HTTPS :443 with Origin CA cert ─────────────
+# Single-subdomain layout: web + /api/v1/* + /<ADMIN_SECRET_PATH>/ all
+# served from this one host. PLD internal nginx (127.0.0.1:18080) does
+# path routing into the services.
+https://privatedatinglevelup.allin1site.com {
+	tls /etc/caddy/certs/pld-origin.pem /etc/caddy/certs/pld-origin.key
+	import pld_upstream
 }

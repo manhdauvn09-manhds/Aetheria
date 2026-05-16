@@ -156,6 +156,16 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      # NEXT_PUBLIC_* must be baked into the build — Next.js webpack
+      # inlines them as literal strings, so changing them at runtime is
+      # a no-op. Compose forwards the .env.prod values into the build.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_OAUTH_GOOGLE: ${NEXT_PUBLIC_OAUTH_GOOGLE:-false}
+        NEXT_PUBLIC_OAUTH_DISCORD: ${NEXT_PUBLIC_OAUTH_DISCORD:-false}
     image: aetheria/web:prod
     container_name: aetheria_web
     depends_on:

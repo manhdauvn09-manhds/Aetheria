@@ -79,7 +79,16 @@ export const registerPlugins = async (
     origin: env.CORS_ORIGIN,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["content-type", "authorization", "x-request-id"],
+    // `x-aetheria-client` tags the caller (web / web-route / web-nextauth)
+    // — set by every browser-side tRPC link in apps/web. Must be in the
+    // preflight allow-list or Chrome blocks the actual request with
+    // "Failed to fetch".
+    allowedHeaders: [
+      "content-type",
+      "authorization",
+      "x-request-id",
+      "x-aetheria-client",
+    ],
     maxAge: 86_400,
   });
 

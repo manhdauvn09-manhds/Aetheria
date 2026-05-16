@@ -57,6 +57,25 @@ COPY apps/web ./apps/web
 # Web depends on @aetheria/api type-only (for AppRouter) and several
 # workspace packages — generate Prisma so the type chain resolves.
 RUN pnpm --filter @aetheria/schema-db generate
+
+# NEXT_PUBLIC_* env vars are inlined into the JS bundle at build time —
+# Next.js's webpack DefinePlugin substitutes `process.env.NEXT_PUBLIC_*`
+# with the literal string. Reading the env at runtime is NOT enough; the
+# Dockerfile has to receive them as build-args. Compose passes them in
+# via `build.args` (see docker-compose.prod.yml).
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_REALTIME_URL
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_OAUTH_GOOGLE
+ARG NEXT_PUBLIC_OAUTH_DISCORD
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_REALTIME_URL=$NEXT_PUBLIC_REALTIME_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_OAUTH_GOOGLE=$NEXT_PUBLIC_OAUTH_GOOGLE
+ENV NEXT_PUBLIC_OAUTH_DISCORD=$NEXT_PUBLIC_OAUTH_DISCORD
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @aetheria/web build
 

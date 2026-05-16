@@ -28,3 +28,19 @@ INSERT IGNORE INTO `feature_flags` (`key`, `value`, `updated_by`) VALUES
   ('maintenance_mode',     JSON_OBJECT('enabled', false), 'seed'),
   ('pvp_enabled',          JSON_OBJECT('enabled', true ), 'seed'),
   ('battle_pass_enabled',  JSON_OBJECT('enabled', true ), 'seed');
+
+-- 8 levels (placeholders matching packages/game-assets level JSONs). Full
+-- map/encounter/rewards live in the JSON files and are loaded by the
+-- WorldService dev-fallback path when the column is empty — we still need
+-- the level row to exist so `runs.level_id` FK passes. Real designer-tuned
+-- map JSON gets backfilled by the Step 4 level pipeline.
+INSERT IGNORE INTO `levels` (`id`, `realm_id`, `level_number`, `name`, `type`,
+  `map`, `encounter`, `rewards`, `difficulty`, `min_account_level`, `version`) VALUES
+  (1, 1, 1, 'Forest Trail',        'story',    JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 1, 1, 1),
+  (2, 2, 2, 'Cinder Pass',         'combat',   JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 2, 1, 1),
+  (3, 3, 3, 'Cloudbridge',         'puzzle',   JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 2, 2, 1),
+  (4, 4, 4, 'Tideglass Reef',      'combat',   JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 3, 3, 1),
+  (5, 5, 5, 'Voidstep Atrium',     'boss',     JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 5, 5, 1),
+  (6, 1, 6, 'Hidden Glade',        'treasure', JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 3, 4, 1),
+  (7, 3, 7, 'Spire Trial',         'rift',     JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 4, 6, 1),
+  (8, 5, 8, 'Mirror Rift',         'hidden',   JSON_OBJECT(), JSON_OBJECT(), JSON_OBJECT(), 6, 8, 1);

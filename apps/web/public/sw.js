@@ -10,8 +10,12 @@
 // IndexedDB asset cache (per spec §4.59) is a follow-up — this gets us
 // the install banner + offline shell.
 
-const SHELL_CACHE = "aetheria-shell-v1";
-const RUNTIME_CACHE = "aetheria-runtime-v1";
+// Bump these any time the production bundle changes the API URL or any
+// other baked-in constant — the `activate` handler below deletes caches
+// that don't match these names, so cycling the suffix invalidates every
+// service-worker-cached chunk on the next page load.
+const SHELL_CACHE = "aetheria-shell-v2";
+const RUNTIME_CACHE = "aetheria-runtime-v2";
 const PRECACHE_URLS = ["/", "/menu", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
