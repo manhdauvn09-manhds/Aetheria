@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@aetheria/api":           "workspace:*",
+    "@aetheria/core":          "workspace:*",
     "@aetheria/domain-combat": "workspace:*",
     "@aetheria/game-assets":   "workspace:*",
     "@aetheria/schema-api":    "workspace:*",

@@ -3,8 +3,13 @@
 // Engine: MySQL 8 (utf8mb4 / utf8mb4_0900_ai_ci)
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../src/generated/mysql"
+  provider      = "prisma-client-js"
+  output        = "../../src/generated/mysql"
+  // native      : local dev machine (Windows/macOS/Linux glibc)
+  // linux-musl-openssl-3.0.x : Alpine 3.20+ in our prod Docker runtime
+  // (node:22-alpine ships OpenSSL 3). Without this binary, the client
+  // crashes on first query with PrismaClientInitializationError.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

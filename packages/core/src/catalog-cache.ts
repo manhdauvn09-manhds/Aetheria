@@ -13,7 +13,7 @@ export interface CatalogCacheOptions {
   readonly ttlSeconds?: number;
 }
 
-interface CatalogMetrics {
+export interface CatalogMetrics {
   hits: number;
   misses: number;
   noRedis: number;

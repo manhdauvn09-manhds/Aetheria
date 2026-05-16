@@ -35,7 +35,6 @@ COPY packages/game-assets/package.json       ./packages/game-assets/
 COPY packages/schema-api/package.json        ./packages/schema-api/
 COPY packages/schema-db/package.json         ./packages/schema-db/
 COPY packages/shared-types/package.json      ./packages/shared-types/
-COPY packages/ui-kit/package.json            ./packages/ui-kit/
 COPY packages/domain-account/package.json    ./packages/domain-account/
 COPY packages/domain-admin/package.json      ./packages/domain-admin/
 COPY packages/domain-auth/package.json       ./packages/domain-auth/
@@ -43,6 +42,7 @@ COPY packages/domain-battlepass/package.json ./packages/domain-battlepass/
 COPY packages/domain-combat/package.json     ./packages/domain-combat/
 COPY packages/domain-combat-runtime/package.json ./packages/domain-combat-runtime/
 COPY packages/domain-economy/package.json    ./packages/domain-economy/
+COPY packages/domain-events/package.json     ./packages/domain-events/
 COPY packages/domain-inventory/package.json  ./packages/domain-inventory/
 COPY packages/domain-notifications/package.json ./packages/domain-notifications/
 COPY packages/domain-progression/package.json ./packages/domain-progression/
@@ -54,7 +54,13 @@ COPY packages/domain-shop/package.json       ./packages/domain-shop/
 COPY packages/domain-social/package.json     ./packages/domain-social/
 COPY packages/domain-telemetry/package.json  ./packages/domain-telemetry/
 COPY packages/domain-world/package.json      ./packages/domain-world/
-RUN pnpm install --frozen-lockfile --prefer-offline
+COPY packages/progression-runtime/package.json ./packages/progression-runtime/
+# NOTE: --no-frozen-lockfile because pnpm-lock.yaml still lists the deleted
+# @aetheria/domain-sync workspace package (refactor removed it but lockfile
+# wasn't regenerated locally). pnpm will reconcile in-container. Switch back
+# to --frozen-lockfile after running `pnpm install` locally + committing the
+# updated lockfile.
+RUN pnpm install --no-frozen-lockfile --prefer-offline
 
 # ─────────────────────────────────────────────────────────────────────────
 # Stage 3: build — copy source, generate Prisma client, compile API
@@ -63,28 +69,30 @@ FROM deps AS build
 COPY packages ./packages
 COPY apps/api ./apps/api
 # Prisma client must be generated against the MySQL schema before the API
-# (which imports the generated client) can typecheck + compile.
+# (which imports the generated client) can typecheck.
 RUN pnpm --filter @aetheria/schema-db generate
+# Run `tsc` purely as a type-check / fail-fast gate. We do NOT ship the
+# emitted `dist/` because workspace packages export `./src/index.ts` from
+# their package.json — Node 22 refuses to strip types under node_modules,
+# so we run the source through `tsx` at runtime instead.
 RUN pnpm --filter @aetheria/api build
-
-# Deploy just the API + its transitive workspace deps into /deploy, giving
-# us a minimal runtime tree that the next stage can copy wholesale.
-RUN pnpm --filter @aetheria/api deploy --prod --legacy /deploy
+RUN pnpm --filter @aetheria/api deploy --prod /deploy
 
 # ─────────────────────────────────────────────────────────────────────────
-# Stage 4: runtime — minimal alpine image, no source / dev deps / pnpm
+# Stage 4: runtime — minimal alpine + tsx loader for workspace TS sources
 # ─────────────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache libc6-compat openssl tini
+# `tsx` is the runtime TypeScript loader. Pinned to the version used in dev
+# (apps/api/package.json:devDependencies.tsx) so behaviour matches `pnpm dev`.
+RUN npm install -g tsx@4.19.2
 WORKDIR /app
 ENV NODE_ENV=production
-# Drop privileges. The `node` user (uid 1000) ships in the base image.
 USER node
 COPY --chown=node:node --from=build /deploy/node_modules ./node_modules
-COPY --chown=node:node --from=build /app/apps/api/dist ./dist
+COPY --chown=node:node --from=build /app/apps/api/src ./src
 COPY --chown=node:node --from=build /app/apps/api/package.json ./package.json
+COPY --chown=node:node --from=build /app/apps/api/tsconfig.json ./tsconfig.json
 EXPOSE 3000
-# `tini` reaps zombies + forwards SIGTERM so the Fastify onClose hook fires
-# cleanly on `docker stop`.
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "dist/index.js"]
+CMD ["tsx", "src/index.ts"]

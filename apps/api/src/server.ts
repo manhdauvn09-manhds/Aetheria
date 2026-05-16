@@ -96,7 +96,15 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   //     SQL fragments, or third-party stack traces to attackers probing for
   //     fingerprints.
   app.setErrorHandler((err, req, reply) => {
-    const status = typeof err.statusCode === "number" && err.statusCode >= 400 ? err.statusCode : 500;
+    // Narrow the unknown-typed error to extract Fastify-style fields (`code`,
+    // `statusCode`) safely. Fastify v5's handler signature is typed as
+    // `FastifyError` but errors thrown deeper in the stack (e.g. plugins,
+    // user hooks) widen to `unknown` under `useUnknownInCatchVariables`.
+    const e = err as { statusCode?: unknown; code?: unknown; message?: unknown };
+    const statusCode = typeof e.statusCode === "number" ? e.statusCode : 500;
+    const status = statusCode >= 400 ? statusCode : 500;
+    const message = typeof e.message === "string" ? e.message : "Unknown error";
+    const code = typeof e.code === "string" ? e.code : undefined;
     app.log.error(
       {
         err,
@@ -110,11 +118,11 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
     const isClientError = status >= 400 && status < 500;
     const safeMessage =
       env.NODE_ENV === "development" || isClientError
-        ? err.message
+        ? message
         : "Internal server error";
     reply.code(status).send({
       error: {
-        code: err.code ?? (isClientError ? "BAD_REQUEST" : "INTERNAL_ERROR"),
+        code: code ?? (isClientError ? "BAD_REQUEST" : "INTERNAL_ERROR"),
         message: safeMessage,
       },
     });
@@ -226,9 +234,16 @@ export const buildServer = async (env: Env): Promise<FastifyInstance> => {
   // aren't accessible so operators know the metric is dead and can either
   // (a) enable Prisma's official $metrics, or (b) update the access path.
   let internalsAvailable: boolean | null = null;
+  // `_engine` is undocumented Prisma internal — typing is not exposed on the
+  // public PrismaClient surface. Cast to `any` so tsc accepts the access; the
+  // optional chaining below + the "internals unavailable" warn cover the
+  // breakage when Prisma reshapes this path.
+  const mysqlAny = mysql as unknown as {
+    _engine?: { client?: { connection?: { pool?: { size?: number; max?: number; available?: { length: number }; waitQueue?: { length: number } } } } };
+  };
   const metricsInterval = setInterval(() => {
     try {
-      const pool = mysql._engine?.client?.connection?.pool;
+      const pool = mysqlAny._engine?.client?.connection?.pool;
       const poolSize = pool?.size ?? "unknown";
       const poolMax = pool?.max ?? "unknown";
       const poolAvailable = pool?.available?.length ?? "unknown";

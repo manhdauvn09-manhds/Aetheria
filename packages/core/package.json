@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@aetheria/schema-db":    "workspace:*",
-    "@aetheria/shared-types": "workspace:*"
+    "@aetheria/shared-types": "workspace:*",
+    "ioredis":                "^5.4.1"
   },
   "devDependencies": {
     "@aetheria/config": "workspace:*",

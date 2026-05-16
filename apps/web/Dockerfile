@@ -27,7 +27,6 @@ COPY packages/game-assets/package.json       ./packages/game-assets/
 COPY packages/schema-api/package.json        ./packages/schema-api/
 COPY packages/schema-db/package.json         ./packages/schema-db/
 COPY packages/shared-types/package.json      ./packages/shared-types/
-COPY packages/ui-kit/package.json            ./packages/ui-kit/
 COPY packages/domain-account/package.json    ./packages/domain-account/
 COPY packages/domain-admin/package.json      ./packages/domain-admin/
 COPY packages/domain-auth/package.json       ./packages/domain-auth/
@@ -35,6 +34,7 @@ COPY packages/domain-battlepass/package.json ./packages/domain-battlepass/
 COPY packages/domain-combat/package.json     ./packages/domain-combat/
 COPY packages/domain-combat-runtime/package.json ./packages/domain-combat-runtime/
 COPY packages/domain-economy/package.json    ./packages/domain-economy/
+COPY packages/domain-events/package.json     ./packages/domain-events/
 COPY packages/domain-inventory/package.json  ./packages/domain-inventory/
 COPY packages/domain-notifications/package.json ./packages/domain-notifications/
 COPY packages/domain-progression/package.json ./packages/domain-progression/
@@ -46,7 +46,9 @@ COPY packages/domain-shop/package.json       ./packages/domain-shop/
 COPY packages/domain-social/package.json     ./packages/domain-social/
 COPY packages/domain-telemetry/package.json  ./packages/domain-telemetry/
 COPY packages/domain-world/package.json      ./packages/domain-world/
-RUN pnpm install --frozen-lockfile --prefer-offline
+COPY packages/progression-runtime/package.json ./packages/progression-runtime/
+# See note in apps/api/Dockerfile re: --no-frozen-lockfile.
+RUN pnpm install --no-frozen-lockfile --prefer-offline
 
 FROM deps AS build
 COPY packages ./packages

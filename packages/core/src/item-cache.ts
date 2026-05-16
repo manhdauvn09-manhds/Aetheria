@@ -9,12 +9,17 @@ import type { Redis } from "ioredis";
 export interface ItemStats {
   readonly id: bigint;
   readonly maxStack: number;
-  readonly effect?: string | null;
+  /**
+   * Item.effect column — Prisma JSON. Callers that need the parsed
+   * recipe / effect shape narrow it themselves (e.g. via `parseRecipe`).
+   * Kept as `unknown` so Prisma's JsonValue assigns without a cast.
+   */
+  readonly effect?: unknown;
 }
 
 const memoryCache = new Map<bigint, ItemStats>();
 
-interface CacheMetrics {
+export interface CacheMetrics {
   memoryHits: number;
   redisHits: number;
   dbMisses: number;
@@ -29,12 +34,16 @@ const metrics: CacheMetrics = {
 /**
  * Get item stats with two-level caching: in-memory first (instant),
  * Redis second (warm start across processes), database last (slow).
+ *
+ * `fn` may return `null` (e.g. Prisma's `findUnique` shape) — the cache
+ * propagates that null back to the caller so callers can map it to a
+ * domain-specific "item not found" error.
  */
 export async function getItemStats(
   itemId: bigint,
   redis: Redis | null,
-  fn: () => Promise<ItemStats>,
-): Promise<ItemStats> {
+  fn: () => Promise<ItemStats | null>,
+): Promise<ItemStats | null> {
   // Memory cache hit (instant).
   const inMem = memoryCache.get(itemId);
   if (inMem) {
@@ -48,9 +57,11 @@ export async function getItemStats(
     const cached = await redis.get(cacheKey);
     if (cached) {
       try {
-        const stats = JSON.parse(cached) as ItemStats;
-        // Restore bigint from string (JSON doesn't support bigint).
-        stats.id = BigInt(stats.id);
+        const raw = JSON.parse(cached) as ItemStats;
+        // Restore bigint from string (JSON doesn't support bigint). The
+        // interface marks `id` readonly so we construct a fresh object
+        // rather than mutating the parsed shape in place.
+        const stats: ItemStats = { ...raw, id: BigInt(raw.id) };
         memoryCache.set(itemId, stats);
         metrics.redisHits++;
         return stats;
@@ -63,6 +74,10 @@ export async function getItemStats(
   // Cache miss: fetch from database.
   const stats = await fn();
   metrics.dbMisses++;
+  // Don't cache misses — caller decides whether a missing row is an error
+  // (most do throw notFound). Returning null here also matches the
+  // Prisma findUnique convention.
+  if (stats === null) return null;
 
   // Write to both layers. Fire-and-forget Redis write.
   memoryCache.set(itemId, stats);

@@ -45,7 +45,6 @@
       "@aetheria/domain-progression":["packages/domain-progression/src"],
       "@aetheria/domain-economy":   ["packages/domain-economy/src"],
       "@aetheria/domain-social":    ["packages/domain-social/src"],
-      "@aetheria/ui-kit":           ["packages/ui-kit/src"],
       "@aetheria/game-assets":      ["packages/game-assets/src"]
     }
   },

@@ -24,6 +24,7 @@
     "@aetheria/schema-api":   "workspace:*",
     "@aetheria/schema-db":    "workspace:*",
     "@aetheria/shared-types": "workspace:*",
+    "ioredis":                "^5.4.1",
     "zod":                    "^3.23.8"
   },
   "devDependencies": {

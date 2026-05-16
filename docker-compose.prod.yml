@@ -9,8 +9,8 @@
 #   - A HOST-level reverse proxy (Caddy on the host, or Cloudflare Tunnel)
 #     handles the public ports 80/443 and routes per-domain into us:
 #         aetheria.games-core.com         → 127.0.0.1:18100   (web)
-#         api.aetheria.games-core.com     → 127.0.0.1:18101   (api)
-#         ws.aetheria.games-core.com      → 127.0.0.1:18102   (realtime)
+#         aetheria-api.games-core.com     → 127.0.0.1:18101   (api)
+#         aetheria-ws.games-core.com      → 127.0.0.1:18102   (realtime)
 #   - Resource limits so a runaway service doesn't starve PLD or MySQL.
 #
 # Apply: docker compose -p aetheria-prod -f docker-compose.prod.yml \
@@ -164,9 +164,9 @@ services:
       NODE_ENV: production
       PORT: 3001
       HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.aetheria.games-core.com}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://aetheria-api.games-core.com}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://aetheria.games-core.com}
-      NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-https://ws.aetheria.games-core.com}
+      NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-https://aetheria-ws.games-core.com}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://aetheria.games-core.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://aetheria.games-core.com}

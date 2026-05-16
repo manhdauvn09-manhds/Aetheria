@@ -58,7 +58,7 @@ const InGameInner = (): JSX.Element => {
   const [highlight, setHighlight] = useState<Coord | null>(null);
   const [combatError, setCombatError] = useState<string | null>(null);
   const [showAds, setShowAds] = useState(false);
-  const [adsConfig, setAdsConfig] = useState<AdsConfig | null>(null);
+  const [adsConfig] = useState<AdsConfig | null>(null);
 
   const setCombatState = useCombat((s) => s.setState);
   const applyOptimistic = useCombat((s) => s.applyOptimistic);

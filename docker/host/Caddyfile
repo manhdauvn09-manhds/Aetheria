@@ -1,66 +1,66 @@
 # =============================================================================
-# HOST-level Caddy reverse proxy — for VPS 77.42.35.9.
+# HOST-level Caddy reverse proxy — Cloudflare Flexible SSL topology.
 # =============================================================================
-# This file lives at /etc/caddy/Caddyfile on the host (NOT inside any docker
-# stack). Caddy on the host owns the public ports 80 + 443, auto-provisions
-# Let's Encrypt certificates, and forwards each domain into the right
-# docker stack on its 127.0.0.1 loopback port.
+# Cloudflare terminates TLS at its edge and forwards HTTP (port 80) to this
+# origin. Caddy speaks HTTP only — auto_https off so it doesn't try to
+# provision LE certs (would fail behind CF anyway).
 #
-# Stack port allocations on the host:
-#   PrivateDatingLevel:
-#     privatedatinglevelup.allin1site.com → 127.0.0.1:18080  (nginx in pld-prod)
-#   Aetheria:
-#     aetheria.games-core.com             → 127.0.0.1:18100  (web)
-#     api.aetheria.games-core.com         → 127.0.0.1:18101  (api)
-#     ws.aetheria.games-core.com          → 127.0.0.1:18102  (realtime)
+# Real client IP arrives via `CF-Connecting-IP`. We forward that header
+# upstream as X-Real-IP / X-Forwarded-For without bothering with the
+# `trusted_proxies` plumbing — for Flexible-mode behind CF, the immediate
+# peer is *always* a CF edge, so trusting them implicitly is fine.
 #
-# Install / reload: see docker/host/install-host-caddy.sh on first run, then
-# `sudo caddy reload --config /etc/caddy/Caddyfile` after edits.
+# Stack ports (127.0.0.1 loopback only):
+#   18080  PrivateDatingLevel nginx (pld-prod)
+#   18100  Aetheria web        (Next.js)
+#   18101  Aetheria api        (Fastify+tRPC)
+#   18102  Aetheria realtime   (Socket.IO)
 # =============================================================================
 
 {
-	# Let's Encrypt registration email — bounce notices come here.
-	email admin@aetheria.games-core.com
+	auto_https off
+}
+
+(cf_headers) {
+	header_up X-Real-IP {http.request.header.cf-connecting-ip}
+	header_up X-Forwarded-For {http.request.header.cf-connecting-ip}
+	header_up X-Forwarded-Proto https
 }
 
 # ─── Aetheria — game web ─────────────────────────────────────────────
-aetheria.games-core.com {
+http://aetheria.games-core.com {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18100 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import cf_headers
 	}
 }
 
 # ─── Aetheria — tRPC HTTP API ────────────────────────────────────────
-api.aetheria.games-core.com {
+http://aetheria-api.games-core.com {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18101 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import cf_headers
+		# API uses CF-Connecting-IP under ENFORCE_CLOUDFLARE=true to
+		# reject direct-to-origin traffic. Forward verbatim.
+		header_up CF-Connecting-IP {http.request.header.cf-connecting-ip}
 	}
 }
 
 # ─── Aetheria — Socket.IO realtime gateway ───────────────────────────
-ws.aetheria.games-core.com {
+http://aetheria-ws.games-core.com {
 	encode zstd gzip
-	# Caddy relays the Upgrade header automatically; flush_interval -1 keeps
-	# event delivery prompt instead of waiting for buffer fill.
 	reverse_proxy 127.0.0.1:18102 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import cf_headers
 		flush_interval -1
 	}
 }
 
 # ─── PrivateDatingLevel ──────────────────────────────────────────────
-# This block lives here so a single host Caddy serves both products. Edit
-# the upstream port only if PLD's nginx binding ever changes (it is
-# currently 127.0.0.1:18080 per /opt/apps/pld/src/docker-compose.prod.yml).
-privatedatinglevelup.allin1site.com {
+# Single shared edge serves both products. PLD's nginx binds 127.0.0.1:18080
+# (see /opt/apps/pld/src/docker-compose.prod.yml when they redeploy).
+http://privatedatinglevelup.allin1site.com {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:18080 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import cf_headers
 	}
 }

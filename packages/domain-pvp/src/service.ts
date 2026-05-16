@@ -32,7 +32,7 @@ import {
 /** Subset of the ioredis client this service touches. */
 export type PvpRedisClient = Pick<
   Redis,
-  "zadd" | "zrem" | "zrange" | "zcard" | "zscore" | "set" | "del"
+  "zadd" | "zrem" | "zrange" | "zcard" | "zscore" | "set" | "del" | "multi"
 >;
 
 /**
