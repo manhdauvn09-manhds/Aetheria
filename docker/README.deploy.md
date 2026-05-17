@@ -17,8 +17,8 @@ HOST :80, :443  ────────  Caddy (installed on host, NOT in conta
                               │
               ┌───────────────┼───────────────────────────────┐
               ▼               ▼                               ▼
-   privatedatinglevelup     aetheria.games-core.com       api.aetheria
-   .allin1site.com                                        + ws.aetheria
+   privatedatinglevelup     aetheria.games-core.com       aetheria-api
+   .allin1site.com                                        + aetheria-ws
               │               │                               │
               ▼               ▼                               ▼
        127.0.0.1:18080   127.0.0.1:18100               127.0.0.1:18101 / :18102
@@ -64,9 +64,10 @@ notepad .env.prod
 #    - confirm the domain URLs match aetheria.games-core.com + subdomains
 
 # 2. DNS — point all three records at the VPS public IP (77.42.35.9):
+#    NOTE: Use dash naming — CF Free plan only supports 1-level wildcard.
 #      aetheria.games-core.com         A 77.42.35.9
-#      api.aetheria.games-core.com     A 77.42.35.9
-#      ws.aetheria.games-core.com      A 77.42.35.9
+#      aetheria-api.games-core.com     A 77.42.35.9
+#      aetheria-ws.games-core.com      A 77.42.35.9
 #    Wait for propagation (TTL minutes). Without this, Let's Encrypt fails.
 
 # 3. Install host Caddy on the server (covers BOTH Aetheria + PLD).
@@ -83,8 +84,8 @@ notepad .env.prod
 
 # 7. Smoke test — open in a browser:
 #      https://aetheria.games-core.com
-#      https://api.aetheria.games-core.com/health
-#      https://ws.aetheria.games-core.com/healthz
+#      https://aetheria-api.games-core.com/health
+#      https://aetheria-ws.games-core.com/healthz
 ```
 
 ## Day-to-day

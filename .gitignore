@@ -96,3 +96,4 @@ playwright/.cache/
 local.json
 local.yaml
 local.yml
+HANDOFF.md

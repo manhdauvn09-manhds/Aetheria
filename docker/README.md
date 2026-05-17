@@ -51,10 +51,10 @@ Windows itself, so no hosts-file edit is needed.
 
 The same `docker-compose.yml` runs on a VPS — only env values change.
 
-1. Point DNS:
+1. Point DNS (NOTE: Use dash naming — CF Free wildcard supports 1 level only):
    - `aetheria.games-core.com` → VPS public IP
-   - `api.aetheria.games-core.com` → same IP
-   - `ws.aetheria.games-core.com` → same IP
+   - `aetheria-api.games-core.com` → same IP
+   - `aetheria-ws.games-core.com` → same IP
 
 2. On the VPS, copy `docker/.env.example` to `.env.docker` and **uncomment
    the production block at the bottom** (HTTPS URLs + `CADDY_AUTO_HTTPS=on`).

@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aetheria — Developer Guide & Project Overview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        .subtitle {
+            font-size: 0.9em;
+            margin-top: 15px;
+            opacity: 0.85;
+        }
+        nav {
+            background: #f8f9fa;
+            padding: 20px 40px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        nav a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        nav a:hover {
+            background: #e7f0ff;
+            color: #764ba2;
+        }
+        .content {
+            padding: 40px;
+        }
+        section {
+            margin-bottom: 60px;
+            scroll-margin-top: 100px;
+        }
+        h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+        h3 {
+            color: #764ba2;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        h4 {
+            color: #555;
+            font-size: 1.1em;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        .card h4 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            color: #c41a16;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning strong {
+            color: #856404;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .success strong {
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info strong {
+            color: #0c5460;
+        }
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .badge.tech {
+            background: #e7f0ff;
+            color: #667eea;
+        }
+        .badge.domain {
+            background: #f0f7ff;
+            color: #764ba2;
+        }
+        .badge.critical {
+            background: #ffe7e7;
+            color: #c41a16;
+        }
+        .structure-tree {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            line-height: 1.6;
+        }
+        .toc {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .toc li {
+            margin-bottom: 8px;
+        }
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        .domain-box {
+            border-left: 5px solid #667eea;
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .domain-box strong {
+            color: #667eea;
+        }
+        footer {
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+            padding: 20px 40px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8em; }
+            nav { flex-direction: column; gap: 10px; }
+            nav a { display: block; }
+            .grid { grid-template-columns: 1fr; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Aetheria</h1>
+            <p>Turn-Based Hex-Grid Strategy RPG — Developer Guide</p>
+            <p class="subtitle">Complete project overview, architecture, and development workflow</p>
+        </header>
+
+        <nav>
+            <a href="#overview">Overview</a>
+            <a href="#tech-stack">Tech Stack</a>
+            <a href="#project-structure">Structure</a>
+            <a href="#game-features">Game Features</a>
+            <a href="#domains">Domain Packages</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#database">Database</a>
+            <a href="#api-routers">API Routers</a>
+            <a href="#testing">Testing</a>
+            <a href="#deployment">Deployment</a>
+            <a href="#conventions">Conventions</a>
+            <a href="#quick-ref">Quick Reference</a>
+        </nav>
+
+        <div class="content">
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 1: OVERVIEW -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="overview">
+                <h2>1. Project Overview</h2>
+
+                <h3>What is Aetheria?</h3>
+                <p><strong>Aetheria</strong> is a free-to-play, turn-based hex-grid strategy RPG with real-time exploration and live PvP. Players explore floating islands, discover lore, build teams of heroes, battle monsters and rivals, and compete on global leaderboards.</p>
+
+                <h3>Key Facts</h3>
+                <ul>
+                    <li><strong>Repository:</strong> <code>E:\SourceCode\aetheria</code> (GitHub: <code>manhdauvn09-manhds/Aetheria</code>)</li>
+                    <li><strong>Active Branch:</strong> <code>claude/create-project-structure-3uMmU</code></li>
+                    <li><strong>Status:</strong> Production-ready (stable, tests passing, ops reliable)</li>
+                    <li><strong>Monorepo:</strong> pnpm workspaces (4 apps, 20+ packages)</li>
+                    <li><strong>Language:</strong> 100% TypeScript</li>
+                </ul>
+
+                <h3>Game Concept</h3>
+                <blockquote style="font-style: italic; margin: 20px 0; padding-left: 20px; border-left: 4px solid #667eea;">
+                    A thousand years after the Aether shattered into seven Shards, the realm of Aetheria drifts apart on floating islands. Heroes of the Aetherbound must explore lost continents, reclaim the Shards, outwit rival factions, and master the broken sky before the Void devours what remains.
+                </blockquote>
+
+                <h3>Core Loop</h3>
+                <p><strong>Explore → Discover → Strategize → Battle → Loot → Level up → Compete</strong></p>
+
+                <h3>Game Design Pillars</h3>
+                <ol>
+                    <li><strong>Discovery is reward</strong> — every level hides secrets (lore, rare items, hidden bosses)</li>
+                    <li><strong>Mastery, not grinding</strong> — clever party composition & terrain use beat raw stats</li>
+                    <li><strong>Always saved, always returnable</strong> — auto-save mid-action; resume anywhere</li>
+                    <li><strong>Social by default</strong> — global ranking, guilds, co-op raids, seasonal tournaments</li>
+                </ol>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 2: TECH STACK -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="tech-stack">
+                <h2>2. Technology Stack</h2>
+
+                <div class="grid">
+                    <div class="card">
+                        <h4>Frontend</h4>
+                        <ul style="list-style: none; padding: 0; margin: 10px 0;">
+                            <li><span class="badge tech">Next.js 15</span> App Router</li>
+                            <li><span class="badge tech">React 18</span> + TypeScript</li>
+                            <li><span class="badge tech">Pixi.js 8</span> (WebGL canvas)</li>
+                            <li><span class="badge tech">Zustand</span> (state)</li>
+                            <li><span class="badge tech">Tailwind CSS</span> (styles)</li>
+                            <li><span class="badge tech">tRPC</span> (API client)</li>
+                            <li><span class="badge tech">Socket.IO</span> (realtime)</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h4>Backend</h4>
+                        <ul style="list-style: none; padding: 0; margin: 10px 0;">
+                            <li><span class="badge tech">Fastify 5</span> (HTTP)</li>
+                            <li><span class="badge tech">tRPC v10</span> (RPC layer)</li>
+                            <li><span class="badge tech">Node.js 22</span></li>
+                            <li><span class="badge tech">TypeScript</span></li>
+                            <li><span class="badge tech">tsx</span> (runtime, NOT ts-node)</li>
+                            <li><span class="badge tech">Zod</span> (validation)</li>
+                            <li><span class="badge tech">Jose</span> (JWT)</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h4>Data & Infrastructure</h4>
+                        <ul style="list-style: none; padding: 0; margin: 10px 0;">
+                            <li><span class="badge tech">MySQL 8</span> (database)</li>
+                            <li><span class="badge tech">Prisma v5</span> (ORM)</li>
+                            <li><span class="badge tech">Redis 7</span> (cache, sessions)</li>
+                            <li><span class="badge tech">Docker</span> (containers)</li>
+                            <li><span class="badge tech">Caddy</span> (reverse proxy)</li>
+                            <li><span class="badge tech">Cloudflare</span> (CDN, Full Strict SSL)</li>
+                            <li><span class="badge tech">Hetzner Cloud</span> (VPS)</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h4>Development</h4>
+                        <ul style="list-style: none; padding: 0; margin: 10px 0;">
+                            <li><span class="badge tech">pnpm 9.12</span> (package manager)</li>
+                            <li><span class="badge tech">Turbo</span> (build orchestration)</li>
+                            <li><span class="badge tech">ESLint</span> (linting)</li>
+                            <li><span class="badge tech">Prettier</span> (formatting)</li>
+                            <li><span class="badge tech">tsx</span> (TypeScript runner)</li>
+                            <li><span class="badge tech">Zod</span> (runtime validation)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Node & pnpm Versions</h3>
+                <pre><code>Node.js >= 22.11.0
+pnpm >= 9.12.0
+TypeScript 5.6.3</code></pre>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 3: PROJECT STRUCTURE -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="project-structure">
+                <h2>3. Project Structure</h2>
+
+                <h3>Monorepo Layout</h3>
+                <div class="structure-tree">
+aetheria/
+├── apps/
+│   ├── api/                 # Fastify + tRPC API server
+│   ├── web/                 # Next.js 15 web client
+│   ├── realtime/            # Socket.IO WebSocket server (PvP, chat)
+│   └── worker/              # BullMQ background jobs (season reset, anti-cheat)
+│
+├── packages/
+│   ├── core/                # Core utilities & helpers
+│   ├── shared-types/        # Cross-cutting TypeScript types
+│   ├── schema-api/          # tRPC router definitions & Zod schemas
+│   ├── schema-db/           # Prisma schema & migrations (MySQL)
+│   ├── config/              # ESLint, TypeScript, Tailwind configs
+│   ├── game-assets/         # Asset manifest, level definitions
+│   │
+│   ├── domain-account/      # User profile, account level, currency
+│   ├── domain-admin/        # Admin operations (bans, content moderation)
+│   ├── domain-auth/         # Authentication, JWT, OAuth (Google, Discord)
+│   ├── domain-battlepass/   # Seasonal battle pass progression
+│   ├── domain-combat/       # Pure combat engine (runs in client & server)
+│   ├── domain-combat-runtime/ # Combat service + run repository
+│   ├── domain-economy/      # Items, loot, crafting, marketplace
+│   ├── domain-inventory/    # Backpack, equipment slots
+│   ├── domain-notifications/# Push & in-game notifications
+│   ├── domain-progression/  # Character XP, ascension, skill trees
+│   ├── domain-pvp/          # PvP matching, leaderboards, MMR
+│   ├── domain-quests/       # Quest state, objectives, rewards
+│   ├── domain-roster/       # Character roster management, skills
+│   ├── domain-save/         # Cloud save, auto-save, multi-slot saves
+│   ├── domain-shop/         # In-game shop (cosmetics, battle pass)
+│   ├── domain-social/       # Guilds, friends, chat, messages
+│   ├── domain-telemetry/    # Analytics, event tracking
+│   ├── domain-world/        # World graph, levels, encounters
+│   │
+│   ├── progression-runtime/ # Character progression rules
+│   └── game-assets/         # Level definitions, asset URLs
+│
+├── db/
+│   ├── mysql/
+│   │   ├── 01_schema.sql    # Initial DDL
+│   │   └── 02_seed.sql      # Seed data (8 level placeholders)
+│   └── migrations/          # Prisma migration history
+│
+├── docker/
+│   ├── host/
+│   │   ├── Caddyfile        # Reverse proxy config (CF SSL)
+│   │   └── harden-host.sh   # fail2ban, firewall setup
+│   └── prod/                # Dockerfile for each service
+│
+├── scripts/
+│   ├── deploy.ps1           # Deploy to production
+│   ├── test/
+│   │   ├── run-all.ps1      # Run full 58-test suite
+│   │   ├── lib/
+│   │   │   └── _helpers.ps1 # Test utilities (Test-Case, Invoke-TrpcQuery)
+│   │   └── suites/          # 8 test suite files
+│   └── apply-seed.sh        # Reseed database
+│
+├── docs/
+│   ├── 01_GAME_GUIDELINE.md # Game design, lore, mechanics
+│   ├── 02_ARCHITECTURE.md   # System design, layers
+│   ├── 02_DATABASE_DESIGN.md# Schema documentation
+│   ├── 02_FLOWS.md          # User flows, auth, save sync
+│   └── *.html               # HTML guides (player, admin)
+│
+├── .env.example             # Environment template
+├── docker-compose.prod.yml  # Production compose (MySQL, Redis, app services)
+├── docker-compose.yml       # Local dev compose
+├── pnpm-workspace.yaml      # Monorepo config
+└── DEVELOPER_GUIDE.html     # This file!
+                </div>
+
+                <h3>Workspace Packages</h3>
+                <ul>
+                    <li><strong>4 apps</strong>: api, web, realtime, worker</li>
+                    <li><strong>5 schema packages</strong>: shared-types, schema-api, schema-db, config, core</li>
+                    <li><strong>15 domain packages</strong>: domain-auth, domain-combat, domain-pvp, etc.</li>
+                    <li><strong>3 runtime packages</strong>: progression-runtime, domain-combat-runtime, game-assets</li>
+                </ul>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 4: GAME FEATURES -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="game-features">
+                <h2>4. Game Features & Mechanics</h2>
+
+                <h3>World Structure</h3>
+                <p>The game is divided into <strong>6 Realms</strong>, each with ~16 levels (100 total), plus 4 bonus "Rift" levels for hardcore players.</p>
+                <table>
+                    <tr>
+                        <th>Realm</th>
+                        <th>Theme</th>
+                        <th>Climate / Hazard</th>
+                        <th>Unlock</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Verdant Reach</strong></td>
+                        <td>Awakening forests</td>
+                        <td>Bloom storms</td>
+                        <td>Lvl 1 (start)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ember Wastes</strong></td>
+                        <td>Volcanic ruins</td>
+                        <td>Lava tides, ash gales</td>
+                        <td>Lvl 17</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Frostspire</strong></td>
+                        <td>Ice citadels</td>
+                        <td>Blizzards, frozen rivers</td>
+                        <td>Lvl 33</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Tideglass</strong></td>
+                        <td>Sunken cathedrals</td>
+                        <td>Floods, leviathans</td>
+                        <td>Lvl 49</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Skyfall Vault</strong></td>
+                        <td>Cloud fortresses, gravity</td>
+                        <td>Wind shears, anti-gravity</td>
+                        <td>Lvl 65</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Voidmaw</strong></td>
+                        <td>The shattered core</td>
+                        <td>Reality glitches</td>
+                        <td>Lvl 81</td>
+                    </tr>
+                </table>
+
+                <h3>Characters (Roster)</h3>
+                <p>Initial roster of 8 heroes, expandable via gacha-free unlock.</p>
+                <table>
+                    <tr>
+                        <th>Codename</th>
+                        <th>Class</th>
+                        <th>Role</th>
+                        <th>Signature Skill</th>
+                        <th>Unlock</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Aevra</strong></td>
+                        <td>Aetherwalker</td>
+                        <td>Hybrid DPS</td>
+                        <td>Shardstep (teleport+strike)</td>
+                        <td>Default</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Kyo</strong></td>
+                        <td>Bladepriest</td>
+                        <td>Tank/DPS</td>
+                        <td>Stillpoint (parry chain)</td>
+                        <td>Lv 11 quest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Lyra</strong></td>
+                        <td>Stormcaller</td>
+                        <td>AoE Mage</td>
+                        <td>Tempest Sigil</td>
+                        <td>Lv 18 quest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Brann</strong></td>
+                        <td>Earthwarden</td>
+                        <td>Tank</td>
+                        <td>Bulwark</td>
+                        <td>Lv 25 quest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mira</strong></td>
+                        <td>Lifebinder</td>
+                        <td>Healer</td>
+                        <td>Verdant Pact</td>
+                        <td>Lv 32 quest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vex</strong></td>
+                        <td>Shadowblade</td>
+                        <td>Assassin</td>
+                        <td>Voidstep</td>
+                        <td>Lv 40 PvP rank D</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Solen</strong></td>
+                        <td>Sunoracle</td>
+                        <td>Support</td>
+                        <td>Daybreak</td>
+                        <td>Lv 55 raid</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Null</strong></td>
+                        <td>Voidchild</td>
+                        <td>Wildcard</td>
+                        <td>Entropy</td>
+                        <td>Lv 80 secret</td>
+                    </tr>
+                </table>
+
+                <h3>Combat System</h3>
+                <ul>
+                    <li><strong>Grid-based hex combat</strong> on 6×8 hex maps with elevation & elemental tiles</li>
+                    <li><strong>Action Points (AP)</strong>: 3/turn; movement, attack, skills consume AP</li>
+                    <li><strong>Elements</strong>: Verdant, Ember, Frost, Tide, Sky, Void (weak/strong wheel)</li>
+                    <li><strong>Status Effects</strong>: Burn, Freeze, Poison, Stagger, Aether-Surge</li>
+                    <li><strong>Resonance</strong>: Two characters matching elements trigger combo (+50% dmg, AoE)</li>
+                    <li><strong>Turn-based</strong> with client-side prediction + server validation</li>
+                </ul>
+
+                <h3>Progression System</h3>
+                <ul>
+                    <li><strong>Account level</strong>: 1–100 (mirrors campaign)</li>
+                    <li><strong>Character ascension</strong>: A0–A3 (gear + Aether-cores)</li>
+                    <li><strong>Skill tree</strong>: Each character has 12 respec-able nodes</li>
+                    <li><strong>Loot tiers</strong>: Common → Rare → Epic → Mythic → Aether-Forged</li>
+                    <li><strong>Crafting</strong>: Combine duplicates + shards to upgrade</li>
+                </ul>
+
+                <h3>Online & Social Features</h3>
+                <ul>
+                    <li><strong>Account system</strong>: Email + OAuth (Google, Discord); JWT sessions</li>
+                    <li><strong>Cloud save</strong>: Every action snapshotted; offline edits reconciled on reconnect</li>
+                    <li><strong>Leaderboards</strong>: Global, Regional, Guild, Friends</li>
+                    <li><strong>Ranked PvP</strong>: Bronze→Mythic, seasonal reset</li>
+                    <li><strong>Guilds</strong>: Up to 30 members; guild raids weekly</li>
+                    <li><strong>Co-op</strong>: 3-player synchronous raids (WebSocket)</li>
+                    <li><strong>Marketplace</strong>: Soft-currency only; no pay-to-win</li>
+                    <li><strong>Chat</strong>: Global, party, guild, whisper; profanity filter + report</li>
+                </ul>
+
+                <h3>Engagement Hooks</h3>
+                <ul>
+                    <li>Daily login rewards (7-day streak boost)</li>
+                    <li>Weekly quests + Seasonal battle pass (cosmetic only)</li>
+                    <li>Mystery caches (in-game currency only)</li>
+                    <li>Level-up surprises every 5 levels (new mechanic unlocks)</li>
+                    <li>End-game Endless Tower (procedural) + Weekly Rifts</li>
+                </ul>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 5: DOMAIN PACKAGES -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="domains">
+                <h2>5. Domain Packages Architecture</h2>
+
+                <p>The backend uses a <strong>domain-driven design</strong> with clear separation of concerns. Each domain is a self-contained package with its own service, router, and repository layer.</p>
+
+                <h3>Core Domains</h3>
+
+                <div class="domain-box">
+                    <strong>domain-auth</strong><br>
+                    Authentication, JWT token management, OAuth (Google, Discord), password reset, email verification. Manages login flows and session lifecycle.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-account</strong><br>
+                    User profiles, display names, account level, XP, currency (gold/aether), preferences, settings. Handles profile mutations and leveling.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-roster</strong><br>
+                    Character collection management. User character ownership, ascension, XP, skill assignments. Roster viewing and team building.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-combat / domain-combat-runtime</strong><br>
+                    Pure combat engine (hexgrid, AP, status, resonance) + runtime service. <code>domain-combat</code> runs client-side for prediction; <code>domain-combat-runtime</code> is the authoritative server validator.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-world</strong><br>
+                    World graph, level definitions, encounters, overworld node states, discovery meters. Links to <code>game-assets</code> for level JSON.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-save</strong><br>
+                    Cloud save, auto-save, multi-slot saves. Local IndexedDB sync + 30s delta sync. Conflict resolution (server timestamp wins).
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-inventory / domain-economy</strong><br>
+                    Backpack, equipment, items, loot, crafting, marketplace. Economy rules and item state.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-progression</strong><br>
+                    Character XP, ascension, skill trees, level-up mechanics, reward distribution.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-quests</strong><br>
+                    Quest state, objectives, progress tracking, rewards. Quest log and completion state.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-battlepass</strong><br>
+                    Seasonal battle pass progression, free/premium tracks, cosmetic rewards. Seasonal reset logic.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-pvp</strong><br>
+                    PvP matchmaking, leaderboards, MMR rating, match history. Handles ranked seasons and rating decay.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-social</strong><br>
+                    Guilds, friendships, chat, messages, moderation. Social graph and messaging system.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-notifications</strong><br>
+                    Push notifications, in-game notifications, notification preferences. Event-driven notification dispatch.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-shop</strong><br>
+                    In-game shop, cosmetics, battle pass purchase, currency bundles. Shop catalog and transactions.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-admin</strong><br>
+                    Admin operations: user bans, role changes, content moderation, audit logs. Privileged operations only.
+                </div>
+
+                <div class="domain-box">
+                    <strong>domain-telemetry</strong><br>
+                    Analytics, event tracking, session recording. Telemetry data collection.
+                </div>
+
+                <h3>Schema & Utilities</h3>
+
+                <div class="domain-box">
+                    <strong>schema-db</strong><br>
+                    Prisma schema (MySQL), type definitions. Single source of truth for database structure.
+                </div>
+
+                <div class="domain-box">
+                    <strong>schema-api</strong><br>
+                    tRPC router base, Zod schemas for all endpoints. Type-safe API definition.
+                </div>
+
+                <div class="domain-box">
+                    <strong>shared-types</strong><br>
+                    Cross-cutting TypeScript types used across all packages.
+                </div>
+
+                <div class="domain-box">
+                    <strong>game-assets</strong><br>
+                    Asset manifest, level definitions (JSON), character catalog. Content platform-independent.
+                </div>
+
+                <div class="domain-box">
+                    <strong>core</strong><br>
+                    Common utilities: RNG, ID generation, error handling, logger setup.
+                </div>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 6: ARCHITECTURE -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="architecture">
+                <h2>6. System Architecture</h2>
+
+                <h3>Layered Architecture</h3>
+                <table>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Responsibility</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Presentation</strong></td>
+                        <td>UI rendering, local state (Zustand), optimistic updates, animations (Pixi.js)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>API Gateway</strong></td>
+                        <td>Auth check, rate limit, schema validation, CORS, tracing (Fastify + Helmet)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Application</strong></td>
+                        <td>Use-case orchestration, cross-domain transactions (tRPC routers)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Domain</strong></td>
+                        <td>Pure business rules: combat, quests, economy, ranking (no I/O)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Infrastructure</strong></td>
+                        <td>DB repositories (Prisma), Redis, file storage, message bus</td>
+                    </tr>
+                </table>
+
+                <h3>Request Flow</h3>
+                <pre><code>┌─ Browser ─────────────────────┐
+│ tRPC client link setup      │
+│ Zustand store              │
+│ Pixi.js + React UI         │
+└──────────┬──────────────────┘
+           │ HTTPS / WSS
+           ▼
+┌─ Cloudflare CDN ───────────┐
+│ HTTPS termination          │
+│ Origin CA certificate      │
+└──────────┬──────────────────┘
+           │ CF-Connecting-IP header
+           ▼
+┌─ Caddy (127.0.0.1:18100) ──┐
+│ Reverse proxy              │
+│ Rate limit                 │
+│ X-Forwarded-* headers      │
+└──────────┬──────────────────┘
+           │ local
+           ▼
+┌─ Fastify API (Docker) ─────┐
+│ /trpc/* endpoints          │
+│ tRPC batched calls         │
+│ JWT verify + CORS          │
+│ Helmet (CSP, HSTS)         │
+└──────────┬──────────────────┘
+           │
+     ┌─────┼─────┬──────────┐
+     ▼     ▼     ▼          ▼
+   Auth  Save  Combat  PvP Service
+   Svc   Svc   Svc
+     │     │     │          │
+     └─────┼─────┴──────┬───┘
+           │            │
+      ┌────▼────┐   ┌───▼─────┐
+      │ Prisma  │   │ Redis   │
+      │ MySQL   │   │ Cache   │
+      └─────────┘   └─────────┘</code></pre>
+
+                <h3>Data Flow: Combat Action</h3>
+                <ol>
+                    <li><strong>Client</strong>: tRPC call <code>combat.applyAction(action)</code></li>
+                    <li><strong>Fastify</strong>: Rate-limit check, JWT verify, Zod schema validate</li>
+                    <li><strong>tRPC Router</strong>: Route to <code>createCombatRouter → applyAction</code></li>
+                    <li><strong>CombatRunService</strong>: Load run state from MySQL, lock for atomicity</li>
+                    <li><strong>domain-combat</strong>: Pure engine validates action (AP, range, LOS)</li>
+                    <li><strong>Update DB</strong>: Write new state to <code>runs</code> table + <code>action_log</code></li>
+                    <li><strong>Return result</strong>: Send updated state, new effects, rewards to client</li>
+                    <li><strong>Client</strong>: Apply optimistic update, reconcile if mismatch</li>
+                </ol>
+
+                <h3>Realtime Architecture (Socket.IO)</h3>
+                <ul>
+                    <li>Separate <code>apps/realtime</code> service on port 18102</li>
+                    <li>Room per match (PvP) / guild chat channel / global chat</li>
+                    <li>Server authoritative: client predicts, then reconciles on server update</li>
+                    <li>Heartbeat every 5s; miss >15s → opponent wins by forfeit</li>
+                    <li>Sticky sessions on the realtime tier (Redis adapter for horizontal scale)</li>
+                </ul>
+
+                <h3>Save & Cloud-Sync Strategy</h3>
+                <ul>
+                    <li><strong>Two-tier</strong>:
+                        <ul>
+                            <li>Local IndexedDB snapshot after every state change (instant resume offline)</li>
+                            <li>Server delta sync every 30s or on idle / page-hide</li>
+                        </ul>
+                    </li>
+                    <li><strong>Conflict policy</strong>: Server timestamp wins; client merges cosmetic (settings, photo album) by union</li>
+                    <li><strong>Slots</strong>: <code>slot=0</code> is autosave; slots 1–3 are manual for storyline branching</li>
+                    <li><strong>Schema versioning</strong> in payload; migration runs on read</li>
+                </ul>
+
+                <h3>Anti-Cheat & Integrity</h3>
+                <ul>
+                    <li>All combat actions validated server-side using same <code>domain-combat</code> package</li>
+                    <li>Replay log of every action stored in <code>runs.action_log</code></li>
+                    <li>Worker scans for impossible states (async, scheduled)</li>
+                    <li>Rate limits per IP + per user (Redis-backed, returns tRPC 429 envelope)</li>
+                    <li>Item/currency mutations only via signed events from server; client never asserts deltas</li>
+                    <li>HMAC-signed asset manifest to detect modded clients</li>
+                </ul>
+
+                <h3>Security Baseline</h3>
+                <ul>
+                    <li>HTTPS-only, HSTS, CSP, SameSite=Lax cookies</li>
+                    <li>Refresh-token rotation on login</li>
+                    <li>Argon2id password hashing</li>
+                    <li>OAuth via NextAuth (idP tokens never exposed to API)</li>
+                    <li><code>ENFORCE_CLOUDFLARE=true</code> rejects direct-to-origin requests (403 unless <code>cf-connecting-ip</code> present)</li>
+                    <li>Helmet for headers (CSP, X-Frame-Options, X-Content-Type-Options)</li>
+                </ul>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 7: DATABASE -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="database">
+                <h2>7. Database Schema (MySQL 8)</h2>
+
+                <h3>Key Tables</h3>
+
+                <div class="domain-box">
+                    <strong>users</strong><br>
+                    id, email, passwordHash, oauthProvider, oauthSubject, emailVerifiedAt, status (active/banned), timestamps
+                </div>
+
+                <div class="domain-box">
+                    <strong>profiles</strong><br>
+                    userId (FK), displayName, avatarUrl, country, language, accountLevel, accountXp, gold, aether, preferences (JSON)
+                </div>
+
+                <div class="domain-box">
+                    <strong>characters</strong><br>
+                    id, codename (unique), name, class, role, baseStats (JSON), artUrl, lore, unlockRequirement (JSON), version
+                </div>
+
+                <div class="domain-box">
+                    <strong>user_characters</strong><br>
+                    id, userId (FK), characterId (FK), ascension, xp, equippedSkinId, unlockedAt
+                </div>
+
+                <div class="domain-box">
+                    <strong>runs</strong><br>
+                    id, userId (FK), levelId (FK), runState (JSON), actionLog (JSON), completedAt, rewards (JSON), createdAt
+                </div>
+
+                <div class="domain-box">
+                    <strong>levels</strong><br>
+                    id (1–100), realm, name, difficulty, encounters (JSON), treasure (JSON), layout (hex grid JSON)
+                </div>
+
+                <div class="domain-box">
+                    <strong>save_states</strong><br>
+                    id, userId (FK), slot (0–3), saveData (JSON), timestamp, isSynced
+                </div>
+
+                <div class="domain-box">
+                    <strong>inventory</strong><br>
+                    id, userId (FK), itemId (FK), quantity, slotIndex, equippedAt
+                </div>
+
+                <div class="domain-box">
+                    <strong>guild / guild_members</strong><br>
+                    Guild: id, name, leaderId, createdAt. Members: userId, guildId, role, joinedAt
+                </div>
+
+                <div class="domain-box">
+                    <strong>pvp_matches</strong><br>
+                    id, player1Id (FK), player2Id (FK), winnerId (FK), startedAt, endedAt, actionLog (JSON)
+                </div>
+
+                <div class="domain-box">
+                    <strong>mmr</strong><br>
+                    id, userId (FK), rating, season, lastRatedAt, decayScheduledAt
+                </div>
+
+                <div class="domain-box">
+                    <strong>chat_messages</strong><br>
+                    id, userId (FK), roomId, content, type (global|guild|party|whisper), createdAt, deletedAt
+                </div>
+
+                <div class="domain-box">
+                    <strong>audit_log</strong><br>
+                    id, actorId (FK), action, targetUserId (FK), reason, data (JSON), createdAt
+                </div>
+
+                <h3>Seed Data</h3>
+                <p><code>db/mysql/02_seed.sql</code> contains 8 placeholder <code>levels</code> rows (FK target for <code>runs.level_id</code>). These are required even if the actual level data comes from <code>game-assets</code> JSON.</p>
+
+                <div class="warning">
+                    <strong>⚠ Critical:</strong> If <code>levels</code> table is empty, foreign key inserts into <code>runs</code> will fail. Always run <code>bash scripts/apply-seed.sh</code> after fresh database setup.
+                </div>
+
+                <h3>Prisma Setup</h3>
+                <pre><code>// Key config in schema.prisma
+binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+// native = local dev (Windows/macOS/Linux glibc)
+// linux-musl-openssl-3.0.x = Alpine 3.20+ Docker runtime (Node 22)
+
+// Database
+provider = "mysql"
+url = env("DATABASE_URL_MYSQL")
+// Example: mysql://user:pass@host:3306/dbname?query_timeout=30s</code></pre>
+
+                <h3>Connection Pooling</h3>
+                <ul>
+                    <li><strong>Default pool</strong>: 5 connections</li>
+                    <li><strong>Adjust via query params</strong>: <code>?connection_limit=20</code></li>
+                    <li><strong>Socket timeout</strong> (query max runtime): Set <code>MYSQL_SOCKET_TIMEOUT</code> for app processes (prod: 30s), leave unset for migrations/batch jobs</li>
+                </ul>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 8: API ROUTERS -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="api-routers">
+                <h2>8. API Routers & tRPC</h2>
+
+                <h3>tRPC Router Structure</h3>
+                <p>Each domain exports a <code>createXxxRouter(services)</code> factory that closes over its service. The <code>apps/api</code> composes them into a root router.</p>
+
+                <pre><code>// apps/api/src/router.ts
+export const rootRouter = router({
+  health: healthRouter,
+  auth: createAuthRouter(authService),
+  account: createAccountRouter(accountService),
+  world: createWorldRouter(worldService),
+  save: createSaveRouter(saveService),
+  combat: createCombatRouter(combatRunService),
+  roster: createRosterRouter(rosterService),
+  skills: createSkillsRouter(rosterService),
+  inventory: createInventoryRouter(inventoryService),
+  quests: createQuestsRouter(questService),
+  battlepass: createBattlePassRouter(battlePassService),
+  pvp: createPvpRouter(pvpServices),
+  notifications: createNotificationsRouter(notificationsService),
+  shop: createShopRouter(shopService),
+  chat: createChatRouter(chatService),
+  friends: createFriendsRouter(friendsService),
+  guild: createGuildRouter(guildService),
+  admin: createAdminRouter(adminService),
+  telemetry: createTelemetryRouter(telemetryService),
+});</code></pre>
+
+                <h3>Key Endpoints (tRPC Procedures)</h3>
+
+                <h4>auth (Authentication)</h4>
+                <ul>
+                    <li><code>auth.signup(email, password, displayName)</code> → JWT tokens</li>
+                    <li><code>auth.login(email, password)</code> → JWT tokens</li>
+                    <li><code>auth.oauthCallback(provider, code)</code> → JWT tokens</li>
+                    <li><code>auth.refresh(refreshToken)</code> → New access token</li>
+                    <li><code>auth.logout()</code> → Revoke tokens</li>
+                    <li><code>auth.requestPasswordReset(email)</code> → Send reset link</li>
+                    <li><code>auth.resetPassword(token, newPassword)</code> → Update password</li>
+                </ul>
+
+                <h4>account (Profile & Progression)</h4>
+                <ul>
+                    <li><code>account.getProfile()</code> → Current user profile</li>
+                    <li><code>account.updateProfile(displayName, avatarUrl, ...)</code> → Mutate profile</li>
+                    <li><code>account.getLeaderboard(type, region)</code> → Global/regional/guild leaderboard</li>
+                    <li><code>account.claimDailyReward()</code> → Daily login bonus</li>
+                </ul>
+
+                <h4>combat (Running Levels)</h4>
+                <ul>
+                    <li><code>combat.startRun(levelId, partyIds[])</code> → Initialize combat state</li>
+                    <li><code>combat.applyAction(runId, action)</code> → Execute one action (move/attack/skill)</li>
+                    <li><code>combat.endRun(runId, reason)</code> → Mark run complete/abandoned</li>
+                    <li><code>combat.getRun(runId)</code> → Fetch current run state</li>
+                </ul>
+
+                <h4>roster (Characters & Skills)</h4>
+                <ul>
+                    <li><code>roster.getCharacters()</code> → User's character collection</li>
+                    <li><code>roster.unlockCharacter(characterId)</code> → Unlock from quest/PvP</li>
+                    <li><code>roster.ascendCharacter(characterId)</code> → Promote A0→A1, etc.</li>
+                    <li><code>roster.assignSkill(userCharacterId, skillId, slot)</code> → Customize skill slots</li>
+                    <li><code>roster.getSkillTree(characterId)</code> → Progression nodes</li>
+                </ul>
+
+                <h4>save (Cloud Saves)</h4>
+                <ul>
+                    <li><code>save.getSaveState(slot)</code> → Load save (0=auto, 1–3=manual)</li>
+                    <li><code>save.updateSaveState(slot, data)</code> → Write save delta</li>
+                    <li><code>save.getSaveHistory()</code> → List recent saves</li>
+                </ul>
+
+                <h4>world (Levels & Exploration)</h4>
+                <ul>
+                    <li><code>world.getLevelList()</code> → All 100 levels</li>
+                    <li><code>world.getLevelDetail(levelId)</code> → Full level data + layout</li>
+                    <li><code>world.getRealmProgress(realmId)</code> → Discovery %, completed nodes</li>
+                </ul>
+
+                <h4>pvp (Ranked Battles)</h4>
+                <ul>
+                    <li><code>pvp.requestMatch()</code> → Enqueue for matchmaking</li>
+                    <li><code>pvp.getMatchState(matchId)</code> → Current match board state</li>
+                    <li><code>pvp.applyMatchAction(matchId, action)</code> → Execute turn in PvP</li>
+                    <li><code>pvp.getLeaderboard(season)</code> → MMR rankings</li>
+                </ul>
+
+                <h4>quests (Objectives)</h4>
+                <ul>
+                    <li><code>quests.getActiveQuests()</code> → Current objectives</li>
+                    <li><code>quests.claimReward(questId)</code> → Accept completion reward</li>
+                </ul>
+
+                <h4>social (Guild, Friends, Chat)</h4>
+                <ul>
+                    <li><code>guild.createGuild(name, motd)</code> → New guild</li>
+                    <li><code>guild.getMembers(guildId)</code> → Member list</li>
+                    <li><code>guild.inviteMember(guildId, userId)</code> → Send invite</li>
+                    <li><code>chat.sendMessage(roomId, content, type)</code> → Post to chat</li>
+                    <li><code>chat.getMessages(roomId, limit)</code> → Message history</li>
+                </ul>
+
+                <h3>Error Handling</h3>
+
+                <div class="warning">
+                    <strong>Critical Convention:</strong> All non-2xx responses from <code>/trpc/*</code> paths MUST be tRPC batched envelope format. The web client parses non-tRPC responses as confusing HTTP 500 errors.
+                </div>
+
+                <p><strong>tRPC Error Envelope (429 example):</strong></p>
+                <pre><code>[{
+  error: {
+    json: {
+      message: "Too many requests",
+      code: -32029,
+      data: {
+        code: "TOO_MANY_REQUESTS",
+        httpStatus: 429,
+        path: "auth.signup"
+      }
+    }
+  }
+}]</code></pre>
+
+                <p>See <code>apps/api/src/plugins.ts → rateLimitBody()</code> for implementation.</p>
+
+                <h3>CORS & Headers</h3>
+                <ul>
+                    <li><strong>CORS allowlist</strong> must include <code>x-aetheria-client</code> header (set by tRPC browser links)</li>
+                    <li><strong>Missing header</strong> → Chrome blocks with "Failed to fetch"</li>
+                    <li><strong>CF rewrites</strong> <code>X-Frame-Options: DENY</code> → <code>SAMEORIGIN</code> on Free plan; both are acceptable</li>
+                </ul>
+
+                <h3>⚡ Auth Flow: Browser → Next.js Routes → tRPC</h3>
+                <div class="warning">
+                    <strong>Critical:</strong> Browser does <strong>NOT</strong> call tRPC directly for auth. It calls Next.js API routes that proxy to tRPC.
+                </div>
+                <p><strong>Request flow:</strong></p>
+                <pre><code>Browser POST /api/auth/signup
+   ↓
+Next.js route handler (apps/web/src/app/api/auth/signup/route.ts)
+   ↓ (server-side fetch via apiClient)
+tRPC API POST /trpc/auth.signupWithEmail
+   ↓
+auth.service.signupWithEmail()
+   ↓
+[user + JWT tokens returned]
+   ↓
+Next.js sets httpOnly refresh cookie + returns access token JSON
+   ↓
+Browser receives session</code></pre>
+
+                <p><strong>Auth routes (Next.js):</strong></p>
+                <ul>
+                    <li><code>/api/auth/signup</code> → wraps <code>auth.signupWithEmail</code></li>
+                    <li><code>/api/auth/login</code> → wraps <code>auth.loginWithEmail</code></li>
+                    <li><code>/api/auth/logout</code> → wraps <code>auth.logout</code></li>
+                    <li><code>/api/auth/refresh</code> → wraps <code>auth.refresh</code> (uses httpOnly cookie)</li>
+                    <li><code>/api/auth/forgot-password</code> → wraps <code>auth.requestPasswordReset</code></li>
+                    <li><code>/api/auth/reset-password</code> → wraps <code>auth.resetPassword</code></li>
+                    <li><code>/api/auth/verify-email</code> → wraps <code>auth.verifyEmail</code></li>
+                </ul>
+
+                <p><strong>Why wrap:</strong></p>
+                <ul>
+                    <li>Refresh token never crosses to JS (httpOnly cookie, same-origin)</li>
+                    <li>Uniform error envelope (small JSON for React forms)</li>
+                    <li>Easier rate limiting at edge</li>
+                </ul>
+
+                <p><strong>When debugging auth issues, check Next.js logs FIRST</strong>: <code>docker logs aetheria_web --tail 50</code></p>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 9: TESTING -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="testing">
+                <h2>9. Testing Framework</h2>
+
+                <h3>Test Suite Overview</h3>
+                <ul>
+                    <li><strong>Total:</strong> 58 test cases across 8 suites</li>
+                    <li><strong>Entry:</strong> <code>scripts/test/run-all.ps1</code></li>
+                    <li><strong>Helpers:</strong> <code>scripts/test/lib/_helpers.ps1</code></li>
+                    <li><strong>Format:</strong> PowerShell 5.1 (Windows)</li>
+                </ul>
+
+                <h3>Test Suites</h3>
+                <table>
+                    <tr>
+                        <th>Suite</th>
+                        <th>Tests</th>
+                        <th>Focus</th>
+                    </tr>
+                    <tr>
+                        <td>Suite 01</td>
+                        <td>~8</td>
+                        <td>Health checks, API connectivity</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 02</td>
+                        <td>~8</td>
+                        <td>Authentication (signup, login, OAuth)</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 03</td>
+                        <td>~8</td>
+                        <td>Account operations (profile, level-up)</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 04</td>
+                        <td>~8</td>
+                        <td>Inventory & equipment</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 05</td>
+                        <td>~8</td>
+                        <td>World & level exploration</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 06</td>
+                        <td>~8</td>
+                        <td>Combat actions (move, attack, skill)</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 07</td>
+                        <td>~8</td>
+                        <td>Social (guild, chat, friends)</td>
+                    </tr>
+                    <tr>
+                        <td>Suite 08</td>
+                        <td>~6</td>
+                        <td>Smoke at first paint (/menu page)</td>
+                    </tr>
+                </table>
+
+                <h3>Running Tests</h3>
+                <pre><code># Full 58-test suite (takes ~3–5 min)
+.\scripts\test\run-all.ps1
+
+# After ANY production change
+.\scripts\test\run-all.ps1
+
+# Specific test suite (example)
+.\scripts\test\suites\01_health.ps1</code></pre>
+
+                <div class="warning">
+                    <strong>⚠ Suite 03 Rate Limit:</strong> Signup is rate-limited to 10/min/IP. Re-running too soon will trip the limit. Wait 60s or use a different IP.
+                </div>
+
+                <div class="info">
+                    <strong>ℹ Suite 05 (World):</strong> Depends on MySQL <code>levels</code> table having rows. Run <code>bash scripts/apply-seed.sh</code> if test fails with FK violation.
+                </div>
+
+                <h3>Test Helpers</h3>
+                <p>Functions in <code>scripts/test/lib/_helpers.ps1</code>:</p>
+                <ul>
+                    <li><code>Test-Case -Name "..." -Script { ... }</code> → Define one test</li>
+                    <li><code>Invoke-TrpcQuery -Procedure "auth.login" -Body @{email="..."; password="..."}</code> → Call tRPC endpoint</li>
+                    <li><code>Invoke-TrpcMutation -Procedure "account.updateProfile" -Body @{...}</code> → Same as query (tRPC doesn't distinguish)</li>
+                    <li><code>Get-TestUser</code> → Create or fetch a test account</li>
+                    <li><code>Start-Suite -Name "..."; End-Suite</code> → Group tests into suites</li>
+                </ul>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 10: DEPLOYMENT -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="deployment">
+                <h2>10. Deployment to Production</h2>
+
+                <h3>Production Infrastructure</h3>
+                <table>
+                    <tr>
+                        <th>Component</th>
+                        <th>URL / Port</th>
+                        <th>Container</th>
+                    </tr>
+                    <tr>
+                        <td>Web (Next.js)</td>
+                        <td>https://aetheria.games-core.com</td>
+                        <td>127.0.0.1:18100</td>
+                    </tr>
+                    <tr>
+                        <td>API (Fastify)</td>
+                        <td>https://aetheria-api.games-core.com</td>
+                        <td>127.0.0.1:18101</td>
+                    </tr>
+                    <tr>
+                        <td>Realtime (Socket.IO)</td>
+                        <td>https://aetheria-ws.games-core.com</td>
+                        <td>127.0.0.1:18102</td>
+                    </tr>
+                </table>
+
+                <h3>Server Details</h3>
+                <ul>
+                    <li><strong>VPS:</strong> Hetzner Cloud, Ubuntu 24.04 LTS, Helsinki DC</li>
+                    <li><strong>IP:</strong> 77.42.35.9</li>
+                    <li><strong>Compose project:</strong> <code>aetheria-prod</code> (isolated from PLD's <code>pld-prod</code>)</li>
+                    <li><strong>Volumes:</strong> <code>/var/data/aetheria/*</code> (MySQL, Redis, uploads)</li>
+                    <li><strong>SSL:</strong> Cloudflare Full (Strict) → Caddy origin CA cert</li>
+                </ul>
+
+                <h3>Deployment Steps</h3>
+                <pre><code># 1. Local dev: ensure tests pass
+.\scripts\test\run-all.ps1
+
+# 2. Build locally
+pnpm install
+pnpm build
+
+# 3. Deploy to production
+.\scripts\deploy.ps1
+# (runs: rsync → docker compose pull → up -d → post-deploy checks)</code></pre>
+
+                <h3>SSH Access</h3>
+                <pre><code>ssh root@77.42.35.9
+
+# Check compose status
+docker compose -p aetheria-prod ps
+
+# Tail API logs
+docker logs aetheria_api --tail 100 -f
+
+# Restart a service
+docker compose -p aetheria-prod restart api
+
+# Execute shell in container
+docker compose -p aetheria-prod exec api sh</code></pre>
+
+                <h3>Emergency Access (if SSH fails)</h3>
+                <p>Use Hetzner Console:</p>
+                <ol>
+                    <li>Go to <code>https://console.hetzner.cloud</code> → VM → Console</li>
+                    <li>Login: <code>root</code> + password</li>
+                    <li><strong>⚠ Warning:</strong> Multi-line paste mangles characters (<code>&&</code> → <code>77</code>, <code>:</code> → <code>;</code>)</li>
+                    <li><strong>Workaround:</strong> Use <code>curl -L -o &lt;file&gt; &lt;short-url&gt;</code> to download scripts</li>
+                </ol>
+
+                <h3>Backups</h3>
+                <ul>
+                    <li><strong>MySQL nightly backup:</strong> 03:15 UTC daily</li>
+                    <li><strong>Location:</strong> <code>/var/backups/aetheria/mysql/aetheria-YYYY-MM-DD.sql.gz</code></li>
+                    <li><strong>Retention:</strong> 14 days (auto-cleanup)</li>
+                    <li><strong>Manual backup:</strong> SSH into server and run database dump</li>
+                </ul>
+
+                <h3>Security Layers (Already in Place)</h3>
+                <ul>
+                    <li><strong>Hetzner Cloud Firewall:</strong> Allows only CF CIDRs → :80/:443, operator IP → :22</li>
+                    <li><strong>fail2ban (host):</strong> 5 failed SSH attempts in 10 min → 1h ban. Operator IP <code>219.105.121.69</code> whitelisted</li>
+                    <li><strong>API rate limit:</strong> Global + auth-route bucket (Redis-backed). Returns tRPC-shaped 429 envelope</li>
+                    <li><strong>ENFORCE_CLOUDFLARE=true:</strong> Rejects direct-to-origin (403 CDN_REQUIRED) unless <code>cf-connecting-ip</code> present</li>
+                    <li><strong>Helmet CSP:</strong> <code>default-src 'none'</code>, JSON-only API hardening</li>
+                </ul>
+
+                <div class="warning">
+                    <strong>🔴 CRITICAL: Production URL Pattern</strong>
+                    <p style="margin-top: 10px;">Use <strong>dash naming</strong>, NOT subsubdomains. CF Free plan only supports 1-level wildcard, and using <code>*.aetheria.games-core.com</code> requires DNS entries that don't exist.</p>
+                    <table style="margin-top: 10px;">
+                        <tr><th>✅ CORRECT</th><th>❌ WRONG</th></tr>
+                        <tr><td><code>aetheria-api.games-core.com</code></td><td><code>api.aetheria.games-core.com</code></td></tr>
+                        <tr><td><code>aetheria-ws.games-core.com</code></td><td><code>ws.aetheria.games-core.com</code></td></tr>
+                    </table>
+                    <p style="margin-top: 10px;"><strong>Symptom of wrong URL:</strong> Browser shows "fetch failed" on signup/login. Next.js web container can't resolve <code>NEXT_PUBLIC_API_URL</code> DNS.</p>
+                </div>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 11: CONVENTIONS -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="conventions">
+                <h2>11. Critical Development Conventions</h2>
+
+                <div class="warning">
+                    <strong>🔴 DO NOT SKIP THESE — they prevent silent bugs & production outages</strong>
+                </div>
+
+                <h3>1. tRPC Error Envelope for /trpc/* Paths</h3>
+                <p><strong>All non-2xx responses must return tRPC batched envelope format.</strong> Non-tRPC responses confuse the web client into HTTP 500 errors.</p>
+                <pre><code>// ✅ CORRECT (429 rate limit)
+[{ error: { json: { message: "...", code: -32029, data: { code: "TOO_MANY_REQUESTS", ... } } } }]
+
+// ❌ WRONG (web client errors)
+{ error: "Too many requests" }  // → HTTP 500 on client
+<html>Error</html>              // → Cannot parse JSON</code></pre>
+
+                <h3>2. CORS Allowlist Must Include x-aetheria-client</h3>
+                <p><strong>tRPC browser links set <code>x-aetheria-client</code> header.</strong> Missing → Chrome blocks with "Failed to fetch".</p>
+
+                <h3>3. MySQL Seed Dependency</h3>
+                <p><strong><code>db/mysql/02_seed.sql</code> MUST contain 8 placeholder <code>levels</code> rows.</strong> FK target for <code>runs.level_id</code>.</p>
+                <pre><code>-- MUST exist (even with placeholder data)
+INSERT INTO levels (id, name, realm, ...) VALUES
+  (1, 'Verdant Reach 1', 1, ...),
+  (2, 'Verdant Reach 2', 1, ...),
+  ...
+  (8, 'Verdant Reach 8', 1, ...);</code></pre>
+
+                <h3>4. fail2ban quirk</h3>
+                <p><strong><code>ignoreip</code> MUST go inside <code>[sshd]</code> section in <code>/etc/fail2ban/jail.d/*.local</code>.</strong> <code>[DEFAULT]</code> blocks in jail.d don't propagate to existing jails.</p>
+                <pre><code>// ✅ CORRECT
+[sshd]
+ignoreip = 219.105.121.69
+
+// ❌ WRONG (won't work)
+[DEFAULT]
+ignoreip = 219.105.121.69</code></pre>
+
+                <h3>5. CF Rewrites Response Headers</h3>
+                <ul>
+                    <li><code>X-Frame-Options: DENY</code> → CF makes it <code>SAMEORIGIN</code> on Free plan</li>
+                    <li>Both are acceptable; test assertions accept both</li>
+                    <li>Real protection is CSP <code>frame-ancestors 'none'</code></li>
+                </ul>
+
+                <h3>6. DO NOT Add CF Custom Rules</h3>
+                <p><strong>DO NOT use CF Bot Fight Mode, Managed Challenge, or Rate Limiting custom rules.</strong> All 3 broke the test suite previously and were rolled back.</p>
+
+                <h3>7. Prisma binaryTargets for Docker</h3>
+                <p><strong>Must include both native and linux-musl for Alpine compatibility.</strong></p>
+                <pre><code>binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+// native: Windows/macOS/Linux local dev
+// linux-musl: Alpine 3.20+ Docker (Node 22)</code></pre>
+
+                <h3>8. Use tsx, NOT ts-node</h3>
+                <p><strong>Always use <code>tsx</code> runtime in containers.</strong> Node 22 strict ESM doesn't work with ts-node.</p>
+                <pre><code>// ✅ CORRECT in Dockerfile
+CMD ["tsx", "src/index.ts"]
+
+// ❌ WRONG
+CMD ["ts-node", "src/index.ts"]  // ESM mode errors</code></pre>
+
+                <h3>9. pnpm Offline Mode for Docker</h3>
+                <p><strong>Use <code>pnpm fetch</code> then <code>pnpm install --offline</code> in multi-stage builds.</strong></p>
+                <pre><code>COPY pnpm-lock.yaml .
+RUN pnpm fetch --prod
+COPY . .
+RUN pnpm install --offline --frozen-lockfile</code></pre>
+
+                <h3>10. Next.js NEXT_PUBLIC_* Baked at Build</h3>
+                <p><strong><code>NEXT_PUBLIC_*</code> env vars bake into the bundle at build time.</strong> Forward via <code>docker-compose.prod.yml build.args</code> + <code>Dockerfile ARG</code> + <code>ENV</code>.</p>
+
+                <h3>11. API Must Return tRPC Envelope for /trpc/*</h3>
+                <p><strong>Non-2xx from /trpc/* paths MUST be tRPC envelope or client fails.</strong> Implement in <code>plugins.ts → rateLimitBody()</code>.</p>
+
+                <h3>12. PowerShell Reserved Words</h3>
+                <p>See section 11 of Session Handoff for Windows PowerShell gotchas.</p>
+
+                <h3>13. Production URL Pattern — Dash Naming Only</h3>
+                <p><strong>Cloudflare Free plan supports only 1-level wildcard.</strong> Use dash naming for subdomains.</p>
+                <pre><code>// ✅ CORRECT (production)
+NEXT_PUBLIC_API_URL=https://aetheria-api.games-core.com
+NEXT_PUBLIC_REALTIME_URL=https://aetheria-ws.games-core.com
+
+// ❌ WRONG (DNS doesn't exist → "fetch failed")
+NEXT_PUBLIC_API_URL=https://api.aetheria.games-core.com
+NEXT_PUBLIC_REALTIME_URL=https://ws.aetheria.games-core.com</code></pre>
+                <p><strong>After any env change to <code>NEXT_PUBLIC_*</code>, MUST rebuild web container:</strong></p>
+                <pre><code>cd /opt/apps/aetheria/src
+docker compose -p aetheria-prod -f docker-compose.prod.yml --env-file .env.prod build web
+docker compose -p aetheria-prod -f docker-compose.prod.yml --env-file .env.prod up -d web</code></pre>
+
+                <h3>14. Auth Flow: Next.js Routes Wrap tRPC</h3>
+                <p>Browser does <strong>NOT</strong> call tRPC directly. It calls Next.js API routes that proxy to tRPC server-side. This is for:</p>
+                <ul>
+                    <li><strong>Refresh token security</strong> — never crosses to JS, set as httpOnly cookie</li>
+                    <li><strong>Uniform error envelope</strong> — React forms render plain JSON errors</li>
+                </ul>
+                <p>Browser → <code>/api/auth/signup</code> → Next.js route handler → <code>apiClient().auth.signupWithEmail.mutate(...)</code> → tRPC API</p>
+                <ul>
+                    <li>Route handlers: <code>apps/web/src/app/api/auth/{signup,login,logout,refresh,forgot-password,reset-password,verify-email}/route.ts</code></li>
+                    <li>Proxy helpers: <code>apps/web/src/lib/auth/proxy.ts</code></li>
+                </ul>
+                <p>When debugging "fetch failed" or 500 errors on auth, check Next.js route logs FIRST, not API logs.</p>
+
+                <h3>15. ENFORCE_CLOUDFLARE Subtleties</h3>
+                <p><code>ENFORCE_CLOUDFLARE=true</code> rejects requests without <code>cf-connecting-ip</code> header. This breaks:</p>
+                <ul>
+                    <li><strong>Direct curl from server</strong> — bypasses CF, no header</li>
+                    <li><strong>Web container → API</strong> — IF Caddy doesn't forward header properly</li>
+                </ul>
+                <p>For browser → CF → Caddy → API, the header IS present. Caddy config (<code>/etc/caddy/Caddyfile</code>) must include in API upstream:</p>
+                <pre><code>(aetheria_api_upstream) {
+    reverse_proxy 127.0.0.1:18101 {
+        import cf_headers
+        header_up CF-Connecting-IP {http.request.header.cf-connecting-ip}
+    }
+}</code></pre>
+                <p><strong>Testing locally:</strong> Add header manually: <code>curl -H "cf-connecting-ip: 1.1.1.1" ...</code></p>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 12: QUICK REFERENCE -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section id="quick-ref">
+                <h2>12. Quick Command Reference</h2>
+
+                <h3>Local Development</h3>
+                <pre><code># Install dependencies
+pnpm install
+
+# Run all apps in parallel (dev mode)
+pnpm dev
+
+# Dev single app
+pnpm -C apps/api dev
+pnpm -C apps/web dev
+
+# Build everything
+pnpm build
+
+# Type check
+pnpm typecheck
+
+# Lint
+pnpm lint
+
+# Format code
+pnpm format
+
+# Clean build artifacts
+pnpm clean</code></pre>
+
+                <h3>Database</h3>
+                <pre><code># Generate Prisma client
+pnpm db:generate
+
+# Run migrations
+pnpm db:migrate
+
+# Open Prisma Studio (GUI)
+pnpm db:studio
+
+# Reseed database (from scripts/)
+bash scripts/apply-seed.sh</code></pre>
+
+                <h3>Testing</h3>
+                <pre><code># Full test suite (58 cases, 8 suites)
+.\scripts\test\run-all.ps1
+
+# Single test suite (example)
+.\scripts\test\suites\01_health.ps1</code></pre>
+
+                <h3>Production Deployment</h3>
+                <pre><code># Deploy to server
+.\scripts\deploy.ps1
+
+# SSH to production
+ssh root@77.42.35.9
+
+# Check docker compose status
+docker compose -p aetheria-prod ps
+
+# View API logs
+docker logs aetheria_api --tail 100 -f
+
+# Restart API service
+docker compose -p aetheria-prod restart api
+
+# Reseed production database (SSH)
+ssh root@77.42.35.9 'bash -s' < scripts/apply-seed.sh
+
+# Host hardening (idempotent)
+ssh root@77.42.35.9 'bash -s' < scripts/harden-host.sh</code></pre>
+
+                <h3>Git Operations</h3>
+                <pre><code># Check status
+git status
+
+# Push to remote
+git push
+
+# If 403 (Windows CM cache)
+cmdkey /delete:git:https://github.com
+git push
+
+# View commits
+git log --oneline -10</code></pre>
+
+                <h3>Common Troubleshooting</h3>
+                <pre><code># Clear Windows Credential Manager cache
+cmdkey /delete:git:https://github.com
+
+# Restart all services on server
+docker compose -p aetheria-prod restart
+
+# View MySQL logs
+docker logs aetheria_mysql --tail 50
+
+# Exec into MySQL container
+docker compose -p aetheria-prod exec mysql mysql -u root -p
+
+# Restart fail2ban (after config change)
+ssh root@77.42.35.9 'fail2ban-client reload'</code></pre>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- SECTION 13: KNOWN ISSUES -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section>
+                <h2>13. Known Issues & Traps (Already Solved — Don't Re-Debug)</h2>
+
+                <div class="info">
+                    <strong>ℹ These are documented to prevent re-debugging. They're production-ready.</strong>
+                </div>
+
+                <ol>
+                    <li><strong>$Input reserved in PowerShell</strong> → Helpers use <code>$Payload</code></li>
+                    <li><strong>Bash heredoc in PowerShell</strong> → Use <code>`$</code> for shell vars, <code>${Var}</code> for PS vars</li>
+                    <li><strong>CF Free wildcard limit</strong> → Use dash naming (<code>aetheria-api</code> NOT <code>api.aetheria</code>)</li>
+                    <li><strong>Docker Alpine + Prisma</strong> → Requires <code>linux-musl-openssl-3.0.x</code> binaryTarget</li>
+                    <li><strong>Node 22 strict ESM</strong> → Use <code>tsx</code> not <code>ts-node</code></li>
+                    <li><strong>pnpm in Docker</strong> → Use <code>pnpm fetch</code> then <code>pnpm install --offline</code></li>
+                    <li><strong>Next.js NEXT_PUBLIC_* baked at build</strong> → Forward via docker-compose.prod.yml. After URL/env change, MUST rebuild web container: <code>docker compose build web && docker compose up -d web</code></li>
+                    <li><strong>Web proxy converts non-tRPC 429 to 500</strong> → API must return tRPC envelope for /trpc/*</li>
+                    <li><strong>CF rewrites X-Frame-Options</strong> → Assert both DENY/SAMEORIGIN</li>
+                    <li><strong>Bot Fight Mode + Managed Challenge + custom Rate Limiting</strong> → ALL broke test suite, kept disabled</li>
+                    <li><strong>Windows Credential Manager cache</strong> → Clear with <code>cmdkey /delete:git:https://github.com</code></li>
+                    <li><strong>Hetzner Console paste mangling</strong> → Type manually or use <code>curl -L</code></li>
+                    <li><strong>ENFORCE_CLOUDFLARE breaks web→API fetch</strong> → If Caddy doesn't forward <code>cf-connecting-ip</code> properly, web container's server-side fetch to API gets 403 CDN_REQUIRED. Either set <code>ENFORCE_CLOUDFLARE=false</code> or ensure Caddy header forwarding works (see <code>/etc/caddy/Caddyfile</code> <code>cf_headers</code> snippet).</li>
+                    <li><strong>"fetch failed" on signup/login</strong> → Almost always wrong <code>NEXT_PUBLIC_API_URL</code>. Check it's <code>https://aetheria-api.games-core.com</code> NOT <code>https://api.aetheria.games-core.com</code>. After fix, MUST rebuild web container (env baked at build).</li>
+                    <li><strong>Browser calls <code>/api/auth/signup</code> not <code>/trpc/...</code></strong> → Next.js wraps tRPC calls in Next API routes (see <code>apps/web/src/app/api/auth/*</code>). These proxy to tRPC server-side. Don't debug as direct tRPC — check the Next route handler first.</li>
+                    <li><strong>Docker env changes need full restart</strong> → <code>docker compose restart api</code> may not pick up new .env values. Use <code>docker compose down && up -d</code> with <code>--env-file .env.prod</code> for clean env reload.</li>
+                </ol>
+            </section>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- FOOTER -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <section style="margin-top: 80px;">
+                <h2 style="border-bottom: 2px dashed #ccc; padding-bottom: 15px;">Next Steps</h2>
+                <ul style="font-size: 1.1em;">
+                    <li><strong>For bug fixes:</strong> Run tests, apply fix locally, verify tests pass, commit & push</li>
+                    <li><strong>For new features:</strong> Plan in a domain package, create tRPC endpoint, test, deploy</li>
+                    <li><strong>For scaling:</strong> Refer to "Defer until needed" section in Session Handoff (secrets vaulting, Turnstile, etc.)</li>
+                    <li><strong>For questions:</strong> Check <code>docs/</code> first (game design, architecture, database spec)</li>
+                </ul>
+            </section>
+
+        </div>
+
+        <footer>
+            <p>Aetheria Developer Guide — Last updated May 17, 2026</p>
+            <p>Use this document as your reference for all development & operations tasks. Refer to it before coding, testing, or deploying.</p>
+        </footer>
+    </div>
+</body>
+</html>

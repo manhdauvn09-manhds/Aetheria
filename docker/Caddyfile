@@ -1,9 +1,9 @@
 # Aetheria — Caddy reverse proxy.
 #
-# Three subdomains under aetheria.games-core.com:
+# Three domains (NOTE: dash naming — CF Free wildcard supports 1 level only):
 #   aetheria.games-core.com         → web      (Next.js)
-#   api.aetheria.games-core.com     → api      (Fastify+tRPC)
-#   ws.aetheria.games-core.com      → realtime (Socket.IO)
+#   aetheria-api.games-core.com     → api      (Fastify+tRPC)
+#   aetheria-ws.games-core.com      → realtime (Socket.IO)
 #
 # In local dev (`docker compose up`) Caddy starts in HTTP-only mode on
 # port 80 because no public DNS resolves to the laptop. Production
