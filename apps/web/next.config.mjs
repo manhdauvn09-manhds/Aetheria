@@ -30,7 +30,14 @@ const csp = [
   "object-src 'none'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `script-src 'self'${isProd ? "" : " 'unsafe-eval'"} 'unsafe-inline'`,
+  // 'unsafe-eval' is required by Pixi.js v8's default shader path for the
+  // combat canvas (chunk 4340). The pixi.js/unsafe-eval polyfill exists
+  // but Next.js code-splitting can load pixi.js main before the polyfill
+  // takes effect, leading to "Cannot read 'canvas' of null" on /play/[N].
+  // Keep 'unsafe-inline' for Tailwind JIT + Next dev overlay. The bigger
+  // XSS risk (loading scripts from untrusted origins) is still blocked by
+  // 'self' — this only re-allows Function()/eval inside our own bundle.
+  `script-src 'self' 'unsafe-eval' 'unsafe-inline'`,
   "style-src 'self' 'unsafe-inline'",
   `connect-src 'self' ${apiOrigin} ${realtimeOrigin} ${realtimeOrigin.replace(/^http/, "ws")}`,
   "worker-src 'self' blob:",

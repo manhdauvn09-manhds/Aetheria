@@ -271,10 +271,18 @@ export const CombatScene = ({
       cleanup = (): void => {
         unsubState?.();
         unsubQueue?.();
-        app?.stage.off("pointertap", onPointerTap);
-        app?.destroy(true);
-        if (host && app?.canvas.parentNode === host) {
-          host.removeChild(app.canvas);
+        // Capture the canvas element BEFORE destroying the Pixi app: after
+        // `destroy(true)` the internal `_canvas` is nulled and the getter
+        // throws "Cannot read properties of null (reading 'canvas')".
+        const canvasEl = app?.canvas ?? null;
+        try {
+          app?.stage.off("pointertap", onPointerTap);
+        } catch { /* ignore: app already torn down */ }
+        try {
+          app?.destroy(true);
+        } catch { /* ignore */ }
+        if (canvasEl && host && canvasEl.parentNode === host) {
+          host.removeChild(canvasEl);
         }
         actorById.clear();
       };
