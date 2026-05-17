@@ -37,6 +37,27 @@ Test-Case 'world.startLevel(1) creates an in_progress run' {
     $script:RunId = $r.run.id
 }
 
+# Regression: when DB level rows have placeholder empty JSON (the seed only
+# guarantees FK target), startLevel MUST fall back to game-assets JSON for
+# map/encounter content. Empty map breaks the client (.tiles.length crash).
+Test-Case 'world.startLevel returns a renderable map (tiles.length > 0)' {
+    $r = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    Assert-NotNull $r.level.map 'level.map'
+    $tiles = $r.level.map.tiles
+    Assert-NotNull $tiles 'level.map.tiles'
+    Assert-True ($tiles.Count -gt 0) "tiles array must be non-empty (got $($tiles.Count))"
+    Assert-True ($r.level.map.width -gt 0) 'map.width > 0'
+    Assert-True ($r.level.map.height -gt 0) 'map.height > 0'
+}
+
+Test-Case 'world.startLevel returns encounter with at least one wave' {
+    $r = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    Assert-NotNull $r.level.encounter 'level.encounter'
+    $waves = $r.level.encounter.waves
+    Assert-NotNull $waves 'encounter.waves'
+    Assert-True ($waves.Count -ge 1) "at least 1 wave (got $($waves.Count))"
+}
+
 # Resume the run we just created.
 Test-Case 'world.resumeRun returns the same run' {
     if (-not $script:RunId) { throw 'Prior test did not capture a run id' }

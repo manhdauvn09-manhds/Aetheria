@@ -289,6 +289,18 @@ export class WorldService {
       }),
     );
     if (row) {
+      // If DB row exists but content columns (map/encounter/rewards) are empty
+      // placeholders from the seed (e.g. `{}`), merge in the asset JSON so the
+      // client receives a renderable level. The seed only guarantees the FK
+      // target exists; level CONTENT lives in `@aetheria/game-assets` until
+      // the level designer pipeline lands (Step 4).
+      const asset = loadAllLevels().find((l) => l.levelNumber === levelNumber);
+      const mapHasTiles =
+        row.map !== null &&
+        typeof row.map === "object" &&
+        !Array.isArray(row.map) &&
+        Array.isArray((row.map as { tiles?: unknown }).tiles) &&
+        ((row.map as { tiles: unknown[] }).tiles).length > 0;
       return {
         id: row.id.toString(),
         slug: slugFromName(row.name, row.levelNumber),
@@ -299,10 +311,14 @@ export class WorldService {
         difficulty: row.difficulty,
         minAccountLevel: row.minAccountLevel,
         version: row.version,
-        map: row.map,
-        encounter: row.encounter,
-        rewards: row.rewards,
-        discoverySecrets: row.discoverySecrets ?? null,
+        map: mapHasTiles ? row.map : (asset?.map ?? row.map),
+        encounter: isNonEmptyObject(row.encounter)
+          ? row.encounter
+          : (asset?.encounter ?? row.encounter),
+        rewards: isNonEmptyObject(row.rewards)
+          ? row.rewards
+          : (asset?.rewards ?? row.rewards),
+        discoverySecrets: row.discoverySecrets ?? asset?.discoverySecrets ?? null,
       };
     }
     // Dev fallback: pick from the asset JSONs.
@@ -322,6 +338,11 @@ const castStatus = (s: string): RunOut["status"] => {
 const snapshotAsObject = (raw: unknown): Readonly<Record<string, unknown>> | null => {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
   return raw as Readonly<Record<string, unknown>>;
+};
+
+const isNonEmptyObject = (raw: unknown): boolean => {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return false;
+  return Object.keys(raw as Record<string, unknown>).length > 0;
 };
 
 const slugFromName = (name: string, levelNumber: number): string =>
