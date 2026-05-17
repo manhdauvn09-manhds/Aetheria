@@ -168,8 +168,9 @@ const ActorRow = ({ label, actor }: { label: string; actor: Actor }): JSX.Elemen
   <div className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-950/40 p-2">
     <div>
       <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
-      <div className="font-mono text-zinc-100">
-        {actor.id} <span className="text-zinc-500">· {actor.side}</span>
+      <div className="text-zinc-100">
+        <span className="font-semibold">{actor.unit || actor.id}</span>{" "}
+        <span className="text-zinc-500">· {actor.side}</span>
       </div>
       <div className="text-xs text-zinc-400">
         {actor.element} · q{actor.pos.q.toString()},r{actor.pos.r.toString()}

@@ -98,7 +98,9 @@ export class CombatRunService {
     await this.deps.mysql.run.update({
       where: { id: ref.runId },
       data: {
-        snapshot: fresh as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        // hydrate() expects the SerializedState envelope `{schemaVersion, state}`,
+        // not raw BattleState. Use serializeState() to keep the contract.
+        snapshot: serializeState(fresh) as unknown as MysqlPrisma.Prisma.InputJsonValue,
         actionLog: [] as unknown as MysqlPrisma.Prisma.InputJsonValue,
       },
     });
@@ -145,7 +147,7 @@ export class CombatRunService {
     await this.deps.mysql.run.update({
       where: { id: ref.runId },
       data: {
-        snapshot: result.state as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        snapshot: serializeState(result.state) as unknown as MysqlPrisma.Prisma.InputJsonValue,
         actionLog: nextLog as unknown as MysqlPrisma.Prisma.InputJsonValue,
         status: runStatus,
         ...(runStatus === "in_progress" ? {} : { endedAt: new Date() }),
@@ -222,18 +224,68 @@ export class CombatRunService {
 // synthesise a 6×4 plain grid with one player + one enemy so the
 // engine has a valid starting state that's deterministic per run.
 
+// Roster used for the synthesised encounter. Difficulty scales with level
+// number so progression feels visible even before the level-designer
+// pipeline lands. Indexes 0..7 mirror the 8-character roster from the
+// game guideline (Aevra, Kyo, Lyra, Brann, Mira, Vex, Solen, Null).
+const HERO_ROSTER: ReadonlyArray<{
+  readonly id: string;
+  readonly unit: string;
+  readonly element: "verdant" | "ember" | "frost" | "tide" | "sky" | "void";
+  readonly atk: number;
+  readonly def: number;
+  readonly spd: number;
+}> = [
+  { id: "aevra", unit: "Aevra",  element: "ember",   atk: 32, def: 10, spd: 65 },
+  { id: "kyo",   unit: "Kyo",    element: "void",    atk: 28, def: 15, spd: 55 },
+  { id: "lyra",  unit: "Lyra",   element: "sky",     atk: 36, def:  8, spd: 60 },
+  { id: "brann", unit: "Brann",  element: "verdant", atk: 24, def: 22, spd: 45 },
+];
+
+const ENEMY_ARCHETYPES: ReadonlyArray<{
+  readonly id: string;
+  readonly unit: string;
+  readonly element: "verdant" | "ember" | "frost" | "tide" | "sky" | "void";
+}> = [
+  { id: "frost_wraith", unit: "Frost Wraith", element: "frost"   },
+  { id: "ember_husk",   unit: "Ember Husk",   element: "ember"   },
+  { id: "void_stalker", unit: "Void Stalker", element: "void"    },
+  { id: "tide_brute",   unit: "Tide Brute",   element: "tide"    },
+];
+
 const synthesiseInit = (
   ref: RunRef,
-  _level: { levelNumber: number; name: string },
+  level: { levelNumber: number; name: string },
 ): CreateBattleInput => {
   const tiles: Tile[] = [];
   for (let q = 0; q < 6; q++) {
     for (let r = 0; r < 4; r++) {
-      tiles.push({ q, r, terrain: "plain", elev: 0 });
+      // Sprinkle some visual variety: forest fringe on top row, plain elsewhere
+      const terrain: Tile["terrain"] =
+        r === 0 && (q === 1 || q === 4) ? "forest" :
+        r === 3 && q === 5             ? "shrine" :
+                                         "plain";
+      tiles.push({ q, r, terrain, elev: 0 });
     }
   }
-  const player = synthActor("hero", "player", "ember", { q: 0, r: 0 }, 80);
-  const enemy = synthActor("foe", "enemy", "frost", { q: 4, r: 2 }, 60);
+  // Hero rotates through roster by levelNumber so each level shows variety.
+  const heroIdx = Math.max(0, (level.levelNumber - 1)) % HERO_ROSTER.length;
+  const enemyIdx = Math.max(0, (level.levelNumber - 1)) % ENEMY_ARCHETYPES.length;
+  const heroSpec = HERO_ROSTER[heroIdx]!;
+  const enemySpec = ENEMY_ARCHETYPES[enemyIdx]!;
+  // HP scales gently with level so higher levels feel meatier.
+  const heroHp = 80 + Math.min(40, level.levelNumber * 2);
+  const enemyHp = 50 + Math.min(60, level.levelNumber * 3);
+  const player = synthActor(
+    heroSpec.id, heroSpec.unit, "player", heroSpec.element,
+    { q: 0, r: 1 }, heroHp,
+    { atk: heroSpec.atk, def: heroSpec.def, spd: heroSpec.spd },
+  );
+  const enemy = synthActor(
+    enemySpec.id, enemySpec.unit, "enemy", enemySpec.element,
+    { q: 4, r: 2 }, enemyHp,
+    { atk: 24 + level.levelNumber, def: 8, spd: 48 },
+  );
   // `seed` omitted on purpose — `createBattle` derives it from `battleId`.
   return {
     battleId: `run-${ref.runId.toString()}`,
@@ -246,23 +298,25 @@ const synthesiseInit = (
 
 const synthActor = (
   id: string,
+  unit: string,
   side: "player" | "enemy",
-  element: "ember" | "frost",
+  element: "verdant" | "ember" | "frost" | "tide" | "sky" | "void",
   pos: { q: number; r: number },
   hp: number,
+  combat: { atk: number; def: number; spd: number },
 ): Actor => ({
   id,
   side,
-  unit: id,
+  unit,
   element,
   stats: {
     hp,
     maxHp: hp,
     ap: 3,
     apRegen: 3,
-    atk: 30,
-    def: 10,
-    spd: side === "player" ? 60 : 50,
+    atk: combat.atk,
+    def: combat.def,
+    spd: combat.spd,
     move: 2,
   },
   pos,
@@ -289,4 +343,5 @@ const parseActionLog = (raw: unknown): readonly Action[] => {
   return [];
 };
 
-void serializeState; // keep import warm for stable JSON contract reference
+// serializeState is now used in start() + submitAction() (snapshot must be the
+// `{schemaVersion, state}` envelope, not raw BattleState).

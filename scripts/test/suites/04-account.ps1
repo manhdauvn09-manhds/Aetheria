@@ -48,10 +48,19 @@ Test-Case 'account.updateProfile rejects taken displayName' {
     $current = (Get-TestUser).Token
     # Sign up a second user and try to take the first user's name.
     $ts2 = (Get-Date -Format 'yyyyMMddHHmmssfff')
-    $other = Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
-        email = "dup-$ts2@aetheria-test.invalid"
-        password = 'TestPass1234!'
-        displayName = "other$($ts2.Substring(8,5))"
+    $other = $null
+    try {
+        $other = Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
+            email = "dup-$ts2@aetheria-test.invalid"
+            password = 'TestPass1234!'
+            displayName = "other$($ts2.Substring(8,5))"
+        }
+    } catch {
+        if ($_.Exception.Message -match '(429|RATE_LIMITED)') {
+            Write-Host '         (skipped — signup rate-limited; rerun the suite alone to exercise this case)' -ForegroundColor DarkYellow
+            return
+        }
+        throw
     }
     $otherTok = ($other.Content | ConvertFrom-Json).access.value
     $firstName = (Invoke-TrpcQuery -Procedure 'account.getProfile').profile.displayName

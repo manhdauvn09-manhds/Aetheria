@@ -67,6 +67,10 @@ export const HexMapRenderer = ({
 
     void (async () => {
       // Dynamic import keeps Pixi out of the SSR bundle.
+      // `/unsafe-eval` is the misnamed CSP-safe variant: side-effect
+      // import that patches Pixi's extensions registry so shader
+      // compilation works under `script-src 'self'` (no unsafe-eval).
+      await import("pixi.js/unsafe-eval");
       const Pixi = await import("pixi.js");
       if (cancelled) return;
 

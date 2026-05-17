@@ -140,30 +140,39 @@ export class WorldService {
         },
       }),
     );
-    if (rows && rows.length > 0) {
-      return rows.map((r) => ({
-        id: r.id.toString(),
-        slug: slugFromName(r.name, r.levelNumber),
-        realmId: r.realmId.toString(),
-        levelNumber: r.levelNumber,
-        name: r.name,
-        type: r.type,
-        difficulty: r.difficulty,
-        minAccountLevel: r.minAccountLevel,
-        version: r.version,
-      }));
-    }
-    return loadAllLevels()
+    // Merge DB rows with the procedural asset catalog so the player can
+    // navigate to the full 100-level progression even when the DB only
+    // has the 8 seed placeholders. DB rows win for levelNumbers they
+    // cover (they carry the canonical row id used by runs.level_id).
+    const fromDb = (rows ?? []).map((r) => ({
+      id: r.id.toString(),
+      slug: slugFromName(r.name, r.levelNumber),
+      realmId: r.realmId.toString(),
+      levelNumber: r.levelNumber,
+      name: r.name,
+      type: r.type,
+      difficulty: r.difficulty,
+      minAccountLevel: r.minAccountLevel,
+      version: r.version,
+    }));
+    const dbNumbers = new Set(fromDb.map((l) => l.levelNumber));
+    const fromAssets = loadAllLevels()
       .filter((l) => BigInt(l.realmId) === realmId)
+      .filter((l) => !dbNumbers.has(l.levelNumber))
       .map(assetToSummary);
+    return [...fromDb, ...fromAssets].sort((a, b) => a.levelNumber - b.levelNumber);
   }
 
   async startLevel(input: StartLevelInput): Promise<StartLevelResult> {
     const detail = await this.loadLevelDetail(input.levelNumber);
+    // The DB seed only includes 8 placeholder level rows; levels 9..100
+    // come from the game-assets procedural generator. Ensure the
+    // levels row exists so the runs.level_id FK can resolve.
+    const levelDbId = await this.ensureLevelRow(detail);
     const created = await this.deps.mysql.run.create({
       data: {
         userId: input.userId,
-        levelId: BigInt(detail.id),
+        levelId: levelDbId,
         status: "in_progress",
         score: 0,
         stars: 0,
@@ -267,6 +276,41 @@ export class WorldService {
   }
 
   // ── Internals ──────────────────────────────────────────────────────
+
+  /**
+   * Ensure a `levels` row exists for the given level. If the level is one
+   * of the seeded 1..8 placeholders we return its existing id; otherwise
+   * we upsert a new row using the procedurally-generated detail so the
+   * `runs.level_id` FK can resolve.
+   */
+  private async ensureLevelRow(detail: LevelDetailOut): Promise<bigint> {
+    const existing = await tolerateDbMiss(() =>
+      this.deps.mysql.level.findUnique({
+        where: { levelNumber: detail.levelNumber },
+        select: { id: true },
+      }),
+    );
+    if (existing) return existing.id;
+    // Upsert by levelNumber (unique). Persist a minimal row — content
+    // continues to come from game-assets via the loadLevelDetail
+    // fallback, so we don't duplicate map/encounter JSON here.
+    const created = await this.deps.mysql.level.create({
+      data: {
+        realmId: BigInt(detail.realmId),
+        levelNumber: detail.levelNumber,
+        name: detail.name,
+        type: detail.type,
+        difficulty: detail.difficulty,
+        minAccountLevel: detail.minAccountLevel,
+        version: detail.version,
+        map: {} as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        encounter: {} as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        rewards: {} as unknown as MysqlPrisma.Prisma.InputJsonValue,
+      },
+      select: { id: true },
+    });
+    return created.id;
+  }
 
   private async loadLevelDetail(levelNumber: number): Promise<LevelDetailOut> {
     const row = await tolerateDbMiss(() =>

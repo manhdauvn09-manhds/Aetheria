@@ -59,6 +59,16 @@ const SIDE_FILL: Record<string, number> = {
   enemy: 0xd6463f,
   neutral: 0xf2c14e,
 };
+// Element-themed glow ring around each actor. Picked to be readable on
+// the dark tile background.
+const ELEMENT_GLOW: Record<string, number> = {
+  verdant: 0x6cd66c,
+  ember:   0xff7a3a,
+  frost:   0xa8d5e2,
+  tide:    0x4fb6c0,
+  sky:     0xb6c7ff,
+  void:    0xc59cff,
+};
 
 export const CombatScene = ({
   width = DEFAULT_W,
@@ -104,6 +114,11 @@ export const CombatScene = ({
     let animating = false;
 
     void (async () => {
+      // `pixi.js/unsafe-eval` is the misnamed CSP-safe variant: it has
+      // SIDE EFFECTS that patch Pixi's extension registry so shader
+      // compilation does NOT use `Function()` / eval. Import it first
+      // for the side effect, then import the main API as usual.
+      await import("pixi.js/unsafe-eval");
       const Pixi = await import("pixi.js");
       if (cancelled) return;
 
@@ -297,6 +312,7 @@ export const CombatScene = ({
 
 interface ActorSprite {
   readonly container: Container;
+  readonly glow: Graphics;
   readonly body: Graphics;
   readonly hpBar: Graphics;
   readonly label: Text;
@@ -311,19 +327,29 @@ const makeActorSprite = (
   hexSize: number,
 ): ActorSprite => {
   const container = new Pixi.Container();
+  const glow = new Pixi.Graphics();
   const body = new Pixi.Graphics();
   const hpBar = new Pixi.Graphics();
   const label = new Pixi.Text({
-    text: actor.id.slice(0, 4),
-    style: { fontFamily: "monospace", fontSize: 10, fill: 0xffffff },
+    // Use the unit display name if available; fall back to id prefix.
+    text: actor.unit || actor.id.slice(0, 6),
+    style: {
+      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto",
+      fontSize: 11,
+      fill: 0xffffff,
+      fontWeight: "bold",
+      stroke: { color: 0x000000, width: 3, alpha: 0.85 },
+    },
   });
   label.anchor.set(0.5, 1.4);
+  container.addChild(glow);
   container.addChild(body);
   container.addChild(hpBar);
   container.addChild(label);
 
   const sprite: ActorSprite = {
     container,
+    glow,
     body,
     hpBar,
     label,
@@ -342,22 +368,41 @@ const updateActorSprite = (
   sprite.container.position.set(x, y);
   sprite.pos = actor.pos;
 
+  // Element-themed outer glow halo (visual hook for the elemental wheel).
+  sprite.glow.clear();
+  const glowColor = ELEMENT_GLOW[actor.element] ?? 0xffffff;
+  sprite.glow.circle(0, 0, hexSize * 0.5);
+  sprite.glow.fill({ color: glowColor, alpha: actor.defeated ? 0.05 : 0.22 });
+
+  // Body — bigger, with side-themed fill + thicker outline for definition.
   sprite.body.clear();
-  sprite.body.circle(0, 0, hexSize * 0.36);
+  sprite.body.circle(0, 0, hexSize * 0.4);
   sprite.body.fill({
     color: SIDE_FILL[actor.side] ?? 0x888888,
     alpha: actor.defeated ? 0.25 : 1,
   });
-  sprite.body.stroke({ color: 0x000000, width: 2, alpha: 0.55 });
+  sprite.body.stroke({ color: 0x000000, width: 2, alpha: 0.6 });
+  // Small element-tint accent dot at top-right of the body — like a
+  // class icon. Helps tell similar-side actors apart.
+  sprite.body.circle(hexSize * 0.22, -hexSize * 0.22, hexSize * 0.13);
+  sprite.body.fill({ color: glowColor, alpha: actor.defeated ? 0.2 : 0.85 });
+  sprite.body.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
 
   sprite.hpBar.clear();
-  const w = hexSize * 0.7;
-  const h = 4;
-  sprite.hpBar.rect(-w / 2, hexSize * 0.5, w, h);
+  const w = hexSize * 0.78;
+  const h = 5;
+  sprite.hpBar.rect(-w / 2, hexSize * 0.55, w, h);
   sprite.hpBar.fill({ color: 0x222226 });
+  sprite.hpBar.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
   const ratio = actor.stats.maxHp > 0 ? actor.stats.hp / actor.stats.maxHp : 0;
-  sprite.hpBar.rect(-w / 2, hexSize * 0.5, w * Math.max(0, Math.min(1, ratio)), h);
-  sprite.hpBar.fill({ color: ratio > 0.4 ? 0x6cd66c : 0xd6463f });
+  sprite.hpBar.rect(-w / 2, hexSize * 0.55, w * Math.max(0, Math.min(1, ratio)), h);
+  sprite.hpBar.fill({
+    color: ratio > 0.6 ? 0x6cd66c : ratio > 0.3 ? 0xf2c14e : 0xd6463f,
+  });
+
+  // Keep label in sync with the unit name (re-render if the unit changed,
+  // though that's rare during a battle).
+  sprite.label.text = actor.unit || actor.id.slice(0, 6);
 
   sprite.container.alpha = actor.defeated ? 0.4 : 1;
 };

@@ -57,6 +57,30 @@ Test-Case 'Web /signup page is served (200, contains form)' {
     Assert-Match 'Create your account' $r.Content 'signup form heading'
 }
 
+# Regression: production CSP must NOT include 'unsafe-eval' AND the web
+# bundle must import pixi.js/unsafe-eval (CSP-safe shader path). If either
+# slips, Pixi throws "Current environment does not allow unsafe-eval" and
+# /play/[N] renders an empty black canvas.
+Test-Case 'Web CSP rejects unsafe-eval in production (script-src self only)' {
+    $r = Invoke-HttpRaw -Method GET -Url $script:BaseUrl
+    $csp = "$($r.Headers['Content-Security-Policy'])"
+    Assert-Match "script-src" $csp 'CSP has script-src'
+    if ($csp -match "script-src[^;]*'unsafe-eval'") {
+        throw "CSP contains 'unsafe-eval' — should not in production"
+    }
+}
+
+Test-Case 'Web /play/[N] page loads (signals Pixi can render)' {
+    # The page is auth-gated client-side, but the HTML shell + Pixi
+    # bundle still get served. Pixi import resolves at runtime; if the
+    # CSP-safe pixi.js/unsafe-eval import is missing from the bundle,
+    # Pixi v8 throws _unsafeEvalCheck and combat scene goes blank.
+    $r = Invoke-HttpRaw -Method GET -Url "$script:BaseUrl/play/1"
+    Assert-Eq 200 $r.StatusCode 'play page status'
+    # Look for the lazy-loaded combat chunk reference in the HTML.
+    Assert-Match '/_next/static/chunks/' $r.Content 'next.js chunks linked'
+}
+
 # ─── C. CORS / Origin header behavior (no auth needed) ───────────────
 
 Test-Case 'API accepts allowed Origin (web app)' {

@@ -1,0 +1,170 @@
+# Suite 10 — combat playthrough end-to-end.
+#
+# Regression tests for the "Run snapshot is corrupted" outage where
+# combat.start saved the raw BattleState to runs.snapshot instead of the
+# `{schemaVersion, state}` envelope that hydrate() expects on next
+# submitAction.
+#
+# Covers:
+#   - combat.start initializes a battle and returns a renderable state
+#   - The persisted snapshot survives a round-trip (submitAction loads OK)
+#   - The full action loop: defend → end_turn → enemy_turn → back to player
+#   - Replay-hash integrity check passes after several actions
+#   - Synthesised state has a player hero on a non-empty tile grid
+
+Start-Suite '10' 'Combat playthrough end-to-end'
+
+# Each test that follows must operate on a fresh run so they're isolated.
+# We use the suite's default user (from Get-TestUser) and create runs
+# inline as needed.
+
+$script:RunId10 = $null
+
+Test-Case 'world.startLevel(1) → fresh run for combat tests' {
+    $r = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    Assert-NotNull $r.run.id 'run.id'
+    Assert-Eq 'in_progress' $r.run.status
+    $script:RunId10 = [string]$r.run.id
+}
+
+$script:HeroId10 = $null
+
+Test-Case 'combat.start initializes battle with non-empty tiles + hero actor' {
+    Assert-NotNull $script:RunId10 'run id captured'
+    $r = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $script:RunId10 }
+    Assert-NotNull $r.state 'state'
+    Assert-NotNull $r.state.battleId 'battleId'
+    Assert-True ($r.state.tiles.Count -gt 0) "tiles non-empty (got $($r.state.tiles.Count))"
+    Assert-True ($r.state.actors.Count -ge 2) "at least 2 actors (got $($r.state.actors.Count))"
+    Assert-Eq 'player_turn' $r.state.phase 'starts on player_turn'
+    # Hero present — capture id for subsequent actions
+    $hero = $r.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    Assert-NotNull $hero 'player-side actor'
+    Assert-True ($hero.stats.hp -gt 0) 'hero hp > 0'
+    Assert-True ($hero.stats.ap -ge 1) 'hero ap >= 1'
+    Assert-NotNull $hero.unit 'hero has unit name'
+    $script:HeroId10 = $hero.id
+}
+
+# Regression: this used to throw "Run snapshot is corrupted" because
+# start() persisted the raw BattleState (without {schemaVersion, state}
+# envelope) and hydrate() then rejected it.
+Test-Case 'combat.submitAction(defend) succeeds (no snapshot corruption)' {
+    Assert-NotNull $script:RunId10 'run id'
+    Assert-NotNull $script:HeroId10 'hero id'
+    $r = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $script:RunId10
+        action = @{ kind = 'defend'; actorId = $script:HeroId10 }
+    }
+    Assert-NotNull $r.state 'state'
+    Assert-Eq 'in_progress' $r.runStatus
+}
+
+Test-Case 'combat.submitAction(end_turn) moves to enemy turn' {
+    $r = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $script:RunId10
+        action = @{ kind = 'end_turn'; actorId = $script:HeroId10 }
+    }
+    Assert-NotNull $r.state 'state'
+    # After hero ends turn, either we're in enemy_turn or already back in
+    # player_turn (synth enemy AI may pass). Both are valid for this test.
+    $okPhase = ($r.state.phase -eq 'enemy_turn') -or ($r.state.phase -eq 'player_turn')
+    Assert-True $okPhase "phase should be enemy_turn or player_turn (got $($r.state.phase))"
+}
+
+Test-Case 'combat.replay verifies action_log + snapshot integrity' {
+    $r = Invoke-TrpcQuery -Procedure 'combat.replay' -Payload @{ runId = $script:RunId10 }
+    Assert-NotNull $r.expected 'expected hash'
+    Assert-NotNull $r.actual 'actual hash'
+    Assert-Eq $true $r.ok "replay hash mismatch — snapshot/log inconsistent (expected=$($r.expected), actual=$($r.actual))"
+}
+
+# Second run: verify each action type the engine accepts is reachable.
+$script:RunId10b = $null
+
+$script:HeroId10b = $null
+
+Test-Case 'Second run: fresh combat for multi-action sequence' {
+    $r1 = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $script:RunId10b = [string]$r1.run.id
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $script:RunId10b }
+    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    $script:HeroId10b = $hero.id
+}
+
+Test-Case 'Sequence: defend → end_turn → end_turn (cycle full turn)' {
+    $rid = $script:RunId10b
+    $hid = $script:HeroId10b
+    $a1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $rid; action = @{ kind = 'defend'; actorId = $hid }
+    }
+    Assert-Eq 'in_progress' $a1.runStatus
+    $a2 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $rid; action = @{ kind = 'end_turn'; actorId = $hid }
+    }
+    Assert-NotNull $a2.state 'state after end_turn'
+    # Replay should still validate
+    $rep = Invoke-TrpcQuery -Procedure 'combat.replay' -Payload @{ runId = $rid }
+    Assert-Eq $true $rep.ok 'replay hash still matches after sequence'
+}
+
+# Verify level access for the full 100-level catalog (read-only).
+Test-Case 'world.levelsForRealm covers all 5 realms with at least 1 level each' {
+    $realms = @(Invoke-TrpcQuery -Procedure 'world.realms')
+    Assert-True ($realms.Count -ge 5) "5+ realms (got $($realms.Count))"
+    foreach ($realm in $realms) {
+        # @( ) forces array even when the API returns a single object
+        # (PowerShell auto-unwraps single-item arrays otherwise).
+        $lvs = @(Invoke-TrpcQuery -Procedure 'world.levelsForRealm' -Payload @{
+            realmId = [int]$realm.id
+        })
+        Assert-True ($lvs.Count -ge 1) "realm $($realm.id) has at least 1 level (got $($lvs.Count))"
+    }
+}
+
+# Verify each accessible level returns a renderable map (not just level 1).
+# Tests levels 2-5 since 1 is already covered in suite 05.
+foreach ($n in @(2, 3, 4, 5)) {
+    $levelN = $n
+    Test-Case "world.startLevel($levelN) returns renderable map" {
+        $r = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{
+            levelNumber = $levelN
+        }
+        Assert-NotNull $r.level.map "level $levelN map"
+        Assert-True ($r.level.map.tiles.Count -gt 0) "level $levelN tiles non-empty"
+    }
+}
+
+# Procedural levels 9-100 (no JSON, no DB row at boot time): the world
+# service must (a) synthesise the level from the game-assets generator,
+# and (b) auto-upsert a `levels` row so the FK on `runs.level_id`
+# resolves. This catches regressions in either of those steps.
+foreach ($n in @(10, 25, 50, 75, 99, 100)) {
+    $levelN = $n
+    Test-Case "world.startLevel($levelN) procedurally generated level works" {
+        $r = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{
+            levelNumber = $levelN
+        }
+        Assert-NotNull $r.level.map "level $levelN map"
+        Assert-True ($r.level.map.tiles.Count -gt 0) "level $levelN tiles non-empty"
+        Assert-NotNull $r.run.id "level $levelN run created (FK resolved)"
+    }
+}
+
+Test-Case 'Level 100 is the boss of realm 5 (Voidmaw)' {
+    $r = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 100 }
+    Assert-Eq 'boss' $r.level.type 'level 100 is boss-type'
+    Assert-Eq '5' $r.level.realmId 'level 100 in realm 5'
+}
+
+# Higher-level combat: still uses synth init, hero rotates through roster.
+Test-Case 'combat.start at level 50 returns valid state with named hero' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 50 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    Assert-True ($cs.state.actors.Count -ge 2) 'has actors'
+    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    Assert-NotNull $hero.unit 'hero has unit name (Aevra/Kyo/Lyra/Brann)'
+    Assert-True ($hero.stats.hp -gt 80) "hero hp scales with level (got $($hero.stats.hp))"
+}
+
+End-Suite
