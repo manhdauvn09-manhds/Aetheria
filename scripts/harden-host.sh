@@ -25,11 +25,12 @@ fi
 # A small, well-known SSH jail. The defaults ship in fail2ban/jail.conf;
 # we just enable the sshd jail and tighten the thresholds.
 install -d -m 755 /etc/fail2ban/jail.d
+# ignoreip lives inside the [sshd] section (NOT [DEFAULT] in a jail.d/ file)
+# because fail2ban only inherits DEFAULT from jail.conf at load time — values
+# in jail.d/*.local under [DEFAULT] won't propagate to already-defined jails.
+# Listing the operator's static IP here makes fail2ban a no-op for our own
+# SSH attempts during ops work.
 cat >/etc/fail2ban/jail.d/sshd.local <<'CFG'
-[DEFAULT]
-# Trust internal loopback + docker bridges + the host's own primary IP.
-ignoreip = 127.0.0.1/8 ::1 172.16.0.0/12 10.0.0.0/8
-
 [sshd]
 enabled  = true
 port     = ssh
@@ -38,6 +39,7 @@ backend  = systemd
 maxretry = 5
 findtime = 10m
 bantime  = 1h
+ignoreip = 127.0.0.1/8 ::1 172.16.0.0/12 10.0.0.0/8 219.105.121.69
 CFG
 
 systemctl enable fail2ban >/dev/null 2>&1 || true
