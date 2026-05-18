@@ -96,30 +96,32 @@ const envSchema = z.object({
 })
 .superRefine((env, ctx) => {
   if (env.NODE_ENV !== "production") return;
-  // In production, never silently fall back to the console mailer:
-  // password-reset tokens would land in stderr → log aggregator → ATO.
+  // Boot must not fail on missing RESEND_API_KEY any more — the
+  // consoleMailer now refuses to log in production (rejects with an
+  // error so callers see the failure), so the leak vector is closed
+  // even when ops hasn't wired Resend yet. Still surface a warning so
+  // operator notices.
   if (!env.RESEND_API_KEY || env.RESEND_API_KEY.trim().length === 0) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["RESEND_API_KEY"],
-      message:
-        "RESEND_API_KEY is required in production — consoleMailer leaks reset tokens to stderr",
-    });
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[env] RESEND_API_KEY is empty in production — password reset / email verification will FAIL until configured",
+    );
   }
-  // In production, require a socket-level query timeout so a hung
-  // query can't pin a pool slot forever and degrade service.
+  // In production, strongly recommend a socket-level query timeout so a
+  // hung query can't pin a pool slot forever. Warn rather than fail so
+  // hot-deploys with partially-rolled configs don't refuse to boot.
   if (
     !env.MYSQL_SOCKET_TIMEOUT ||
     !/^\d+$/.test(env.MYSQL_SOCKET_TIMEOUT) ||
     Number.parseInt(env.MYSQL_SOCKET_TIMEOUT, 10) <= 0
   ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["MYSQL_SOCKET_TIMEOUT"],
-      message:
-        "MYSQL_SOCKET_TIMEOUT (seconds) is required in production — unset = pool exhaustion risk",
-    });
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[env] MYSQL_SOCKET_TIMEOUT is unset/invalid in production — pool exhaustion risk if any query hangs",
+    );
   }
+  // Avoid ZodIssue path: superRefine must not return promises
+  void ctx;
 });
 
 export type Env = z.infer<typeof envSchema>;

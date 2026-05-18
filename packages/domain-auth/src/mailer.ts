@@ -20,9 +20,26 @@ export interface Mailer {
 }
 
 // ── Console (dev) ────────────────────────────────────────────────────
+//
+// Refuses to log in production: a reset-token URL in stderr → log
+// aggregator → ATO. AuthService callers should swallow the throw the
+// same way they swallow ResendMailer 5xx (user can try again), so the
+// effect is "password reset is unavailable until ops configures Resend"
+// rather than "tokens leak silently". A loud refusal beats a quiet leak.
 
 export const consoleMailer = (): Mailer => ({
   send(message) {
+    if (process.env.NODE_ENV === "production") {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[mailer:console] REFUSED in production — would have leaked to=${message.to}; configure RESEND_API_KEY`,
+      );
+      return Promise.reject(
+        new Error(
+          "consoleMailer refuses to log in production (would leak reset tokens) — set RESEND_API_KEY",
+        ),
+      );
+    }
     // eslint-disable-next-line no-console
     console.log(
       `[mailer:console] to=${message.to} subject=${JSON.stringify(message.subject)}\n${message.text}\n`,
