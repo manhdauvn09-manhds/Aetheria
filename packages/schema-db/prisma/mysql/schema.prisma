@@ -258,6 +258,11 @@ model Run {
   stars      Int       @default(0)
   actionLog  Json      @map("action_log")
   snapshot   Json?
+  // Optimistic-lock counter. Bumped on every snapshot/actionLog write so
+  // two concurrent combat.submitAction calls on the same run can't
+  // clobber each other (whoever loses the race retries or surfaces a
+  // 409). See CombatRunService.submitAction.
+  revision   Int       @default(0)
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   level Level @relation(fields: [levelId], references: [id], onDelete: Restrict)
@@ -409,6 +414,11 @@ model Friendship {
 
   @@id([userId, friendId])
   @@index([friendId], map: "ix_friendships_friend")
+  // ChatService.assertNotBlocked queries `status='blocked' AND ((u,f) OR
+  // (f,u))` on every whisper — cover both branches so each side is a
+  // single index seek instead of a status scan.
+  @@index([userId, status], map: "ix_friendships_user_status")
+  @@index([friendId, status], map: "ix_friendships_friend_status")
   @@map("friendships")
 }
 
@@ -425,6 +435,11 @@ model ChatMessage {
 
   @@index([channelType, channelId, createdAt], map: "ix_chat_channel_time")
   @@index([createdAt], map: "ix_chat_created")
+  // Whisper history fetch uses `OR [(senderId=A, channelId=B), (senderId=B,
+  // channelId=A)]`. The (channelType, channelId, createdAt) index covers
+  // branch 1 only; this composite covers the sender→target branch so the
+  // OR doesn't fall back to a filesort under load.
+  @@index([senderId, channelType, channelId, createdAt], map: "ix_chat_sender_channel_time")
   @@map("chat_messages")
 }
 

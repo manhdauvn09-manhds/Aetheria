@@ -19,8 +19,32 @@ const isProd = process.env.NODE_ENV === "production";
 // CSP: tightened. `'unsafe-inline'` kept on style-src for Tailwind JIT and
 // Next dev overlay; tighten when nonce strategy lands. Connect-src widened
 // to API + realtime origins (wss + https).
-const apiOrigin      = process.env.NEXT_PUBLIC_API_URL      ?? "http://localhost:3001";
-const realtimeOrigin = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3002";
+//
+// IMPORTANT: any env value injected into a CSP directive MUST be reduced
+// to a bare origin (proto + host[:port]) before concatenation — otherwise
+// a misconfigured env (e.g. "https://api.foo.com; script-src *") could
+// inject directives. parseOrigin() rejects anything that isn't an
+// http(s) URL with a normal hostname.
+const parseOrigin = (raw, fallback) => {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      throw new Error(`unsupported protocol: ${u.protocol}`);
+    }
+    if (!u.hostname || /[\s;'"]/.test(u.hostname)) {
+      throw new Error(`invalid host: ${u.hostname}`);
+    }
+    return u.origin;
+  } catch (e) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(`Invalid origin "${raw}": ${e.message}`);
+    }
+    return fallback;
+  }
+};
+
+const apiOrigin      = parseOrigin(process.env.NEXT_PUBLIC_API_URL      ?? "http://localhost:3001", "http://localhost:3001");
+const realtimeOrigin = parseOrigin(process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3002", "http://localhost:3002");
 
 const csp = [
   "default-src 'self'",

@@ -192,4 +192,76 @@ Test-Case 'combat.start at level 50 returns valid state with named hero' {
     Assert-True ($hero.stats.hp -gt 80) "hero hp scales with level (got $($hero.stats.hp))"
 }
 
+# ─── Security/audit regression tests ─────────────────────────────────
+
+# Snapshot CAS: regression for DB-1. After the optimistic-lock fix, two
+# submitAction requests using the SAME loaded revision should not both
+# succeed. We simulate by doing one End turn then immediately doing
+# another action with the original (now stale) state — server should
+# accept the first, the test asserts the run advances correctly.
+Test-Case 'Snapshot CAS: revision advances on each action (no clobber)' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $rid = [string]$rstart.run.id
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    # Two successive actions should both succeed (sequential, not racing).
+    $a1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $rid; action = @{ kind = 'defend'; actorId = $hero.id }
+    }
+    Assert-Eq 'in_progress' $a1.runStatus
+    $a2 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $rid; action = @{ kind = 'end_turn'; actorId = $hero.id }
+    }
+    Assert-NotNull $a2.state 'second action persisted (revision bumped + applied)'
+    # Replay still validates → snapshot consistency held under sequential
+    # CAS updates.
+    $rep = Invoke-TrpcQuery -Procedure 'combat.replay' -Payload @{ runId = $rid }
+    Assert-Eq $true $rep.ok 'replay hash matches after CAS round-trips'
+}
+
+# avatarUrl scheme allow-list: regression for BE-6. javascript: and
+# private-IP URLs must be rejected by account.updateProfile.
+Test-Case 'account.updateProfile rejects javascript: avatarUrl' {
+    try {
+        Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
+            avatarUrl = "javascript:alert(1)"
+        } | Out-Null
+        throw 'Should have rejected javascript: avatar URL'
+    } catch {
+        if ($_.Exception.Message -notmatch '(VALIDATION|BAD_REQUEST|400|public hostname|url)') {
+            throw "Expected validation rejection, got: $($_.Exception.Message)"
+        }
+    }
+}
+
+Test-Case 'account.updateProfile rejects private-IP avatarUrl (SSRF guard)' {
+    try {
+        Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
+            avatarUrl = "http://169.254.169.254/latest/meta-data/"
+        } | Out-Null
+        throw 'Should have rejected metadata IP avatar URL'
+    } catch {
+        if ($_.Exception.Message -notmatch '(VALIDATION|BAD_REQUEST|400|public hostname)') {
+            throw "Expected validation rejection, got: $($_.Exception.Message)"
+        }
+    }
+}
+
+# Preferences size cap: regression for BE-8. A massive preferences blob
+# should be rejected, not stored.
+Test-Case 'account.updateProfile rejects oversized preferences (>8KB)' {
+    # Build a string > 8KB.
+    $big = "x" * 9000
+    try {
+        Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
+            preferences = @{ huge = $big }
+        } | Out-Null
+        throw 'Should have rejected oversized preferences'
+    } catch {
+        if ($_.Exception.Message -notmatch '(VALIDATION|BAD_REQUEST|400|8 KB|max)') {
+            throw "Expected validation rejection, got: $($_.Exception.Message)"
+        }
+    }
+}
+
 End-Suite

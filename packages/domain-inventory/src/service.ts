@@ -231,13 +231,38 @@ export class InventoryService {
                 existing.equippedToUserCharacterId.toString(),
             });
           }
-          await tx.inventory.delete({ where: { id: existing.id } });
+          // Atomic delete-if-still-untouched. If a concurrent consume
+          // already reduced the stack below `quantity`, count is 0
+          // (the row's quantity no longer matches) — surface as conflict
+          // so the duplication exploit (clone via concurrent consume)
+          // can't succeed.
+          const del = await tx.inventory.deleteMany({
+            where: { id: existing.id, quantity: existing.quantity },
+          });
+          if (del.count === 0) {
+            throw AppError.conflict("Inventory stack changed concurrently — retry", {
+              itemId: itemId.toString(),
+            });
+          }
           return { stack: null as InventoryRow | null };
         }
 
-        const updated = await tx.inventory.update({
+        // Atomic decrement: succeed only if `quantity >= requested`.
+        // This is the standard fix for the classic "two consume calls
+        // both see quantity=N and both decrement to N-cost" duplication
+        // race. With updateMany + decrement we get a single SQL
+        // statement that's atomic against InnoDB row locks.
+        const dec = await tx.inventory.updateMany({
+          where: { id: existing.id, quantity: { gte: quantity } },
+          data: { quantity: { decrement: quantity } },
+        });
+        if (dec.count === 0) {
+          throw AppError.conflict("Insufficient inventory quantity (raced)", {
+            requested: quantity,
+          });
+        }
+        const updated = await tx.inventory.findUniqueOrThrow({
           where: { id: existing.id },
-          data: { quantity: consumeResult.newQuantity },
           include: INVENTORY_INCLUDE,
         });
         return { stack: updated };

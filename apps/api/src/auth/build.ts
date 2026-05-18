@@ -18,6 +18,7 @@ import {
   redisOneShotStore,
   redisRefreshStore,
   resendMailer,
+  type AccountRateLimiter,
   type Mailer,
   type OAuthConfig,
   type OneShotTokenStore,
@@ -79,6 +80,13 @@ export const buildAuth = (env: Env, sharedRedis?: Redis | null): AuthBundle => {
     ...(env.DISCORD_CLIENT_ID ? { discord: {} } : {}),
   };
 
+  // Per-account brute-force limiter — 8 attempts / 15 min per (scope, email).
+  // Cluster-safe via Redis, single-process fallback otherwise. Defeats the
+  // credential-stuffing botnet pattern that rotates IPs against one target.
+  const accountRateLimiter: AccountRateLimiter = redis
+    ? redisAccountLimiter(redis, { maxAttempts: 8, windowMs: 15 * 60_000 })
+    : inMemoryAccountLimiter({ maxAttempts: 8, windowMs: 15 * 60_000 });
+
   const service = new AuthService({
     mysql,
     refreshStore,
@@ -86,9 +94,58 @@ export const buildAuth = (env: Env, sharedRedis?: Redis | null): AuthBundle => {
     mailer,
     tokenConfig,
     oauth,
+    accountRateLimiter,
     passwordReset: { redirectUrl: env.PASSWORD_RESET_URL },
     emailVerification: { redirectUrl: env.EMAIL_VERIFICATION_URL },
   });
 
   return { service, ownedRedis, redis, refreshStore };
+};
+
+// ── Per-account rate limiter implementations ─────────────────────────
+//
+// Distinct from the global per-IP fastify bucket in plugins.ts — that one
+// caps *all* auth traffic from a single source IP, but a botnet renting
+// thousands of IPs can still hit one email N times. This limiter is keyed
+// by `sha256(email)` so the attacker can't rotate around it without
+// changing their target.
+
+interface AccountLimiterCfg {
+  readonly maxAttempts: number;
+  readonly windowMs: number;
+}
+
+const redisAccountLimiter = (
+  redis: Redis,
+  cfg: AccountLimiterCfg,
+): AccountRateLimiter => ({
+  async check(accountKey) {
+    const k = `aetheria:rl:acct:${accountKey}`;
+    const count = await redis.incr(k);
+    if (count === 1) await redis.pexpire(k, cfg.windowMs);
+    if (count > cfg.maxAttempts) {
+      const ttl = await redis.pttl(k);
+      return { ok: false, retryS: Math.max(1, Math.ceil(ttl / 1000)) };
+    }
+    return { ok: true };
+  },
+});
+
+const inMemoryAccountLimiter = (cfg: AccountLimiterCfg): AccountRateLimiter => {
+  const buckets = new Map<string, { count: number; resetAt: number }>();
+  return {
+    async check(accountKey) {
+      const now = Date.now();
+      const b = buckets.get(accountKey);
+      if (!b || b.resetAt <= now) {
+        buckets.set(accountKey, { count: 1, resetAt: now + cfg.windowMs });
+        return { ok: true };
+      }
+      if (b.count >= cfg.maxAttempts) {
+        return { ok: false, retryS: Math.max(1, Math.ceil((b.resetAt - now) / 1000)) };
+      }
+      b.count++;
+      return { ok: true };
+    },
+  };
 };

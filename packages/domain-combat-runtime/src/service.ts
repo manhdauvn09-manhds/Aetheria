@@ -84,6 +84,7 @@ interface RunRow {
   readonly status: string;
   readonly actionLog: unknown;
   readonly snapshot: unknown;
+  readonly revision: number;
   readonly level: { readonly levelNumber: number; readonly name: string };
 }
 
@@ -99,15 +100,23 @@ export class CombatRunService {
     }
     const init = synthesiseInit(ref, run.level);
     const fresh = createBattle(init);
-    await this.deps.mysql.run.update({
-      where: { id: ref.runId },
+    // Optimistic concurrency: only update if the row's revision still
+    // matches what we loaded. updateMany returns a count of 0 if some
+    // other request raced ahead — we surface that as a conflict so the
+    // client can retry with a fresh load.
+    const cas = await this.deps.mysql.run.updateMany({
+      where: { id: ref.runId, revision: run.revision },
       data: {
         // hydrate() expects the SerializedState envelope `{schemaVersion, state}`,
         // not raw BattleState. Use serializeState() to keep the contract.
         snapshot: serializeState(fresh) as unknown as MysqlPrisma.Prisma.InputJsonValue,
         actionLog: [] as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        revision: { increment: 1 },
       },
     });
+    if (cas.count === 0) {
+      throw AppError.conflict("Combat state changed concurrently — retry");
+    }
     await audit.write({
       actor: ref.userId,
       action: "combat.start",
@@ -185,15 +194,25 @@ export class CombatRunService {
         : phase === "draw" ? "completed"
         : "in_progress";
 
-    await this.deps.mysql.run.update({
-      where: { id: ref.runId },
+    // CAS write — only commit if revision still matches the one we
+    // loaded above. Prevents concurrent submitAction calls from
+    // clobbering each other's snapshot/actionLog/status.
+    const cas = await this.deps.mysql.run.updateMany({
+      where: { id: ref.runId, revision: run.revision },
       data: {
         snapshot: serializeState(result.state) as unknown as MysqlPrisma.Prisma.InputJsonValue,
         actionLog: nextLog as unknown as MysqlPrisma.Prisma.InputJsonValue,
         status: runStatus,
+        revision: { increment: 1 },
         ...(runStatus === "in_progress" ? {} : { endedAt: new Date() }),
       },
     });
+    if (cas.count === 0) {
+      throw AppError.conflict(
+        "Combat state changed concurrently — refresh and retry",
+        { runId: String(ref.runId), atRevision: run.revision },
+      );
+    }
 
     await audit.write({
       actor: ref.userId,
@@ -238,6 +257,7 @@ export class CombatRunService {
         status: true,
         actionLog: true,
         snapshot: true,
+        revision: true,
         level: { select: { levelNumber: true, name: true } },
       },
     });

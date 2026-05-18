@@ -39,6 +39,7 @@ export {
 } from "./mailer.js";
 export {
   AuthService,
+  type AccountRateLimiter,
   type AuthDeps,
   type AuthMysqlClient,
   type AuthSessionResult,

@@ -68,6 +68,21 @@ export interface EmailVerificationConfig {
   readonly redirectUrl: string;
 }
 
+/**
+ * Per-account rate limiter for sensitive auth flows (login + password
+ * reset). Optional — when omitted, only the IP-level fastify bucket
+ * applies, which is vulnerable to credential-stuffing botnets that
+ * rotate IPs against a single target email.
+ */
+export interface AccountRateLimiter {
+  /**
+   * Record one attempt against `accountKey` (a stable identifier — usually
+   * `sha256(email)`). Returns `{ ok: false, retryS }` to surface a 429,
+   * `{ ok: true }` to let the caller proceed.
+   */
+  check(accountKey: string): Promise<{ ok: true } | { ok: false; retryS: number }>;
+}
+
 export interface AuthDeps {
   readonly mysql: AuthMysqlClient;
   readonly refreshStore: RefreshTokenStore;
@@ -78,6 +93,8 @@ export interface AuthDeps {
   readonly mailer?: Mailer;
   readonly passwordReset?: PasswordResetConfig;
   readonly emailVerification?: EmailVerificationConfig;
+  /** Optional per-email rate limiter; protects against IP-rotation brute force. */
+  readonly accountRateLimiter?: AccountRateLimiter;
 }
 
 export interface SignupInput {
@@ -249,6 +266,12 @@ export class AuthService {
 
   async loginWithEmail(input: LoginInput): Promise<AuthSessionResult> {
     const email = input.email.trim().toLowerCase();
+
+    // Per-email rate-limit BEFORE we hit the password-hash compare —
+    // protects against credential-stuffing botnets that rotate IPs to
+    // bypass the per-IP bucket. We use sha256(email) as the key so the
+    // raw email never lives in Redis.
+    await this.assertAccountRateLimit(email, "login");
 
     const user = await this.deps.mysql.user.findUnique({
       where: { email },
@@ -578,6 +601,28 @@ export class AuthService {
     };
   }
 
+  /**
+   * Per-email rate-limit check. Hashes the email so the raw value never
+   * lives in the limiter store, then asks the configured limiter (if any)
+   * whether this account has too many recent attempts. Surfaces a tRPC
+   * 429-shaped error on overrun.
+   */
+  private async assertAccountRateLimit(email: string, scope: "login" | "reset"): Promise<void> {
+    const limiter = this.deps.accountRateLimiter;
+    if (!limiter) return;
+    // sha256 short-circuits PII concerns. Lowercased email is already
+    // canonical (we trim+toLowerCase before calling).
+    const { createHash } = await import("node:crypto");
+    const keyHash = createHash("sha256").update(email).digest("hex").slice(0, 32);
+    const accountKey = `${scope}:${keyHash}`;
+    const result = await limiter.check(accountKey);
+    if (!result.ok) {
+      throw AppError.rateLimited(
+        `Too many auth attempts for this account. Retry in ${String(result.retryS)}s.`,
+      );
+    }
+  }
+
   /** Pick a display name unique across `profiles.display_name`. */
   private async pickUniqueDisplayName(hint: string | null, email: string): Promise<string> {
     const local = email.split("@")[0] ?? "player";
@@ -615,6 +660,11 @@ export class AuthService {
   async requestPasswordReset(input: RequestPasswordResetInput): Promise<{ ok: true }> {
     const { oneShotStore, mailer, cfg } = this.resolvePasswordResetDeps();
     const email = input.email.trim().toLowerCase();
+
+    // Per-email rate-limit BEFORE the DB lookup so botnets can't burn a
+    // target inbox with reset emails or learn which addresses generate
+    // mail-send latency vs. instant return (timing oracle).
+    await this.assertAccountRateLimit(email, "reset");
     const user = await this.deps.mysql.user.findUnique({
       where: { email },
       select: { id: true, email: true, status: true, deletedAt: true, passwordHash: true },
@@ -627,6 +677,10 @@ export class AuthService {
     }
 
     const ttlSec = cfg.ttlSeconds ?? 60 * 60;
+    // Revoke any previously-minted password-reset tokens for this user
+    // BEFORE issuing a new one. Closes the "two valid reset links"
+    // replay window — only the latest link works once mint completes.
+    await oneShotStore.revokeForUser("password_reset", user.id);
     const token = generateOneShotToken();
     await oneShotStore.put(token, {
       userId: user.id,
@@ -725,6 +779,9 @@ export class AuthService {
     }
 
     const ttlSec = cfg.ttlSeconds ?? 24 * 60 * 60;
+    // Same invalidate-then-mint pattern as password reset — only the
+    // latest verification link should be usable at any moment.
+    await oneShotStore.revokeForUser("email_verification", user.id);
     const token = generateOneShotToken();
     await oneShotStore.put(token, {
       userId: user.id,

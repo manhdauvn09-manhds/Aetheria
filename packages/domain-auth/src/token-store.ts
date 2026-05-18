@@ -28,6 +28,13 @@ export interface OneShotTokenStore {
   put(token: string, record: OneShotRecord): Promise<void>;
   /** Look up + delete in one shot. Returns null on miss/expired. */
   take(purpose: OneShotPurpose, token: string): Promise<OneShotRecord | null>;
+  /**
+   * Invalidate every outstanding token for a (userId, purpose) pair.
+   * Called by AuthService before minting a new reset/verification token
+   * so that requesting a fresh token implicitly retires the old one
+   * (closes the "two valid tokens at once" replay window).
+   */
+  revokeForUser(purpose: OneShotPurpose, userId: bigint): Promise<void>;
 }
 
 /** Generate a URL-safe random token. 32 bytes ≈ 256 bits of entropy. */
@@ -41,13 +48,28 @@ export const generateOneShotToken = (): string =>
 const keyOf = (purpose: OneShotPurpose, token: string): string =>
   `oneshot:${purpose}:${token}`;
 
+// Index key for "what tokens belong to this user+purpose right now".
+// Lets us implement revokeForUser without scanning every token.
+const userIndexKey = (purpose: OneShotPurpose, userId: bigint): string =>
+  `oneshot:user:${purpose}:${userId.toString()}`;
+
 // ── In-memory ────────────────────────────────────────────────────────
 
 export const inMemoryOneShotStore = (): OneShotTokenStore => {
   const map = new Map<string, OneShotRecord>();
+  // userIndex: userIndexKey(purpose, userId) → Set<token-key>
+  const userIndex = new Map<string, Set<string>>();
   return {
     put(token, record) {
-      map.set(keyOf(record.purpose, token), record);
+      const k = keyOf(record.purpose, token);
+      map.set(k, record);
+      const idx = userIndexKey(record.purpose, record.userId);
+      let bucket = userIndex.get(idx);
+      if (!bucket) {
+        bucket = new Set<string>();
+        userIndex.set(idx, bucket);
+      }
+      bucket.add(k);
       return Promise.resolve();
     },
     take(purpose, token) {
@@ -55,8 +77,18 @@ export const inMemoryOneShotStore = (): OneShotTokenStore => {
       const rec = map.get(k);
       if (!rec) return Promise.resolve(null);
       map.delete(k);
+      const idx = userIndexKey(rec.purpose, rec.userId);
+      userIndex.get(idx)?.delete(k);
       if (rec.expiresAt <= Date.now()) return Promise.resolve(null);
       return Promise.resolve(rec);
+    },
+    revokeForUser(purpose, userId) {
+      const idx = userIndexKey(purpose, userId);
+      const bucket = userIndex.get(idx);
+      if (!bucket) return Promise.resolve();
+      for (const k of bucket) map.delete(k);
+      userIndex.delete(idx);
+      return Promise.resolve();
     },
   };
 };
@@ -67,17 +99,27 @@ export const redisOneShotStore = (redis: Redis): OneShotTokenStore => {
   return {
     async put(token, record) {
       const ttlSec = Math.max(1, Math.floor((record.expiresAt - Date.now()) / 1000));
-      await redis.set(
-        keyOf(record.purpose, token),
-        JSON.stringify({
-          userId: record.userId.toString(),
-          purpose: record.purpose,
-          expiresAt: record.expiresAt,
-          meta: record.meta ?? {},
-        }),
-        "EX",
-        ttlSec,
-      );
+      const tokenKey = keyOf(record.purpose, token);
+      const idxKey = userIndexKey(record.purpose, record.userId);
+      // Pipeline: store the token + add to user-index set with same TTL.
+      // The index lets revokeForUser invalidate every outstanding token
+      // for this user+purpose in O(N) without scanning all keys.
+      await redis
+        .multi()
+        .set(
+          tokenKey,
+          JSON.stringify({
+            userId: record.userId.toString(),
+            purpose: record.purpose,
+            expiresAt: record.expiresAt,
+            meta: record.meta ?? {},
+          }),
+          "EX",
+          ttlSec,
+        )
+        .sadd(idxKey, tokenKey)
+        .expire(idxKey, ttlSec)
+        .exec();
     },
     async take(purpose, token) {
       const k = keyOf(purpose, token);
@@ -91,6 +133,9 @@ export const redisOneShotStore = (redis: Redis): OneShotTokenStore => {
           expiresAt: number;
           meta?: Record<string, string>;
         };
+        // Best-effort prune from the user-index set (token was already
+        // single-use consumed; cleaning the index is cosmetic).
+        await redis.srem(userIndexKey(parsed.purpose, BigInt(parsed.userId)), k);
         if (parsed.expiresAt <= Date.now()) return null;
         return {
           userId: BigInt(parsed.userId),
@@ -101,6 +146,15 @@ export const redisOneShotStore = (redis: Redis): OneShotTokenStore => {
       } catch {
         return null;
       }
+    },
+    async revokeForUser(purpose, userId) {
+      const idxKey = userIndexKey(purpose, userId);
+      const tokenKeys = await redis.smembers(idxKey);
+      if (tokenKeys.length === 0) return;
+      const pipeline = redis.multi();
+      for (const k of tokenKeys) pipeline.del(k);
+      pipeline.del(idxKey);
+      await pipeline.exec();
     },
   };
 };

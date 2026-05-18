@@ -87,9 +87,13 @@ const RootLayout = ({ children }: { children: React.ReactNode }): JSX.Element =>
         <Script
           id="jsonld-game"
           type="application/ld+json"
-          // Security: JSON.stringify() output is trusted (no user input).
-          // Script tag content-type prevents interpretation as HTML/JS.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          // Defense-in-depth: although `jsonLd` currently only contains
+          // static data, escape "<" so a future commit that interpolates
+          // user input (e.g. character display name) into the JSON-LD
+          // can't break out via "</script>" and turn this into HTML.
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          }}
         />
         <Providers>{children}</Providers>
         <SwRegister />
