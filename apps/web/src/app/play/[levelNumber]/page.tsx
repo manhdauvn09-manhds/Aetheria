@@ -21,7 +21,9 @@ import type { LevelMap } from "@aetheria/game-assets";
 
 import { AdComponent, type AdsConfig } from "@/components/ads/AdComponent";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { CombatHelp } from "@/components/game/CombatHelp";
 import { CombatHud } from "@/components/game/CombatHud";
+import { CombatTutorial } from "@/components/game/CombatTutorial";
 import { HexMapRenderer } from "@/components/game/HexMapRenderer";
 import { trpc } from "@/lib/trpc/client";
 import { useCombat } from "@/store/combat";
@@ -218,6 +220,7 @@ const InGameInner = (): JSX.Element => {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-6 py-12">
+      <CombatTutorial />
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <div className="text-xs uppercase tracking-wider text-zinc-500">
@@ -229,6 +232,7 @@ const InGameInner = (): JSX.Element => {
           </h1>
         </div>
         <div className="flex items-center gap-2 text-sm">
+          <CombatHelp />
           {!combatMode && activeRun ? (
             <button
               type="button"

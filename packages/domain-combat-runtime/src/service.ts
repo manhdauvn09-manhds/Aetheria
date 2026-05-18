@@ -32,14 +32,18 @@ import {
   applyAction,
   createBattle,
   EngineError,
+  HEX_DIRS,
   hashState,
+  hexDistance,
   hydrate,
   replayActions,
   serializeState,
   type Action,
   type Actor,
   type BattleState,
+  type Coord,
   type CreateBattleInput,
+  type Event,
   type Tile,
 } from "@aetheria/domain-combat";
 import { AppError } from "@aetheria/schema-api";
@@ -136,7 +140,44 @@ export class CombatRunService {
       throw AppError.internal("combat engine failure", e);
     }
 
-    const nextLog = [...log, action];
+    const appendedActions: Action[] = [action];
+    const aggregatedEvents: Event[] = [...result.events];
+
+    // ── Server-side enemy AI ─────────────────────────────────────────
+    // While it's the enemy's turn, pick + apply one action per enemy
+    // actor until we either bounce back to the player or the battle
+    // ends. AI is intentionally simple (chase → attack-if-adjacent →
+    // end-turn fallback) so the player has a moving opponent without
+    // depending on a real-time client tick.
+    let aiSafetyBudget = 24; // worst-case 6 enemies × 4 actions
+    while (
+      aiSafetyBudget-- > 0 &&
+      result.state.phase === "enemy_turn" &&
+      result.state.activeActorId
+    ) {
+      const enemyAction = pickEnemyAction(result.state, result.state.activeActorId);
+      if (!enemyAction) break;
+      let aiResult: ReturnType<typeof applyAction>;
+      try {
+        aiResult = applyAction(result.state, enemyAction);
+      } catch {
+        // AI picked something the engine rejected — fall back to
+        // ending the enemy's turn so we don't loop forever.
+        try {
+          aiResult = applyAction(result.state, {
+            kind: "end_turn",
+            actorId: result.state.activeActorId,
+          });
+        } catch {
+          break;
+        }
+      }
+      appendedActions.push(enemyAction);
+      aggregatedEvents.push(...aiResult.events);
+      result = aiResult;
+    }
+
+    const nextLog = [...log, ...appendedActions];
     const phase = result.state.phase;
     const runStatus: RunStatus =
       phase === "victory" ? "completed"
@@ -162,11 +203,12 @@ export class CombatRunService {
       payload: {
         kind: action.kind,
         actorId: action.actorId,
-        events: result.events.length,
+        events: aggregatedEvents.length,
+        aiActions: appendedActions.length - 1,
         phase,
       },
     });
-    return { state: result.state, events: result.events, runStatus };
+    return { state: result.state, events: aggregatedEvents, runStatus };
   }
 
   async replay(ref: RunRef): Promise<CombatReplayResult> {
@@ -345,3 +387,84 @@ const parseActionLog = (raw: unknown): readonly Action[] => {
 
 // serializeState is now used in start() + submitAction() (snapshot must be the
 // `{schemaVersion, state}` envelope, not raw BattleState).
+
+// ── Enemy AI ──────────────────────────────────────────────────────────
+//
+// Pick the next action for a single enemy actor. Strategy:
+//   1. Find the closest live player-side actor.
+//   2. If adjacent → attack.
+//   3. If we have AP + move budget → step one hex toward the target along
+//      a hex direction that brings us closer and lands on a tile that
+//      isn't occupied.
+//   4. Otherwise → end_turn.
+//
+// This is intentionally one of the simplest AIs that actually puts
+// pressure on the player. Better behaviours (kiting, status synergy,
+// element-wheel preference) land later.
+
+const pickEnemyAction = (state: BattleState, actorId: string): Action | null => {
+  const me = state.actors.find((a) => a.id === actorId);
+  if (!me || me.defeated || me.side !== "enemy") {
+    return { kind: "end_turn", actorId };
+  }
+  const target = nearestPlayer(state, me);
+  if (!target) {
+    return { kind: "end_turn", actorId };
+  }
+  const dist = hexDistance(me.pos, target.pos);
+
+  // Adjacent + has AP for attack: strike.
+  if (dist === 1 && me.stats.ap >= 1) {
+    return { kind: "attack", actorId, targetId: target.id };
+  }
+
+  // Try to move one hex closer if we have AP + at least one move budget.
+  if (me.stats.ap >= 1 && me.stats.move >= 1) {
+    const step = stepToward(state, me, target.pos);
+    if (step) {
+      return { kind: "move", actorId, path: [step] };
+    }
+  }
+
+  return { kind: "end_turn", actorId };
+};
+
+const nearestPlayer = (state: BattleState, from: Actor): Actor | null => {
+  let best: Actor | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const a of state.actors) {
+    if (a.side !== "player" || a.defeated) continue;
+    const d = hexDistance(from.pos, a.pos);
+    if (d < bestDist) {
+      bestDist = d;
+      best = a;
+    }
+  }
+  return best;
+};
+
+const stepToward = (state: BattleState, me: Actor, target: Coord): Coord | null => {
+  const occupied = new Set<string>();
+  for (const a of state.actors) {
+    if (!a.defeated && a.id !== me.id) {
+      occupied.add(`${String(a.pos.q)},${String(a.pos.r)}`);
+    }
+  }
+  const tileSet = new Set<string>(
+    state.tiles.map((t) => `${String(t.q)},${String(t.r)}`),
+  );
+  let best: Coord | null = null;
+  let bestDist = hexDistance(me.pos, target);
+  for (const d of HEX_DIRS) {
+    const next: Coord = { q: me.pos.q + d.q, r: me.pos.r + d.r };
+    const key = `${String(next.q)},${String(next.r)}`;
+    if (!tileSet.has(key)) continue;          // off-map
+    if (occupied.has(key)) continue;          // blocked by another actor
+    const nd = hexDistance(next, target);
+    if (nd < bestDist) {
+      bestDist = nd;
+      best = next;
+    }
+  }
+  return best;
+};

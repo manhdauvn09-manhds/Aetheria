@@ -60,16 +60,41 @@ Test-Case 'combat.submitAction(defend) succeeds (no snapshot corruption)' {
     Assert-Eq 'in_progress' $r.runStatus
 }
 
-Test-Case 'combat.submitAction(end_turn) moves to enemy turn' {
+Test-Case 'combat.submitAction(end_turn) — enemy AI runs server-side, returns to player_turn' {
     $r = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
         runId = $script:RunId10
         action = @{ kind = 'end_turn'; actorId = $script:HeroId10 }
     }
     Assert-NotNull $r.state 'state'
-    # After hero ends turn, either we're in enemy_turn or already back in
-    # player_turn (synth enemy AI may pass). Both are valid for this test.
-    $okPhase = ($r.state.phase -eq 'enemy_turn') -or ($r.state.phase -eq 'player_turn')
-    Assert-True $okPhase "phase should be enemy_turn or player_turn (got $($r.state.phase))"
+    # After player ends turn the server's enemy AI loop applies enemy
+    # actions and hands the turn back to the player (or ends the battle).
+    # Final phase should be player_turn (or terminal victory/defeat).
+    $okPhase = ($r.state.phase -eq 'player_turn') -or
+               ($r.state.phase -eq 'victory') -or
+               ($r.state.phase -eq 'defeat')
+    Assert-True $okPhase "phase should NOT be stuck in enemy_turn (got $($r.state.phase))"
+    # Events should include something the enemy did (turn_ended at minimum,
+    # plus the enemy's own move/attack/end_turn).
+    Assert-True ($r.events.Count -ge 1) "events emitted by AI (got $($r.events.Count))"
+}
+
+Test-Case 'Enemy AI advances toward player after multiple turns' {
+    # Run a 3rd run so we don't perturb earlier-test state.
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    $enemy = $cs.state.actors | Where-Object { $_.side -eq 'enemy' } | Select-Object -First 1
+    $startDist = [Math]::Abs($hero.pos.q - $enemy.pos.q) + [Math]::Abs($hero.pos.r - $enemy.pos.r)
+    # End hero's turn — enemy AI should step toward player.
+    $r1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = [string]$rstart.run.id
+        action = @{ kind = 'end_turn'; actorId = $hero.id }
+    }
+    $enemyAfter = $r1.state.actors | Where-Object { $_.side -eq 'enemy' } | Select-Object -First 1
+    $endDist = [Math]::Abs($hero.pos.q - $enemyAfter.pos.q) + [Math]::Abs($hero.pos.r - $enemyAfter.pos.r)
+    # AI may attack instead of move if already adjacent, but otherwise
+    # should never be FURTHER away than where it started.
+    Assert-True ($endDist -le $startDist) "enemy should not be further (start=$startDist, end=$endDist)"
 }
 
 Test-Case 'combat.replay verifies action_log + snapshot integrity' {
