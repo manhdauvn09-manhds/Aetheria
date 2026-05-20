@@ -25,6 +25,7 @@ import { CombatHelp } from "@/components/game/CombatHelp";
 import { CombatHud } from "@/components/game/CombatHud";
 import { CombatTutorial } from "@/components/game/CombatTutorial";
 import { HexMapRenderer } from "@/components/game/HexMapRenderer";
+import { VictoryScreen } from "@/components/game/VictoryScreen";
 import { trpc } from "@/lib/trpc/client";
 import { useCombat } from "@/store/combat";
 import { useGameFlow } from "@/store/gameFlow";
@@ -61,6 +62,7 @@ const InGameInner = (): JSX.Element => {
   const [combatError, setCombatError] = useState<string | null>(null);
   const [showAds, setShowAds] = useState(false);
   const [adsConfig] = useState<AdsConfig | null>(null);
+  const [endScreenDismissed, setEndScreenDismissed] = useState(false);
 
   const setCombatState = useCombat((s) => s.setState);
   const applyOptimistic = useCombat((s) => s.applyOptimistic);
@@ -374,7 +376,42 @@ const InGameInner = (): JSX.Element => {
           onClose={() => setShowAds(false)}
         />
       ) : null}
+
+      {/* Victory / Defeat / Draw overlay — driven by engine phase. */}
+      <CombatEndOverlay
+        levelNumber={levelNumber}
+        rewards={startLevel.data?.level.rewards as never}
+        dismissed={endScreenDismissed}
+        onDismiss={() => setEndScreenDismissed(true)}
+      />
     </main>
+  );
+};
+
+/** Reads the combat phase from the store and renders VictoryScreen when terminal. */
+const CombatEndOverlay = ({
+  levelNumber,
+  rewards,
+  dismissed,
+  onDismiss,
+}: {
+  levelNumber: number;
+  rewards: { xp?: number; gold?: number; items?: ReadonlyArray<{ itemId: number; qty: number }> } | null | undefined;
+  dismissed: boolean;
+  onDismiss: () => void;
+}): JSX.Element | null => {
+  const state = useCombat((s) => s.state);
+  if (!state) return null;
+  const terminal = state.phase === "victory" || state.phase === "defeat" || state.phase === "draw";
+  if (!terminal) return null;
+  return (
+    <VictoryScreen
+      state={state}
+      levelNumber={levelNumber}
+      rewards={rewards ?? null}
+      visible={!dismissed}
+      onClose={onDismiss}
+    />
   );
 };
 

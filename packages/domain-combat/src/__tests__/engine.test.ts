@@ -234,13 +234,38 @@ describe("applyAction", () => {
       ]);
     });
 
-    it("use_skill spends AP and stamps a 1-turn cooldown", () => {
-      const a = mkActor({ id: "a", side: "player", element: "ember" });
+    it("use_skill: bulwark self-buff spends AP, applies status, stamps cooldown", () => {
+      // bulwark is a self_buff in the engine's SKILL_CATALOG; 1 AP cost,
+      // 2-turn cooldown. Actor must know the skill (skills[] check).
+      const a = mkActor({
+        id: "a", side: "player", element: "ember",
+        skills: ["bulwark"],
+      });
       const state = createBattle({ battleId: "sk", tiles: linearTiles(2), actors: [a] });
-      const result = applyAction(state, { kind: "use_skill", actorId: "a", skillId: "fireball" });
+      const result = applyAction(state, { kind: "use_skill", actorId: "a", skillId: "bulwark" });
       const ax = result.state.actors.find((x) => x.id === "a");
-      expect(ax?.stats.ap).toBe(1); // 3 - 2 default
-      expect(ax?.cooldowns.fireball).toBe(1);
+      expect(ax?.stats.ap).toBe(2); // 3 - 1
+      expect(ax?.cooldowns.bulwark).toBe(2);
+      expect(ax?.statuses.some((s) => s.kind === "aether_surge" && s.source === "a")).toBe(true);
+    });
+
+    it("use_skill: unknown skillId is rejected (INVALID_ACTION)", () => {
+      const a = mkActor({ id: "a", side: "player", element: "ember", skills: ["fireball"] });
+      const state = createBattle({ battleId: "sk", tiles: linearTiles(2), actors: [a] });
+      expectEngineError(
+        () => applyAction(state, { kind: "use_skill", actorId: "a", skillId: "fireball" }),
+        "INVALID_ACTION",
+      );
+    });
+
+    it("use_skill: actor that doesn't know the skill is rejected", () => {
+      // Real skill id, but the actor's skills[] doesn't include it.
+      const a = mkActor({ id: "a", side: "player", element: "ember", skills: [] });
+      const state = createBattle({ battleId: "sk", tiles: linearTiles(2), actors: [a] });
+      expectEngineError(
+        () => applyAction(state, { kind: "use_skill", actorId: "a", skillId: "bulwark" }),
+        "INVALID_ACTION",
+      );
     });
   });
 

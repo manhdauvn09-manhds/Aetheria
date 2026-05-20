@@ -359,6 +359,21 @@ const BOSS_ARCHETYPE = {
   hp: 180, atk: 36, def: 18, spd: 55,
 };
 
+// Role → signature skill mapping. Each hero gets ONE skill from this
+// table at synth time. IDs must match SKILL_CATALOG in domain-combat.
+const ROLE_TO_SKILL: Record<typeof HERO_ROSTER[number]["role"], string> = {
+  tank:     "bulwark",
+  bruiser:  "bulwark",
+  dps:      "power_strike",
+  mage:     "power_strike",
+  healer:   "heal",
+  assassin: "power_strike",
+  support:  "bless",
+  wildcard: "power_strike",
+};
+
+const PARTY_SIZE = 3;
+
 const synthesiseInit = (
   ref: RunRef,
   level: { levelNumber: number; name: string },
@@ -366,7 +381,6 @@ const synthesiseInit = (
   const tiles: Tile[] = [];
   for (let q = 0; q < 6; q++) {
     for (let r = 0; r < 4; r++) {
-      // Sprinkle some visual variety: forest fringe on top row, plain elsewhere
       const terrain: Tile["terrain"] =
         r === 0 && (q === 1 || q === 4) ? "forest" :
         r === 3 && q === 5             ? "shrine" :
@@ -376,35 +390,66 @@ const synthesiseInit = (
   }
   // Boss every 20th level → final trial of each realm.
   const isBoss = level.levelNumber > 0 && level.levelNumber % 20 === 0;
-  // Hero rotates through roster by levelNumber so each level shows variety.
-  const heroIdx = Math.max(0, (level.levelNumber - 1)) % HERO_ROSTER.length;
-  const enemyIdx = Math.max(0, (level.levelNumber - 1)) % ENEMY_ARCHETYPES.length;
-  const heroSpec = HERO_ROSTER[heroIdx]!;
-  const enemySpec = isBoss ? BOSS_ARCHETYPE : ENEMY_ARCHETYPES[enemyIdx]!;
-  // HP scales gently with level so higher levels feel meatier. Hero
-  // scales slower than enemy so the difficulty curve actually rises.
-  const heroHp = heroSpec.hp + Math.floor(level.levelNumber * 1.5);
-  const enemyHp = enemySpec.hp + Math.min(120, level.levelNumber * 3);
-  const player = synthActor(
-    heroSpec.id, heroSpec.unit, "player", heroSpec.element,
-    { q: 0, r: 1 }, heroHp,
-    { atk: heroSpec.atk, def: heroSpec.def, spd: heroSpec.spd },
-  );
-  const enemy = synthActor(
-    enemySpec.id, enemySpec.unit, "enemy", enemySpec.element,
-    { q: 4, r: 2 }, enemyHp,
-    {
-      atk: enemySpec.atk + Math.floor(level.levelNumber / 2),
-      def: enemySpec.def,
-      spd: enemySpec.spd,
-    },
-  );
-  // `seed` omitted on purpose — `createBattle` derives it from `battleId`.
+  const baseHeroIdx = Math.max(0, (level.levelNumber - 1)) % HERO_ROSTER.length;
+  const baseEnemyIdx = Math.max(0, (level.levelNumber - 1)) % ENEMY_ARCHETYPES.length;
+
+  // Party of PARTY_SIZE picked from the roster, rotating so consecutive
+  // levels use different heroes. Positions in left column (q=0).
+  const heroPositions = [
+    { q: 0, r: 0 },
+    { q: 0, r: 1 },
+    { q: 0, r: 2 },
+  ];
+  const heroes: Actor[] = [];
+  for (let i = 0; i < PARTY_SIZE; i++) {
+    const spec = HERO_ROSTER[(baseHeroIdx + i) % HERO_ROSTER.length]!;
+    const skillId = ROLE_TO_SKILL[spec.role];
+    const hp = spec.hp + Math.floor(level.levelNumber * 1.5);
+    heroes.push(synthActor(
+      `${spec.id}_${String(i)}`, spec.unit, "player", spec.element,
+      heroPositions[i]!, hp,
+      { atk: spec.atk, def: spec.def, spd: spec.spd },
+      [skillId],
+    ));
+  }
+
+  // Enemies: boss gets 1 strong; non-boss gets 2 (paired). Right column.
+  const enemies: Actor[] = [];
+  if (isBoss) {
+    const ehp = BOSS_ARCHETYPE.hp + Math.min(200, level.levelNumber * 5);
+    enemies.push(synthActor(
+      BOSS_ARCHETYPE.id, BOSS_ARCHETYPE.unit, "enemy", BOSS_ARCHETYPE.element,
+      { q: 5, r: 1 }, ehp,
+      {
+        atk: BOSS_ARCHETYPE.atk + Math.floor(level.levelNumber / 2),
+        def: BOSS_ARCHETYPE.def,
+        spd: BOSS_ARCHETYPE.spd,
+      },
+      [],
+    ));
+  } else {
+    const enemyPositions = [{ q: 5, r: 1 }, { q: 5, r: 2 }];
+    for (let i = 0; i < enemyPositions.length; i++) {
+      const spec = ENEMY_ARCHETYPES[(baseEnemyIdx + i) % ENEMY_ARCHETYPES.length]!;
+      const ehp = spec.hp + Math.min(120, level.levelNumber * 3);
+      enemies.push(synthActor(
+        `${spec.id}_${String(i)}`, spec.unit, "enemy", spec.element,
+        enemyPositions[i]!, ehp,
+        {
+          atk: spec.atk + Math.floor(level.levelNumber / 2),
+          def: spec.def,
+          spd: spec.spd,
+        },
+        [],
+      ));
+    }
+  }
+
   return {
     battleId: `run-${ref.runId.toString()}`,
     config: { width: 6, height: 4, turnLimit: 30, defaultApRegen: 3 },
     tiles,
-    actors: [player, enemy],
+    actors: [...heroes, ...enemies],
     firstTurn: "player",
   };
 };
@@ -417,6 +462,7 @@ const synthActor = (
   pos: { q: number; r: number },
   hp: number,
   combat: { atk: number; def: number; spd: number },
+  skills: readonly string[] = [],
 ): Actor => ({
   id,
   side,
@@ -435,7 +481,7 @@ const synthActor = (
   pos,
   facing: 0,
   statuses: [],
-  skills: [],
+  skills: [...skills],
   cooldowns: {},
   defeated: false,
 });

@@ -102,6 +102,16 @@ export const CombatHud = ({
         >
           Attack
         </button>
+        {active?.skills.map((skillId) => (
+          <SkillButton
+            key={skillId}
+            skillId={skillId}
+            active={active}
+            target={target}
+            disabled={submitDisabled}
+            onSubmit={onSubmit}
+          />
+        ))}
         <button
           type="button"
           disabled={submitDisabled}
@@ -136,6 +146,62 @@ export const CombatHud = ({
 
       <EventLog log={state.log.slice(-6)} />
     </aside>
+  );
+};
+
+// ── Skill catalog (UI mirror of engine's SKILL_CATALOG) ──────────────
+// Keep IDs in sync with packages/domain-combat/src/engine.ts.
+const SKILL_UI: Record<string, {
+  name: string; apCost: number; cooldown: number;
+  needsEnemyTarget?: boolean; rangeHint?: string; color: string;
+}> = {
+  power_strike: { name: "Power Strike", apCost: 2, cooldown: 1, needsEnemyTarget: true, rangeHint: "range 2", color: "amber" },
+  heal:         { name: "Heal",         apCost: 2, cooldown: 2, rangeHint: "self / ally",   color: "emerald" },
+  bulwark:      { name: "Bulwark",      apCost: 1, cooldown: 2, rangeHint: "self buff",     color: "indigo" },
+  bless:        { name: "Bless",        apCost: 2, cooldown: 2, rangeHint: "ally buff",     color: "violet" },
+};
+
+const COLOR_CLASSES: Record<string, string> = {
+  amber:   "border-amber-700/60 bg-amber-950/40 text-amber-200 hover:bg-amber-900/60",
+  emerald: "border-emerald-700/60 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/60",
+  indigo:  "border-indigo-700/60 bg-indigo-950/40 text-indigo-200 hover:bg-indigo-900/60",
+  violet:  "border-violet-700/60 bg-violet-950/40 text-violet-200 hover:bg-violet-900/60",
+};
+
+const SkillButton = ({
+  skillId, active, target, disabled, onSubmit,
+}: {
+  skillId: string;
+  active: Actor;
+  target: Actor | null;
+  disabled: boolean;
+  onSubmit: (action: Action) => void;
+}): JSX.Element | null => {
+  const spec = SKILL_UI[skillId];
+  if (!spec) return null;
+  const cd = active.cooldowns[skillId] ?? 0;
+  const apOk = active.stats.ap >= spec.apCost;
+  const needsTarget = spec.needsEnemyTarget === true;
+  const targetOk = !needsTarget || (target !== null && target.side !== active.side && !target.defeated);
+  const btnDisabled = disabled || cd > 0 || !apOk || !targetOk;
+  const cls = COLOR_CLASSES[spec.color] ?? COLOR_CLASSES.amber;
+  return (
+    <button
+      type="button"
+      title={`${spec.name} · ${String(spec.apCost)} AP · cd ${String(spec.cooldown)} (${spec.rangeHint ?? ""})`}
+      disabled={btnDisabled}
+      onClick={() => {
+        const targetId = needsTarget && target !== null ? target.id : undefined;
+        const action: Action = targetId !== undefined
+          ? { kind: "use_skill", actorId: active.id, skillId, target: targetId }
+          : { kind: "use_skill", actorId: active.id, skillId };
+        onSubmit(action);
+      }}
+      className={`rounded-md border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40 ${cls}`}
+    >
+      {spec.name}
+      {cd > 0 ? <span className="ml-1 text-xs opacity-70">(cd {String(cd)})</span> : null}
+    </button>
   );
 };
 

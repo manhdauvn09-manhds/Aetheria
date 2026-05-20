@@ -39,6 +39,7 @@ import {
   type MoveAction,
   type ResonanceTriggeredEvent,
   type Side,
+  type SkillId,
   type StatusEffect,
   type Tile,
   type UseSkillAction,
@@ -52,6 +53,7 @@ export type EngineErrorCode =
   | "WRONG_TURN"
   | "INSUFFICIENT_AP"
   | "INVALID_PATH"
+  | "INVALID_ACTION"
   | "OUT_OF_RANGE"
   | "NO_LINE_OF_SIGHT"
   | "ALREADY_DEFEATED"
@@ -320,32 +322,230 @@ const applyAttack = (
 // (target validation, AoE, status application by skill key) lands with
 // the skill catalog later in Phase 4-D / 4-E.
 
+// ── Skill catalog (engine-local) ──────────────────────────────────────
+// Pure data describing each skill's mechanics. Kept in the engine so
+// replay is deterministic regardless of how the runtime wires actors'
+// `skills[]` arrays.
+//
+// Effect kinds:
+//   - "ranged_attack" → damages targeted enemy at range (range>1), uses
+//                        attack damage formula × dmgMul.
+//   - "heal"          → restores % of maxHp to targeted ally (or self).
+//   - "self_buff"     → applies status to self (e.g. defense up).
+//   - "ally_buff"     → applies status to targeted adjacent ally.
+
+interface SkillSpec {
+  readonly id: SkillId;
+  readonly name: string;
+  readonly apCost: number;
+  readonly cooldown: number;
+  readonly kind: "ranged_attack" | "heal" | "self_buff" | "ally_buff";
+  readonly range: number;       // hex distance for target validation
+  readonly dmgMul?: number;     // for ranged_attack
+  readonly healPct?: number;    // for heal (fraction of target.maxHp)
+  readonly statusKind?: StatusEffect["kind"];
+  readonly statusTurns?: number;
+  readonly statusPotency?: number;
+}
+
+const SKILL_CATALOG: Readonly<Record<string, SkillSpec>> = {
+  power_strike: {
+    id: "power_strike",
+    name: "Power Strike",
+    apCost: 2,
+    cooldown: 1,
+    kind: "ranged_attack",
+    range: 2,
+    dmgMul: 1.6,
+  },
+  heal: {
+    id: "heal",
+    name: "Heal",
+    apCost: 2,
+    cooldown: 2,
+    kind: "heal",
+    range: 2,
+    healPct: 0.35,
+  },
+  bulwark: {
+    id: "bulwark",
+    name: "Bulwark",
+    apCost: 1,
+    cooldown: 2,
+    kind: "self_buff",
+    range: 0,
+    statusKind: "aether_surge",
+    statusTurns: 2,
+    statusPotency: 50,
+  },
+  bless: {
+    id: "bless",
+    name: "Bless",
+    apCost: 2,
+    cooldown: 2,
+    kind: "ally_buff",
+    range: 1,
+    statusKind: "aether_surge",
+    statusTurns: 2,
+    statusPotency: 30,
+  },
+};
+
+/** Public lookup so the runtime can validate skill IDs at synth time. */
+export const findSkillSpec = (id: string): SkillSpec | undefined => SKILL_CATALOG[id];
+
 const applyUseSkill = (
   state: BattleState,
   actor: Actor,
   action: UseSkillAction,
 ): ApplyResult => {
-  // Cooldown check — the catalog drives durations; default cooldown 0.
+  // Skill must be in catalog AND in the actor's known skills.
+  const spec = SKILL_CATALOG[action.skillId];
+  if (!spec) {
+    throw new EngineError("INVALID_ACTION", "Unknown skill id", { skillId: action.skillId });
+  }
+  if (!actor.skills.includes(action.skillId)) {
+    throw new EngineError("INVALID_ACTION", "Actor does not know this skill", {
+      actorId: actor.id, skillId: action.skillId,
+    });
+  }
+  // Cooldown check
   const cd = actor.cooldowns[action.skillId] ?? 0;
   if (cd > 0) {
     throw new EngineError("INSUFFICIENT_AP", "Skill on cooldown", {
-      skillId: action.skillId,
-      cd,
+      skillId: action.skillId, cd,
     });
   }
-  const cost = apCost(state, action);
-  requireAp(actor, cost);
-  // Spend AP, set 1-turn cooldown so the same skill can't double-fire
-  // within a turn. Real values come from the skill catalog later.
-  const next = mutateActor(state, actor.id, (a) => ({
+  requireAp(actor, spec.apCost);
+
+  // Resolve target by skill kind
+  let targetActor: Actor | undefined;
+  if (spec.kind === "ranged_attack") {
+    if (typeof action.target !== "string") {
+      throw new EngineError("INVALID_ACTION", "Skill requires actor target", { skillId: spec.id });
+    }
+    targetActor = mustFindActor(state, action.target);
+    if (targetActor.side === actor.side) {
+      throw new EngineError("INVALID_ACTION", "Skill target must be enemy", { skillId: spec.id });
+    }
+    if (targetActor.defeated) {
+      throw new EngineError("ALREADY_DEFEATED", "Target is defeated", { targetId: targetActor.id });
+    }
+    const dist = hexDistance(actor.pos, targetActor.pos);
+    if (dist > spec.range) {
+      throw new EngineError("OUT_OF_RANGE", "Target out of skill range", { dist, range: spec.range });
+    }
+  } else if (spec.kind === "heal" || spec.kind === "ally_buff") {
+    if (typeof action.target !== "string") {
+      // Self-target heal/buff is allowed if no target passed
+      targetActor = actor;
+    } else {
+      targetActor = mustFindActor(state, action.target);
+      if (targetActor.side !== actor.side) {
+        throw new EngineError("INVALID_ACTION", "Skill target must be ally", { skillId: spec.id });
+      }
+      if (targetActor.defeated) {
+        throw new EngineError("ALREADY_DEFEATED", "Target is defeated", { targetId: targetActor.id });
+      }
+      const dist = hexDistance(actor.pos, targetActor.pos);
+      if (dist > spec.range) {
+        throw new EngineError("OUT_OF_RANGE", "Target out of skill range", { dist, range: spec.range });
+      }
+    }
+  } else {
+    // self_buff
+    targetActor = actor;
+  }
+
+  const events: Event[] = [];
+  let next = state;
+
+  if (spec.kind === "ranged_attack") {
+    // Reuse attack damage formula × dmgMul. No element advantage stacking
+    // for now — skills inherit the actor's element.
+    const tgt = targetActor!;
+    const base = Math.max(1, actor.stats.atk - tgt.stats.def);
+    let rng = state.rng;
+    const v = rollDice(rng, 1, 4);
+    rng = v.state;
+    const variance = 0.85 + (v.value - 1) * 0.1;
+    const advantage = elementAdvantage(actor.element, tgt.element);
+    const c = chance(rng, 0.05);
+    rng = c.state;
+    const critMul = c.value ? 1.5 : 1;
+    const damage = Math.max(1, Math.round(base * variance * advantage * critMul * (spec.dmgMul ?? 1)));
+    const newHp = Math.max(0, tgt.stats.hp - damage);
+    events.push({
+      type: "damage_dealt",
+      t: state.log.length + events.length,
+      attackerId: actor.id,
+      targetId: tgt.id,
+      amount: damage,
+      mitigated: 0,
+      element: actor.element,
+      crit: c.value,
+    } satisfies DamageDealtEvent);
+    if (newHp === 0) {
+      events.push({
+        type: "actor_defeated",
+        t: state.log.length + events.length,
+        actorId: tgt.id,
+        killerId: actor.id,
+      } satisfies ActorDefeatedEvent);
+    }
+    next = mutateActor(next, tgt.id, (a) => ({
+      ...a,
+      stats: { ...a.stats, hp: newHp },
+      defeated: newHp === 0,
+    }));
+    next = { ...next, rng };
+  } else if (spec.kind === "heal") {
+    const tgt = targetActor!;
+    const amount = Math.max(1, Math.round(tgt.stats.maxHp * (spec.healPct ?? 0.3)));
+    const newHp = Math.min(tgt.stats.maxHp, tgt.stats.hp + amount);
+    const actualHealed = newHp - tgt.stats.hp;
+    events.push({
+      type: "healed",
+      t: state.log.length + events.length,
+      targetId: tgt.id,
+      amount: actualHealed,
+      sourceId: actor.id,
+    });
+    next = mutateActor(next, tgt.id, (a) => ({
+      ...a,
+      stats: { ...a.stats, hp: newHp },
+    }));
+  } else if (spec.kind === "self_buff" || spec.kind === "ally_buff") {
+    const tgt = targetActor!;
+    const buff: StatusEffect = {
+      kind: spec.statusKind ?? "aether_surge",
+      turns: spec.statusTurns ?? 1,
+      potency: spec.statusPotency ?? 0,
+      source: actor.id,
+    };
+    events.push({
+      type: "status_applied",
+      t: state.log.length + events.length,
+      targetId: tgt.id,
+      status: buff.kind,
+      turns: buff.turns,
+      potency: buff.potency,
+      sourceId: actor.id,
+    });
+    next = mutateActor(next, tgt.id, (a) => ({
+      ...a,
+      statuses: [...a.statuses.filter((s) => !(s.kind === buff.kind && s.source === actor.id)), buff],
+    }));
+  }
+
+  // Spend AP + set cooldown on the caster
+  next = mutateActor(next, actor.id, (a) => ({
     ...a,
-    stats: { ...a.stats, ap: a.stats.ap - cost },
-    cooldowns: { ...a.cooldowns, [action.skillId]: 1 },
+    stats: { ...a.stats, ap: a.stats.ap - spec.apCost },
+    cooldowns: { ...a.cooldowns, [spec.id]: spec.cooldown },
   }));
-  // No event emitted yet — replay still works because the state diff
-  // (AP + cooldown) is captured on the actor.
-  void action;
-  return { state: next, events: [] };
+
+  return { state: appendLog(next, events), events };
 };
 
 // ── Defend ────────────────────────────────────────────────────────────

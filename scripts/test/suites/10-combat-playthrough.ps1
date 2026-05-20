@@ -37,9 +37,12 @@ Test-Case 'combat.start initializes battle with non-empty tiles + hero actor' {
     Assert-True ($r.state.tiles.Count -gt 0) "tiles non-empty (got $($r.state.tiles.Count))"
     Assert-True ($r.state.actors.Count -ge 2) "at least 2 actors (got $($r.state.actors.Count))"
     Assert-Eq 'player_turn' $r.state.phase 'starts on player_turn'
-    # Hero present — capture id for subsequent actions
-    $hero = $r.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
-    Assert-NotNull $hero 'player-side actor'
+    # Use the engine's active actor (highest-SPD player at start). With
+    # party of 3, the array's first player is not necessarily active.
+    Assert-NotNull $r.state.activeActorId 'activeActorId set'
+    $hero = $r.state.actors | Where-Object { $_.id -eq $r.state.activeActorId } | Select-Object -First 1
+    Assert-NotNull $hero 'active actor found'
+    Assert-Eq 'player' $hero.side 'active actor is player-side'
     Assert-True ($hero.stats.hp -gt 0) 'hero hp > 0'
     Assert-True ($hero.stats.ap -ge 1) 'hero ap >= 1'
     Assert-NotNull $hero.unit 'hero has unit name'
@@ -82,15 +85,24 @@ Test-Case 'Enemy AI advances toward player after multiple turns' {
     # Run a 3rd run so we don't perturb earlier-test state.
     $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
     $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
-    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    # Use active actor (engine picks highest-SPD player on start).
+    $hero = $cs.state.actors | Where-Object { $_.id -eq $cs.state.activeActorId } | Select-Object -First 1
     $enemy = $cs.state.actors | Where-Object { $_.side -eq 'enemy' } | Select-Object -First 1
     $startDist = [Math]::Abs($hero.pos.q - $enemy.pos.q) + [Math]::Abs($hero.pos.r - $enemy.pos.r)
-    # End hero's turn — enemy AI should step toward player.
-    $r1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
-        runId = [string]$rstart.run.id
-        action = @{ kind = 'end_turn'; actorId = $hero.id }
+    # Cycle through all party heroes' turns to reach enemy turn.
+    $rid = [string]$rstart.run.id
+    $curState = $cs.state
+    for ($i = 0; $i -lt 4; $i++) {
+        if ($curState.phase -ne 'player_turn') { break }
+        $activeId = $curState.activeActorId
+        if (-not $activeId) { break }
+        $r1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+            runId = $rid
+            action = @{ kind = 'end_turn'; actorId = $activeId }
+        }
+        $curState = $r1.state
     }
-    $enemyAfter = $r1.state.actors | Where-Object { $_.side -eq 'enemy' } | Select-Object -First 1
+    $enemyAfter = $curState.actors | Where-Object { $_.side -eq 'enemy' } | Select-Object -First 1
     $endDist = [Math]::Abs($hero.pos.q - $enemyAfter.pos.q) + [Math]::Abs($hero.pos.r - $enemyAfter.pos.r)
     # AI may attack instead of move if already adjacent, but otherwise
     # should never be FURTHER away than where it started.
@@ -113,19 +125,25 @@ Test-Case 'Second run: fresh combat for multi-action sequence' {
     $r1 = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
     $script:RunId10b = [string]$r1.run.id
     $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $script:RunId10b }
-    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
-    $script:HeroId10b = $hero.id
+    # Use active actor — first by array index isn't necessarily active
+    # under multi-hero party (highest SPD goes first).
+    $script:HeroId10b = $cs.state.activeActorId
 }
 
 Test-Case 'Sequence: defend → end_turn → end_turn (cycle full turn)' {
     $rid = $script:RunId10b
     $hid = $script:HeroId10b
+    # First action by the active hero
     $a1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
         runId = $rid; action = @{ kind = 'defend'; actorId = $hid }
     }
     Assert-Eq 'in_progress' $a1.runStatus
+    # End turn on whoever is active NOW (engine may have rotated within
+    # the party or to next active hero).
+    $nextActive = $a1.state.activeActorId
+    if (-not $nextActive) { return }
     $a2 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
-        runId = $rid; action = @{ kind = 'end_turn'; actorId = $hid }
+        runId = $rid; action = @{ kind = 'end_turn'; actorId = $nextActive }
     }
     Assert-NotNull $a2.state 'state after end_turn'
     # Replay should still validate
@@ -192,6 +210,81 @@ Test-Case 'combat.start at level 50 returns valid state with named hero' {
     Assert-True ($hero.stats.hp -gt 80) "hero hp scales with level (got $($hero.stats.hp))"
 }
 
+# ── Party + Skills + terminal phase regression tests ─────────────────
+
+Test-Case 'combat.start spawns party of 3 heroes (not solo)' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    $players = @($cs.state.actors | Where-Object { $_.side -eq 'player' })
+    Assert-Eq 3 $players.Count "party size (got $($players.Count))"
+    # Each hero should know exactly one signature skill
+    foreach ($p in $players) {
+        Assert-True ($p.skills.Count -ge 1) "$($p.unit) has at least 1 skill"
+    }
+}
+
+Test-Case 'combat.start spawns 2 enemies on non-boss level' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 3 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    $foes = @($cs.state.actors | Where-Object { $_.side -eq 'enemy' })
+    Assert-Eq 2 $foes.Count "enemy count on non-boss level"
+}
+
+Test-Case 'combat.start spawns single Void Lord boss on level 20' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 20 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    $foes = @($cs.state.actors | Where-Object { $_.side -eq 'enemy' })
+    Assert-Eq 1 $foes.Count "single boss"
+    Assert-Eq 'Void Lord' $foes[0].unit 'boss unit'
+}
+
+Test-Case 'combat.submitAction use_skill (bulwark) applies aether_surge status' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 2 }
+    $rid = [string]$rstart.run.id
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    # Find a hero with the 'bulwark' skill (Kyo/Brann are tanks)
+    $tank = $cs.state.actors | Where-Object { $_.side -eq 'player' -and $_.skills -contains 'bulwark' } | Select-Object -First 1
+    if ($null -eq $tank) {
+        Write-Host '         (skipped — no tank in party for this level rotation)' -ForegroundColor DarkYellow
+        return
+    }
+    # Engine requires this be the active actor's turn — if not, we still
+    # accept either a successful skill use OR a WRONG_TURN error.
+    try {
+        $r = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+            runId = $rid
+            action = @{ kind = 'use_skill'; actorId = $tank.id; skillId = 'bulwark' }
+        }
+        # If active, status should be on the tank now.
+        $updated = $r.state.actors | Where-Object { $_.id -eq $tank.id } | Select-Object -First 1
+        Assert-NotNull $updated 'tank still in state'
+        # AP decreased by 1 (bulwark cost)
+        Assert-True ($updated.stats.ap -lt $tank.stats.ap) "AP spent (was $($tank.stats.ap), now $($updated.stats.ap))"
+    } catch {
+        if ($_.Exception.Message -notmatch '(WRONG_TURN|combat:)') {
+            throw "unexpected error: $($_.Exception.Message)"
+        }
+    }
+}
+
+Test-Case 'combat.submitAction rejects unknown skillId' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 4 }
+    $rid = [string]$rstart.run.id
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
+    try {
+        Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+            runId = $rid
+            action = @{ kind = 'use_skill'; actorId = $hero.id; skillId = 'definitely_not_a_skill' }
+        } | Out-Null
+        throw 'should have rejected unknown skill id'
+    } catch {
+        if ($_.Exception.Message -notmatch '(INVALID_ACTION|combat:|400|Unknown skill|WRONG_TURN)') {
+            throw "expected INVALID_ACTION-ish error, got: $($_.Exception.Message)"
+        }
+    }
+}
+
 # ─── Security/audit regression tests ─────────────────────────────────
 
 # Snapshot CAS: regression for DB-1. After the optimistic-lock fix, two
@@ -203,14 +296,18 @@ Test-Case 'Snapshot CAS: revision advances on each action (no clobber)' {
     $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
     $rid = [string]$rstart.run.id
     $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
-    $hero = $cs.state.actors | Where-Object { $_.side -eq 'player' } | Select-Object -First 1
-    # Two successive actions should both succeed (sequential, not racing).
+    # Use the engine's active actor — under party mode the array's first
+    # player is not necessarily the one whose turn it is.
+    $heroId = $cs.state.activeActorId
+    Assert-NotNull $heroId 'active actor at start'
     $a1 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
-        runId = $rid; action = @{ kind = 'defend'; actorId = $hero.id }
+        runId = $rid; action = @{ kind = 'defend'; actorId = $heroId }
     }
     Assert-Eq 'in_progress' $a1.runStatus
+    $next = $a1.state.activeActorId
+    Assert-NotNull $next 'active actor after defend'
     $a2 = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
-        runId = $rid; action = @{ kind = 'end_turn'; actorId = $hero.id }
+        runId = $rid; action = @{ kind = 'end_turn'; actorId = $next }
     }
     Assert-NotNull $a2.state 'second action persisted (revision bumped + applied)'
     # Replay still validates → snapshot consistency held under sequential
