@@ -1,0 +1,233 @@
+{
+  "slug": "tide-tide-glass-sanctum-072",
+  "realmId": 4,
+  "levelNumber": 72,
+  "name": "Tide-Glass Sanctum",
+  "type": "hidden",
+  "difficulty": 8,
+  "minAccountLevel": 68,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "water",
+        "fx": "shimmer"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "water"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "sand"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "water",
+        "tag": "exit",
+        "fx": "shimmer"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "grass"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "sand"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "water",
+        "fx": "shimmer"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "grass"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "sand"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "water",
+        "fx": "shimmer"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "grass"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "sand"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "water",
+        "fx": "shimmer"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "grass"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "tide-brute-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "tide-brute-a",
+            "unit": "Tide Brute",
+            "level": 8,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 8,
+            "ai": "patrol"
+          }
+        ]
+      }
+    ],
+    "scripts": [
+      "hidden",
+      "tide"
+    ]
+  },
+  "rewards": {
+    "xp": 924,
+    "gold": 385,
+    "items": [
+      {
+        "itemId": 102,
+        "qty": 1
+      }
+    ],
+    "firstClearBonus": {
+      "xp": 390,
+      "gold": 228,
+      "items": [],
+      "gems": 0
+    }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "tide-tide-glass-sanctum-072-cache",
+        "q": 4,
+        "r": 3,
+        "reveal": "walk",
+        "reward": {
+          "xp": 318,
+          "gold": 159,
+          "items": []
+        }
+      }
+    ]
+  }
+}

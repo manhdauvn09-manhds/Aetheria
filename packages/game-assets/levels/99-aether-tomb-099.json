@@ -1,0 +1,254 @@
+{
+  "slug": "void-aether-tomb-099",
+  "realmId": 5,
+  "levelNumber": 99,
+  "name": "Aether Tomb",
+  "type": "combat",
+  "difficulty": 10,
+  "minAccountLevel": 95,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "stone",
+        "elev": 1
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "void",
+        "elev": 1,
+        "fx": "miasma"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "wall"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "void",
+        "tag": "exit",
+        "fx": "miasma"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "stone",
+        "elev": 1
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "stone",
+        "elev": 1
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "shrine"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "wall"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "shrine"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "wall"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "shrine"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-d",
+        "slot": 1,
+        "q": 5,
+        "r": 2
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "void-stalker-a",
+            "unit": "Void Stalker",
+            "level": 10,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 10,
+            "ai": "patrol"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          {
+            "id": "void-stalker-c",
+            "unit": "Void Stalker",
+            "level": 11,
+            "ai": "aggressive"
+          },
+          {
+            "id": "sky-reaper-d",
+            "unit": "Sky Reaper",
+            "level": 11,
+            "ai": "aggressive"
+          }
+        ],
+        "trigger": {
+          "kind": "clear",
+          "wave": 1
+        }
+      }
+    ],
+    "scripts": [
+      "vanguard",
+      "void"
+    ]
+  },
+  "rewards": {
+    "xp": 1248,
+    "gold": 520,
+    "items": [],
+    "firstClearBonus": {
+      "xp": 525,
+      "gold": 309,
+      "items": [],
+      "gems": 0
+    }
+  }
+}

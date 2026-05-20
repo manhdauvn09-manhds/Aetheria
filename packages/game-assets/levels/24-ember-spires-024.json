@@ -1,0 +1,233 @@
+{
+  "slug": "ember-ember-spires-024",
+  "realmId": 2,
+  "levelNumber": 24,
+  "name": "Ember Spires",
+  "type": "treasure",
+  "difficulty": 3,
+  "minAccountLevel": 20,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "ash"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "sand"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "stone",
+        "tag": "exit"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "ash"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "sand"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "ash"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "sand"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "ash"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "sand"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "ash"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "ruins"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "ember-husk-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "ember-husk-a",
+            "unit": "Ember Husk",
+            "level": 3,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 3,
+            "ai": "patrol"
+          }
+        ]
+      }
+    ],
+    "scripts": [
+      "cache",
+      "ember"
+    ]
+  },
+  "rewards": {
+    "xp": 348,
+    "gold": 145,
+    "items": [
+      {
+        "itemId": 104,
+        "qty": 1
+      }
+    ],
+    "firstClearBonus": {
+      "xp": 150,
+      "gold": 84,
+      "items": [],
+      "gems": 0
+    }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "ember-ember-spires-024-cache",
+        "q": 2,
+        "r": 0,
+        "reveal": "search",
+        "reward": {
+          "xp": 126,
+          "gold": 63,
+          "items": []
+        }
+      }
+    ]
+  }
+}

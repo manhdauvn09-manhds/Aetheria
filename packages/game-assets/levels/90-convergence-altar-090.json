@@ -1,0 +1,243 @@
+{
+  "slug": "void-convergence-altar-090",
+  "realmId": 5,
+  "levelNumber": 90,
+  "name": "Convergence Altar",
+  "type": "boss",
+  "difficulty": 9,
+  "minAccountLevel": 86,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "wall"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "void",
+        "tag": "exit",
+        "fx": "miasma"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "shrine"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "shrine"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "shrine"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "wall"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "shrine"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "wall"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "ruins"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "void-stalker-a",
+            "unit": "Void Stalker",
+            "level": 9,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 9,
+            "ai": "patrol"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          {
+            "id": "void-stalker-c",
+            "unit": "Void Stalker",
+            "level": 10,
+            "ai": "aggressive"
+          }
+        ],
+        "trigger": {
+          "kind": "clear",
+          "wave": 1
+        }
+      }
+    ],
+    "scripts": [
+      "mid_boss",
+      "void"
+    ],
+    "boss": {
+      "id": "void-boss-90",
+      "unit": "Void Stalker",
+      "level": 11,
+      "hpMultiplier": 1.8,
+      "script": "summon_at_50"
+    }
+  },
+  "rewards": {
+    "xp": 1140,
+    "gold": 475,
+    "items": [],
+    "firstClearBonus": {
+      "xp": 480,
+      "gold": 282,
+      "items": [],
+      "gems": 5
+    }
+  }
+}

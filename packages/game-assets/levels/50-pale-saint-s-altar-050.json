@@ -1,0 +1,243 @@
+{
+  "slug": "frost-pale-saint-s-altar-050",
+  "realmId": 3,
+  "levelNumber": 50,
+  "name": "Pale Saint's Altar",
+  "type": "boss",
+  "difficulty": 5,
+  "minAccountLevel": 46,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "water"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "stone",
+        "tag": "exit"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "water"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "shrine"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "water"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "water"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "ruins"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "frost-wraith-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "frost-wraith-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "frost-wraith-a",
+            "unit": "Frost Wraith",
+            "level": 5,
+            "ai": "patrol"
+          },
+          {
+            "id": "void-stalker-b",
+            "unit": "Void Stalker",
+            "level": 5,
+            "ai": "patrol"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          {
+            "id": "frost-wraith-c",
+            "unit": "Frost Wraith",
+            "level": 6,
+            "ai": "aggressive"
+          }
+        ],
+        "trigger": {
+          "kind": "clear",
+          "wave": 1
+        }
+      }
+    ],
+    "scripts": [
+      "mid_boss",
+      "frost"
+    ],
+    "boss": {
+      "id": "frost-boss-50",
+      "unit": "Frost Wraith",
+      "level": 7,
+      "hpMultiplier": 1.8,
+      "script": "summon_at_50"
+    }
+  },
+  "rewards": {
+    "xp": 660,
+    "gold": 275,
+    "items": [],
+    "firstClearBonus": {
+      "xp": 280,
+      "gold": 162,
+      "items": [],
+      "gems": 5
+    }
+  }
+}

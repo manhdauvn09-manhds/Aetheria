@@ -1,0 +1,255 @@
+{
+  "slug": "tide-pearl-cathedral-080",
+  "realmId": 4,
+  "levelNumber": 80,
+  "name": "Pearl Cathedral",
+  "type": "boss",
+  "difficulty": 8,
+  "minAccountLevel": 76,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "water"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "sand"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "water",
+        "tag": "exit"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "grass"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "shrine"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "water"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "grass"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "sand"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "grass"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "sand"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "water"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "ruins"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "tide-brute-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "tide-brute-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-d",
+        "slot": 1,
+        "q": 5,
+        "r": 2
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "realm_hub"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "tide-brute-a",
+            "unit": "Tide Brute",
+            "level": 8,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 8,
+            "ai": "patrol"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          {
+            "id": "tide-brute-c",
+            "unit": "Tide Brute",
+            "level": 9,
+            "ai": "aggressive"
+          },
+          {
+            "id": "sky-reaper-d",
+            "unit": "Sky Reaper",
+            "level": 9,
+            "ai": "aggressive"
+          }
+        ],
+        "trigger": {
+          "kind": "clear",
+          "wave": 1
+        }
+      }
+    ],
+    "scripts": [
+      "realm_boss",
+      "tide"
+    ],
+    "boss": {
+      "id": "tide-boss-80",
+      "unit": "Void Lord",
+      "level": 10,
+      "hpMultiplier": 2.5,
+      "script": "phase_at_50"
+    }
+  },
+  "rewards": {
+    "xp": 1020,
+    "gold": 425,
+    "items": [],
+    "firstClearBonus": {
+      "xp": 430,
+      "gold": 252,
+      "items": [
+        {
+          "itemId": 204,
+          "qty": 1
+        }
+      ],
+      "gems": 10
+    }
+  }
+}

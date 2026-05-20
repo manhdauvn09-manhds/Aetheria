@@ -1,0 +1,230 @@
+{
+  "slug": "frost-cold-iron-bastion-051",
+  "realmId": 3,
+  "levelNumber": 51,
+  "name": "Cold Iron Bastion",
+  "type": "combat",
+  "difficulty": 6,
+  "minAccountLevel": 47,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "water"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "stone",
+        "tag": "exit"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "water"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "water"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "ice",
+        "fx": "snow"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "water"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "ice",
+        "fx": "snow"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "frost-wraith-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "frost-wraith-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "frost-wraith-a",
+            "unit": "Frost Wraith",
+            "level": 6,
+            "ai": "patrol"
+          },
+          {
+            "id": "void-stalker-b",
+            "unit": "Void Stalker",
+            "level": 6,
+            "ai": "patrol"
+          },
+          {
+            "id": "frost-wraith-c",
+            "unit": "Frost Wraith",
+            "level": 6,
+            "ai": "patrol"
+          }
+        ]
+      }
+    ],
+    "scripts": [
+      "recovery",
+      "frost"
+    ]
+  },
+  "rewards": {
+    "xp": 672,
+    "gold": 280,
+    "items": [],
+    "firstClearBonus": {
+      "xp": 285,
+      "gold": 165,
+      "items": [],
+      "gems": 0
+    }
+  }
+}

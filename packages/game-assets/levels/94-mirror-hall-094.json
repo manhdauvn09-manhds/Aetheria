@@ -1,0 +1,248 @@
+{
+  "slug": "void-mirror-hall-094",
+  "realmId": 5,
+  "levelNumber": 94,
+  "name": "Mirror Hall",
+  "type": "treasure",
+  "difficulty": 10,
+  "minAccountLevel": 90,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "wall"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "void",
+        "tag": "exit",
+        "fx": "miasma"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "shrine"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "wall"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "shrine"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "wall"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "shrine"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "wall"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "void",
+        "fx": "miasma"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "shrine"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "void-stalker-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "void-stalker-a",
+            "unit": "Void Stalker",
+            "level": 10,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 10,
+            "ai": "patrol"
+          },
+          {
+            "id": "void-stalker-c",
+            "unit": "Void Stalker",
+            "level": 10,
+            "ai": "patrol"
+          }
+        ]
+      }
+    ],
+    "scripts": [
+      "vault",
+      "void"
+    ]
+  },
+  "rewards": {
+    "xp": 1188,
+    "gold": 495,
+    "items": [
+      {
+        "itemId": 104,
+        "qty": 1
+      }
+    ],
+    "firstClearBonus": {
+      "xp": 500,
+      "gold": 294,
+      "items": [],
+      "gems": 0
+    }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "void-mirror-hall-094-cache",
+        "q": 2,
+        "r": 0,
+        "reveal": "search",
+        "reward": {
+          "xp": 406,
+          "gold": 203,
+          "items": []
+        }
+      }
+    ]
+  }
+}

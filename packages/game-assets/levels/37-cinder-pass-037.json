@@ -1,0 +1,250 @@
+{
+  "slug": "ember-cinder-pass-037",
+  "realmId": 2,
+  "levelNumber": 37,
+  "name": "Cinder Pass",
+  "type": "combat",
+  "difficulty": 4,
+  "minAccountLevel": 33,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "ash"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "sand"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "stone",
+        "tag": "exit"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "ash"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "sand"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "ash"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "sand"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "ash"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "sand"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "stone"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "ash"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "lava",
+        "fx": "embers"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "ruins"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "ember-husk-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "ember-husk-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "sky-reaper-d",
+        "slot": 1,
+        "q": 5,
+        "r": 2
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "ember-husk-a",
+            "unit": "Ember Husk",
+            "level": 4,
+            "ai": "patrol"
+          },
+          {
+            "id": "sky-reaper-b",
+            "unit": "Sky Reaper",
+            "level": 4,
+            "ai": "patrol"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          {
+            "id": "ember-husk-c",
+            "unit": "Ember Husk",
+            "level": 5,
+            "ai": "aggressive"
+          },
+          {
+            "id": "sky-reaper-d",
+            "unit": "Sky Reaper",
+            "level": 5,
+            "ai": "aggressive"
+          }
+        ],
+        "trigger": {
+          "kind": "clear",
+          "wave": 1
+        }
+      }
+    ],
+    "scripts": [
+      "prepare",
+      "ember"
+    ]
+  },
+  "rewards": {
+    "xp": 504,
+    "gold": 210,
+    "items": [],
+    "firstClearBonus": {
+      "xp": 215,
+      "gold": 123,
+      "items": [],
+      "gems": 0
+    }
+  }
+}

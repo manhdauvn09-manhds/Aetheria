@@ -1,0 +1,241 @@
+{
+  "slug": "verdant-twin-oaks-014",
+  "realmId": 1,
+  "levelNumber": 14,
+  "name": "Twin Oaks",
+  "type": "treasure",
+  "difficulty": 2,
+  "minAccountLevel": 10,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      {
+        "q": 0,
+        "r": 0,
+        "terrain": "grass"
+      },
+      {
+        "q": 1,
+        "r": 0,
+        "terrain": "forest"
+      },
+      {
+        "q": 2,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 0,
+        "terrain": "forest"
+      },
+      {
+        "q": 4,
+        "r": 0,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 0,
+        "terrain": "grass",
+        "tag": "exit"
+      },
+      {
+        "q": 0,
+        "r": 1,
+        "terrain": "forest"
+      },
+      {
+        "q": 1,
+        "r": 1,
+        "terrain": "stone"
+      },
+      {
+        "q": 2,
+        "r": 1,
+        "terrain": "water"
+      },
+      {
+        "q": 3,
+        "r": 1,
+        "terrain": "ruins"
+      },
+      {
+        "q": 4,
+        "r": 1,
+        "terrain": "forest"
+      },
+      {
+        "q": 5,
+        "r": 1,
+        "terrain": "forest"
+      },
+      {
+        "q": 0,
+        "r": 2,
+        "terrain": "stone"
+      },
+      {
+        "q": 1,
+        "r": 2,
+        "terrain": "water"
+      },
+      {
+        "q": 2,
+        "r": 2,
+        "terrain": "ruins"
+      },
+      {
+        "q": 3,
+        "r": 2,
+        "terrain": "grass"
+      },
+      {
+        "q": 4,
+        "r": 2,
+        "terrain": "forest"
+      },
+      {
+        "q": 5,
+        "r": 2,
+        "terrain": "forest"
+      },
+      {
+        "q": 0,
+        "r": 3,
+        "terrain": "water"
+      },
+      {
+        "q": 1,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 2,
+        "r": 3,
+        "terrain": "grass"
+      },
+      {
+        "q": 3,
+        "r": 3,
+        "terrain": "forest"
+      },
+      {
+        "q": 4,
+        "r": 3,
+        "terrain": "ruins"
+      },
+      {
+        "q": 5,
+        "r": 3,
+        "terrain": "water"
+      }
+    ],
+    "spawns": [
+      {
+        "kind": "player",
+        "slot": 1,
+        "q": 0,
+        "r": 1
+      },
+      {
+        "kind": "player",
+        "slot": 2,
+        "q": 0,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "verdant-spore-a",
+        "slot": 1,
+        "q": 4,
+        "r": 1
+      },
+      {
+        "kind": "enemy",
+        "ref": "ember-husk-b",
+        "slot": 1,
+        "q": 4,
+        "r": 2
+      },
+      {
+        "kind": "enemy",
+        "ref": "verdant-spore-c",
+        "slot": 1,
+        "q": 5,
+        "r": 1
+      }
+    ],
+    "exits": [
+      {
+        "q": 5,
+        "r": 0,
+        "to": "next"
+      }
+    ]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          {
+            "id": "verdant-spore-a",
+            "unit": "Verdant Spore",
+            "level": 2,
+            "ai": "patrol"
+          },
+          {
+            "id": "ember-husk-b",
+            "unit": "Ember Husk",
+            "level": 2,
+            "ai": "patrol"
+          },
+          {
+            "id": "verdant-spore-c",
+            "unit": "Verdant Spore",
+            "level": 2,
+            "ai": "patrol"
+          }
+        ]
+      }
+    ],
+    "scripts": [
+      "vault",
+      "verdant"
+    ]
+  },
+  "rewards": {
+    "xp": 228,
+    "gold": 95,
+    "items": [
+      {
+        "itemId": 104,
+        "qty": 1
+      }
+    ],
+    "firstClearBonus": {
+      "xp": 100,
+      "gold": 54,
+      "items": [],
+      "gems": 0
+    }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      {
+        "id": "verdant-twin-oaks-014-cache",
+        "q": 2,
+        "r": 0,
+        "reveal": "search",
+        "reward": {
+          "xp": 86,
+          "gold": 43,
+          "items": []
+        }
+      }
+    ]
+  }
+}
