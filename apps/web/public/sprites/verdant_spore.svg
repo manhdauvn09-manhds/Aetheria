@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="spore" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#d6463f"/><stop offset="100%" stop-color="#802a25"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="32" ry="5" fill="#000" opacity=".3"/>
+  <!-- cluster of bumps -->
+  <circle cx="64" cy="50" r="22" fill="url(#spore)" stroke="#000" stroke-width="2"/>
+  <circle cx="40" cy="78" r="20" fill="url(#spore)" stroke="#000" stroke-width="2"/>
+  <circle cx="88" cy="78" r="20" fill="url(#spore)" stroke="#000" stroke-width="2"/>
+  <circle cx="64" cy="98" r="18" fill="url(#spore)" stroke="#000" stroke-width="2"/>
+  <!-- glowing pustules -->
+  <circle cx="64" cy="44" r="5" fill="#6cd66c" opacity=".85"/>
+  <circle cx="38" cy="76" r="4" fill="#6cd66c" opacity=".85"/>
+  <circle cx="90" cy="76" r="4" fill="#6cd66c" opacity=".85"/>
+  <!-- spore puffs -->
+  <circle cx="20" cy="60" r="3" fill="#6cd66c" opacity=".5"/>
+  <circle cx="108" cy="60" r="3" fill="#6cd66c" opacity=".5"/>
+  <circle cx="64" cy="116" r="2" fill="#6cd66c" opacity=".5"/>
+</svg>

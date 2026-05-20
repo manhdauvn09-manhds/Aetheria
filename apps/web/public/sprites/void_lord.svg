@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="lord" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#1a1a2a"/><stop offset="100%" stop-color="#000"/></radialGradient></defs>
+  <ellipse cx="64" cy="124" rx="38" ry="6" fill="#000" opacity=".5"/>
+  <!-- large body -->
+  <path d="M26 60 L26 116 L40 110 L52 116 L64 110 L76 116 L88 110 L102 116 L102 60 Q64 42 26 60 Z" fill="url(#lord)" stroke="#000" stroke-width="3"/>
+  <!-- jagged crown -->
+  <path d="M22 50 L26 28 L38 46 L48 18 L58 44 L64 14 L70 44 L80 18 L90 46 L102 28 L106 50 Q64 40 22 50 Z" fill="url(#lord)" stroke="#000" stroke-width="2.5"/>
+  <!-- crown gems -->
+  <circle cx="48" cy="34" r="3" fill="#c59cff"/>
+  <circle cx="64" cy="28" r="4" fill="#c59cff"/>
+  <circle cx="80" cy="34" r="3" fill="#c59cff"/>
+  <!-- giant central eye -->
+  <ellipse cx="64" cy="76" rx="20" ry="14" fill="#000"/>
+  <ellipse cx="64" cy="76" rx="12" ry="8" fill="#c59cff"/>
+  <ellipse cx="64" cy="76" rx="5" ry="4" fill="#fff"/>
+  <circle cx="64" cy="76" r="2" fill="#000"/>
+  <!-- aura wisps -->
+  <circle cx="18" cy="80" r="3" fill="#c59cff" opacity=".6"/>
+  <circle cx="110" cy="80" r="3" fill="#c59cff" opacity=".6"/>
+  <circle cx="14" cy="100" r="2" fill="#c59cff" opacity=".4"/>
+  <circle cx="114" cy="100" r="2" fill="#c59cff" opacity=".4"/>
+</svg>

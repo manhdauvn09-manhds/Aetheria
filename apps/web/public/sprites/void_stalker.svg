@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="stalker" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#d6463f"/><stop offset="100%" stop-color="#551c19"/></radialGradient></defs>
+  <ellipse cx="64" cy="124" rx="24" ry="4" fill="#000" opacity=".3"/>
+  <!-- triangular body -->
+  <path d="M64 30 L100 100 L28 100 Z" fill="url(#stalker)" stroke="#000" stroke-width="2.5"/>
+  <!-- inner glyph -->
+  <path d="M64 58 L84 92 L44 92 Z" fill="#c59cff" opacity=".3"/>
+  <!-- eye slits -->
+  <rect x="44" y="72" width="14" height="3" fill="#ffea61" transform="rotate(-12 51 73)"/>
+  <rect x="70" y="72" width="14" height="3" fill="#ffea61" transform="rotate(12 77 73)"/>
+  <!-- mouth (jagged) -->
+  <path d="M52 88 L56 94 L60 88 L64 94 L68 88 L72 94 L76 88" stroke="#fff" stroke-width="1" fill="none"/>
+  <!-- claws below -->
+  <path d="M28 100 L20 116 L24 116 L30 102 M100 100 L108 116 L104 116 L98 102" fill="#551c19" stroke="#000" stroke-width="1.5"/>
+</svg>

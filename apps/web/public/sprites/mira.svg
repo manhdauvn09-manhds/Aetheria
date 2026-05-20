@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="mira" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#a8a8b8"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="26" ry="5" fill="#000" opacity=".3"/>
+  <path d="M44 60 Q44 80 38 110 L90 110 Q84 80 84 60 Q74 50 64 50 Q54 50 44 60 Z" fill="url(#mira)" stroke="#000" stroke-width="2"/>
+  <!-- chest cross -->
+  <rect x="60" y="68" width="8" height="28" fill="#6cd66c" stroke="#000" stroke-width="1"/>
+  <rect x="50" y="76" width="28" height="8" fill="#6cd66c" stroke="#000" stroke-width="1"/>
+  <!-- head -->
+  <circle cx="64" cy="38" r="14" fill="#f0d6b8" stroke="#000" stroke-width="2"/>
+  <!-- veil -->
+  <path d="M50 28 Q50 18 64 16 Q78 18 78 28 L76 40 Q64 42 52 40 Z" fill="#a8a8b8" stroke="#000" stroke-width="1.5"/>
+  <!-- eyes -->
+  <circle cx="59" cy="40" r="1.4" fill="#000"/><circle cx="69" cy="40" r="1.4" fill="#000"/>
+  <!-- aura glow halo -->
+  <circle cx="64" cy="38" r="20" fill="none" stroke="#6cd66c" stroke-width="1" opacity=".5"/>
+  <!-- healing wisps -->
+  <circle cx="42" cy="70" r="3" fill="#6cd66c" opacity=".7"/>
+  <circle cx="92" cy="80" r="3" fill="#6cd66c" opacity=".7"/>
+  <circle cx="86" cy="64" r="2" fill="#6cd66c" opacity=".6"/>
+</svg>

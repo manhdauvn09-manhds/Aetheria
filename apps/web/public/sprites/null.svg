@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="null" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#2a2a3a"/><stop offset="100%" stop-color="#14141a"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="28" ry="5" fill="#000" opacity=".3"/>
+  <!-- cloak (jagged hem) -->
+  <path d="M36 56 L32 110 L40 100 L48 110 L56 102 L64 112 L72 102 L80 110 L88 100 L96 110 L92 56 Q64 44 36 56 Z" fill="url(#null)" stroke="#000" stroke-width="2"/>
+  <!-- inner robe swirl -->
+  <path d="M48 70 Q64 76 80 70 Q70 92 64 96 Q58 92 48 70 Z" fill="#c59cff" opacity=".4"/>
+  <!-- head -->
+  <circle cx="64" cy="40" r="15" fill="#1a1a24" stroke="#000" stroke-width="2"/>
+  <!-- mask (full face void) -->
+  <ellipse cx="64" cy="40" rx="13" ry="11" fill="#0a0a14"/>
+  <!-- glowing eyes -->
+  <ellipse cx="58" cy="40" rx="3" ry="2" fill="#c59cff"/>
+  <ellipse cx="70" cy="40" rx="3" ry="2" fill="#c59cff"/>
+  <!-- third-eye sigil -->
+  <circle cx="64" cy="30" r="2" fill="#c59cff"/>
+  <!-- void wisps -->
+  <circle cx="38" cy="74" r="2" fill="#c59cff" opacity=".5"/>
+  <circle cx="90" cy="80" r="2" fill="#c59cff" opacity=".5"/>
+</svg>

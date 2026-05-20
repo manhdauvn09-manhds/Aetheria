@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="vex" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#3aa0ff"/><stop offset="100%" stop-color="#174066"/></radialGradient></defs>
+  <ellipse cx="64" cy="122" rx="22" ry="4" fill="#000" opacity=".3"/>
+  <!-- slim body -->
+  <path d="M50 56 Q48 80 52 110 L76 110 Q80 80 78 56 Q72 48 64 48 Q56 48 50 56 Z" fill="url(#vex)" stroke="#000" stroke-width="2"/>
+  <!-- belt -->
+  <rect x="46" y="78" width="36" height="4" fill="#174066"/>
+  <!-- head -->
+  <circle cx="64" cy="38" r="13" fill="#d8b896" stroke="#000" stroke-width="2"/>
+  <!-- mask -->
+  <rect x="48" y="36" width="32" height="6" fill="#174066" stroke="#000" stroke-width="1.5"/>
+  <!-- mask eyes -->
+  <ellipse cx="58" cy="39" rx="2.5" ry="1.5" fill="#c59cff"/>
+  <ellipse cx="70" cy="39" rx="2.5" ry="1.5" fill="#c59cff"/>
+  <!-- left dagger -->
+  <path d="M30 88 L18 60 L22 58 L34 86 Z" fill="#e8e8ee" stroke="#000" stroke-width="1.5"/>
+  <rect x="28" y="84" width="10" height="4" fill="#5a3a20"/>
+  <!-- right dagger -->
+  <path d="M94 88 L110 60 L106 58 L92 86 Z" fill="#e8e8ee" stroke="#000" stroke-width="1.5"/>
+  <rect x="90" y="84" width="10" height="4" fill="#5a3a20"/>
+</svg>

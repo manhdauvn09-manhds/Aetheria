@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="brute" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#d6463f"/><stop offset="100%" stop-color="#802a25"/></radialGradient></defs>
+  <ellipse cx="64" cy="122" rx="40" ry="6" fill="#000" opacity=".3"/>
+  <!-- wide squat body -->
+  <rect x="24" y="56" width="80" height="58" rx="8" fill="url(#brute)" stroke="#000" stroke-width="2.5"/>
+  <!-- horns -->
+  <path d="M24 56 L14 30 L34 50 Z" fill="url(#brute)" stroke="#000" stroke-width="2"/>
+  <path d="M104 56 L114 30 L94 50 Z" fill="url(#brute)" stroke="#000" stroke-width="2"/>
+  <!-- eyes -->
+  <circle cx="46" cy="76" r="6" fill="#000"/>
+  <circle cx="82" cy="76" r="6" fill="#000"/>
+  <circle cx="46" cy="76" r="2.5" fill="#ff3030"/>
+  <circle cx="82" cy="76" r="2.5" fill="#ff3030"/>
+  <!-- tusks -->
+  <path d="M52 96 L48 110 L54 108 Z" fill="#fff" stroke="#000" stroke-width="1"/>
+  <path d="M76 96 L80 110 L74 108 Z" fill="#fff" stroke="#000" stroke-width="1"/>
+  <!-- chest emblem -->
+  <circle cx="64" cy="90" r="5" fill="#4fb6c0" stroke="#000" stroke-width="1"/>
+</svg>

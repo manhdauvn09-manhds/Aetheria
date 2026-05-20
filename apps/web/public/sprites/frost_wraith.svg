@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="wraith" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#d6463f"/><stop offset="100%" stop-color="#802a25"/></radialGradient></defs>
+  <ellipse cx="64" cy="122" rx="26" ry="4" fill="#000" opacity=".25"/>
+  <!-- ghostly bottom -->
+  <path d="M36 50 L36 100 L44 90 L52 102 L60 92 L68 102 L76 92 L84 102 L92 90 L92 50 Z" fill="url(#wraith)" opacity=".85" stroke="#000" stroke-width="2"/>
+  <!-- frost crown -->
+  <path d="M42 36 L48 26 L54 36 L60 22 L64 38 L68 22 L74 36 L80 26 L86 36 Z" fill="#a8d5e2" stroke="#000" stroke-width="1.5"/>
+  <!-- glowing eye sockets -->
+  <ellipse cx="56" cy="56" rx="5" ry="7" fill="#000"/>
+  <ellipse cx="72" cy="56" rx="5" ry="7" fill="#000"/>
+  <circle cx="56" cy="56" r="2" fill="#a8d5e2"/>
+  <circle cx="72" cy="56" r="2" fill="#a8d5e2"/>
+  <!-- mouth -->
+  <path d="M56 76 Q64 80 72 76" stroke="#000" stroke-width="1.5" fill="none"/>
+  <!-- frost wisps -->
+  <circle cx="32" cy="68" r="2" fill="#a8d5e2" opacity=".7"/>
+  <circle cx="96" cy="74" r="2" fill="#a8d5e2" opacity=".7"/>
+</svg>

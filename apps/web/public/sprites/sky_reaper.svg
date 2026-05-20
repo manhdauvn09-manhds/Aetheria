@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="reaper" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#d6463f"/><stop offset="100%" stop-color="#802a25"/></radialGradient></defs>
+  <ellipse cx="64" cy="124" rx="22" ry="4" fill="#000" opacity=".3"/>
+  <!-- wings -->
+  <path d="M30 50 Q14 60 8 90 L28 80 L34 70 Z" fill="#6b231f" stroke="#000" stroke-width="1.5"/>
+  <path d="M98 50 Q114 60 120 90 L100 80 L94 70 Z" fill="#6b231f" stroke="#000" stroke-width="1.5"/>
+  <!-- robed body -->
+  <path d="M44 46 Q40 90 50 116 L78 116 Q88 90 84 46 Q74 40 64 40 Q54 40 44 46 Z" fill="url(#reaper)" stroke="#000" stroke-width="2"/>
+  <!-- hood -->
+  <path d="M44 46 Q44 26 64 22 Q84 26 84 46 L80 54 Q64 48 48 54 Z" fill="#802a25" stroke="#000" stroke-width="2"/>
+  <!-- void inside hood -->
+  <ellipse cx="64" cy="50" rx="12" ry="10" fill="#000"/>
+  <!-- single accent eye -->
+  <circle cx="64" cy="50" r="3" fill="#b6c7ff"/>
+  <!-- scythe handle (right) -->
+  <rect x="98" y="40" width="3" height="80" fill="#5a3a20" stroke="#000" stroke-width="1" transform="rotate(15 100 80)"/>
+  <!-- scythe blade -->
+  <path d="M88 28 Q120 30 116 60 L104 50 Q98 38 88 28 Z" fill="#e8e8ee" stroke="#000" stroke-width="1.5"/>
+</svg>

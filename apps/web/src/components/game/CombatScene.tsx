@@ -14,7 +14,7 @@
 
 import { useEffect, useRef } from "react";
 import type * as PixiTypes from "pixi.js";
-import type { Application, Container, Graphics, Text } from "pixi.js";
+import type { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import {
   hexDistance,
@@ -99,6 +99,53 @@ const UNIT_TO_ARCHETYPE: Record<string, Archetype> = {
 
 const archetypeOf = (actor: Actor): Archetype => {
   return UNIT_TO_ARCHETYPE[actor.unit] ?? (actor.side === "player" ? "swordsman" : "wraith");
+};
+
+// Map archetype → SVG asset filename. The SVGs live in apps/web/public/
+// sprites/ so they're served as static assets and cached by the browser.
+// Pixi loads them via Assets.load() and converts to Texture; we render
+// them with Pixi.Sprite. If a texture fails to load we fall back to the
+// drawArchetype Graphics path so combat never goes blank.
+const ARCHETYPE_TO_SVG: Partial<Record<Archetype, string>> = {
+  swordsman: "/sprites/aevra.svg",
+  tank:      "/sprites/kyo.svg",
+  mage:      "/sprites/lyra.svg",
+  guardian:  "/sprites/brann.svg",
+  healer:    "/sprites/mira.svg",
+  rogue:     "/sprites/vex.svg",
+  support:   "/sprites/solen.svg",
+  wildcard:  "/sprites/null.svg",
+  wraith:    "/sprites/frost_wraith.svg",
+  husk:      "/sprites/ember_husk.svg",
+  stalker:   "/sprites/void_stalker.svg",
+  brute:     "/sprites/tide_brute.svg",
+  reaper:    "/sprites/sky_reaper.svg",
+  spore:     "/sprites/verdant_spore.svg",
+  lord:      "/sprites/void_lord.svg",
+};
+
+/** Texture cache shared across all sprite instances in a battle. */
+const textureCache = new Map<Archetype, Texture>();
+
+/**
+ * Preload all archetype SVGs in parallel. Resolves once all attempts
+ * complete (settled, not all-or-nothing) so a single bad asset doesn't
+ * block the rest.
+ */
+const preloadSpriteTextures = async (Pixi: typeof PixiTypes): Promise<void> => {
+  const entries = Object.entries(ARCHETYPE_TO_SVG) as [Archetype, string][];
+  await Promise.allSettled(
+    entries.map(async ([archetype, url]) => {
+      if (textureCache.has(archetype)) return;
+      try {
+        const texture = (await Pixi.Assets.load(url)) as Texture;
+        textureCache.set(archetype, texture);
+      } catch {
+        // Leave it absent in the cache; updateActorSprite falls back to
+        // the Graphics path for this archetype.
+      }
+    }),
+  );
 };
 
 /**
@@ -326,6 +373,12 @@ export const CombatScene = ({
       const Pixi = await import("pixi.js");
       if (cancelled) return;
 
+      // Preload SVG sprite textures so makeActorSprite() can use them
+      // without flashing the Graphics fallback. Settled, not all-or-
+      // nothing — missing assets degrade gracefully.
+      await preloadSpriteTextures(Pixi);
+      if (cancelled) return;
+
       app = new Pixi.Application();
       await app.init({
         width,
@@ -525,7 +578,10 @@ export const CombatScene = ({
 interface ActorSprite {
   readonly container: Container;
   readonly glow: Graphics;
+  /** Fallback geometry rendered when no SVG texture is available. */
   readonly body: Graphics;
+  /** Optional textured sprite layered on top of the body. */
+  spriteLayer: Sprite | null;
   readonly hpBar: Graphics;
   readonly label: Text;
   // Last-known authoritative position so move animations know where to
@@ -563,10 +619,26 @@ const makeActorSprite = (
     container,
     glow,
     body,
+    spriteLayer: null,
     hpBar,
     label,
     pos: actor.pos,
   };
+  // Attempt to use the preloaded SVG texture for this archetype. If
+  // missing (asset failed to load), the body Graphics path takes over.
+  const archetype = archetypeOf(actor);
+  const tex = textureCache.get(archetype);
+  if (tex !== undefined) {
+    const s = new Pixi.Sprite(tex);
+    s.anchor.set(0.5, 0.55);
+    // SVGs are 128x128, scale to ~hexSize*1.5 so they read large.
+    const scale = (hexSize * 1.5) / 128;
+    s.scale.set(scale, scale);
+    sprite.spriteLayer = s;
+    // Order: glow → spriteLayer → hpBar → label. body stays in tree
+    // but is empty when texture is present (acts as a fallback hook).
+    container.addChildAt(s, container.getChildIndex(body));
+  }
   updateActorSprite(sprite, actor, hexSize);
   return sprite;
 };
@@ -586,10 +658,15 @@ const updateActorSprite = (
   sprite.glow.circle(0, 0, hexSize * 0.5);
   sprite.glow.fill({ color: glowColor, alpha: actor.defeated ? 0.05 : 0.22 });
 
-  // Body — archetype-themed sprite (sword/shield/staff/etc) per
-  // class. Reads at a glance instead of being one-of-many circles.
+  // Body — prefer textured SVG sprite; fall back to Graphics if the
+  // archetype texture failed to preload.
   sprite.body.clear();
-  drawArchetype(sprite.body, actor, hexSize, glowColor);
+  if (sprite.spriteLayer !== null) {
+    // Defeated → dim it. Live → full alpha.
+    sprite.spriteLayer.alpha = actor.defeated ? 0.35 : 1;
+  } else {
+    drawArchetype(sprite.body, actor, hexSize, glowColor);
+  }
 
   sprite.hpBar.clear();
   const w = hexSize * 0.78;

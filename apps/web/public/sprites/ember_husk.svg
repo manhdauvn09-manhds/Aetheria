@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="husk" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#d6463f"/><stop offset="100%" stop-color="#802a25"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="32" ry="5" fill="#000" opacity=".3"/>
+  <!-- chunky body -->
+  <path d="M32 56 Q28 88 36 108 L92 108 Q100 88 96 56 Q88 44 64 42 Q40 44 32 56 Z" fill="url(#husk)" stroke="#000" stroke-width="2.5"/>
+  <!-- cracks (ember veins) -->
+  <path d="M40 70 L52 78 L48 92 M88 64 L78 76 L84 90 M64 56 L60 86" stroke="#ff7a3a" stroke-width="2.5" fill="none" opacity=".9"/>
+  <!-- eye-pits -->
+  <ellipse cx="54" cy="64" rx="5" ry="4" fill="#000"/>
+  <ellipse cx="74" cy="64" rx="5" ry="4" fill="#000"/>
+  <circle cx="54" cy="64" r="2" fill="#ff7a3a"/>
+  <circle cx="74" cy="64" r="2" fill="#ff7a3a"/>
+  <!-- jagged jaw -->
+  <path d="M50 82 L54 92 L58 84 L62 92 L66 84 L70 92 L74 84 L78 92" stroke="#000" stroke-width="1.5" fill="none"/>
+</svg>

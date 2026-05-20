@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="kyo" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#3aa0ff"/><stop offset="100%" stop-color="#226099"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="32" ry="5" fill="#000" opacity=".3"/>
+  <!-- broad body -->
+  <rect x="40" y="56" width="48" height="50" rx="10" fill="url(#kyo)" stroke="#000" stroke-width="2"/>
+  <!-- head -->
+  <circle cx="64" cy="40" r="17" fill="#d4a980" stroke="#000" stroke-width="2"/>
+  <!-- topknot -->
+  <path d="M58 20 Q64 12 70 20 L66 28 Q64 26 62 28 Z" fill="#2a1a14"/>
+  <!-- eyes -->
+  <path d="M55 42 L62 42" stroke="#000" stroke-width="2"/><path d="M66 42 L73 42" stroke="#000" stroke-width="2"/>
+  <!-- big shield (left side) -->
+  <path d="M14 50 Q14 38 22 36 L36 36 Q44 38 44 50 L44 92 Q30 102 14 92 Z" fill="#226099" stroke="#000" stroke-width="2.5"/>
+  <!-- shield cross -->
+  <rect x="26" y="56" width="6" height="32" fill="#c59cff"/>
+  <rect x="16" y="68" width="26" height="6" fill="#c59cff"/>
+  <!-- sword on right -->
+  <rect x="92" y="62" width="4" height="40" fill="#888" stroke="#000" stroke-width="1"/>
+  <rect x="86" y="100" width="16" height="4" fill="#5a3a20" stroke="#000" stroke-width="0.5"/>
+</svg>

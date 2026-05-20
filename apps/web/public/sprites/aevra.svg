@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="aevra" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#3aa0ff"/><stop offset="100%" stop-color="#226099"/></radialGradient></defs>
+  <!-- shadow -->
+  <ellipse cx="64" cy="120" rx="28" ry="5" fill="#000" opacity=".3"/>
+  <!-- cloak -->
+  <path d="M30 64 Q40 100 64 110 Q88 100 98 64 L94 116 Q64 122 34 116 Z" fill="#226099"/>
+  <!-- body -->
+  <ellipse cx="64" cy="78" rx="22" ry="28" fill="url(#aevra)" stroke="#000" stroke-width="2"/>
+  <!-- head -->
+  <circle cx="64" cy="40" r="16" fill="#f4d4a0" stroke="#000" stroke-width="2"/>
+  <!-- hood -->
+  <path d="M48 38 Q48 24 64 22 Q80 24 80 38 L78 32 Q64 26 50 32 Z" fill="#226099" stroke="#000" stroke-width="1.5"/>
+  <!-- eyes -->
+  <circle cx="58" cy="42" r="1.6" fill="#000"/><circle cx="70" cy="42" r="1.6" fill="#000"/>
+  <!-- sword blade -->
+  <path d="M96 76 L114 16 L118 18 L102 80 Z" fill="#e8e8ee" stroke="#000" stroke-width="1.5"/>
+  <!-- crossguard -->
+  <rect x="92" y="74" width="20" height="6" fill="#8b5e3c" stroke="#000" stroke-width="1.5"/>
+  <!-- hilt -->
+  <rect x="98" y="80" width="8" height="14" fill="#5a3a20" stroke="#000" stroke-width="1.5"/>
+  <!-- element gem -->
+  <circle cx="102" cy="74" r="3" fill="#ff7a3a" stroke="#000" stroke-width="0.5"/>
+</svg>

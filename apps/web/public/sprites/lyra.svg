@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="lyra" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#3aa0ff"/><stop offset="100%" stop-color="#226099"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="26" ry="5" fill="#000" opacity=".3"/>
+  <!-- robe -->
+  <path d="M44 60 Q44 80 36 110 L92 110 Q84 80 84 60 Q74 50 64 50 Q54 50 44 60 Z" fill="url(#lyra)" stroke="#000" stroke-width="2"/>
+  <!-- robe folds -->
+  <path d="M50 70 L48 100 M64 72 L64 108 M78 70 L80 100" stroke="#226099" stroke-width="1" fill="none" opacity=".6"/>
+  <!-- head -->
+  <circle cx="64" cy="38" r="14" fill="#f0d6b8" stroke="#000" stroke-width="2"/>
+  <!-- pointy hat -->
+  <path d="M50 30 L64 6 L78 30 Q64 32 50 30 Z" fill="#226099" stroke="#000" stroke-width="2"/>
+  <!-- hat band -->
+  <rect x="48" y="28" width="32" height="4" fill="#b6c7ff" stroke="#000" stroke-width="1"/>
+  <!-- eyes -->
+  <circle cx="59" cy="40" r="1.4" fill="#000"/><circle cx="69" cy="40" r="1.4" fill="#000"/>
+  <!-- staff -->
+  <rect x="96" y="40" width="3" height="80" fill="#6a4520" stroke="#000" stroke-width="1"/>
+  <!-- staff orb -->
+  <circle cx="97" cy="34" r="7" fill="#b6c7ff" stroke="#000" stroke-width="1.5"/>
+  <circle cx="95" cy="32" r="2" fill="#fff" opacity=".7"/>
+</svg>

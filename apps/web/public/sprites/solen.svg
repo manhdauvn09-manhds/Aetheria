@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="geometricPrecision">
+  <defs><radialGradient id="solen" cx="0.5" cy="0.4" r="0.6"><stop offset="0%" stop-color="#f8e0a0"/><stop offset="100%" stop-color="#c8a050"/></radialGradient></defs>
+  <ellipse cx="64" cy="120" rx="26" ry="5" fill="#000" opacity=".3"/>
+  <!-- robe -->
+  <path d="M44 60 Q44 84 40 110 L88 110 Q84 84 84 60 Q74 50 64 50 Q54 50 44 60 Z" fill="url(#solen)" stroke="#000" stroke-width="2"/>
+  <!-- sun emblem -->
+  <circle cx="64" cy="78" r="10" fill="#b6c7ff" stroke="#000" stroke-width="1.5"/>
+  <g stroke="#b6c7ff" stroke-width="2"><line x1="64" y1="64" x2="64" y2="60"/><line x1="64" y1="92" x2="64" y2="96"/><line x1="50" y1="78" x2="46" y2="78"/><line x1="78" y1="78" x2="82" y2="78"/><line x1="54" y1="68" x2="51" y2="65"/><line x1="74" y1="68" x2="77" y2="65"/><line x1="54" y1="88" x2="51" y2="91"/><line x1="74" y1="88" x2="77" y2="91"/></g>
+  <!-- head -->
+  <circle cx="64" cy="38" r="14" fill="#f0d6b8" stroke="#000" stroke-width="2"/>
+  <!-- circlet -->
+  <path d="M50 30 Q64 24 78 30 L76 34 Q64 30 52 34 Z" fill="#b6c7ff" stroke="#000" stroke-width="1.5"/>
+  <circle cx="64" cy="28" r="3" fill="#b6c7ff" stroke="#000" stroke-width="1"/>
+  <!-- eyes -->
+  <circle cx="59" cy="40" r="1.4" fill="#000"/><circle cx="69" cy="40" r="1.4" fill="#000"/>
+  <!-- orb in hand -->
+  <circle cx="100" cy="78" r="7" fill="#b6c7ff" opacity=".85" stroke="#000" stroke-width="1"/>
+</svg>
