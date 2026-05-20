@@ -1,0 +1,73 @@
+{
+  "slug": "misty-druid-grove",
+  "realmId": 1,
+  "levelNumber": 9,
+  "name": "Misty Druid Grove",
+  "type": "combat",
+  "difficulty": 2,
+  "minAccountLevel": 4,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "forest", "fx": "fog" },
+      { "q": 1, "r": 0, "terrain": "forest" },
+      { "q": 2, "r": 0, "terrain": "grass" },
+      { "q": 3, "r": 0, "terrain": "grass", "fx": "shimmer" },
+      { "q": 4, "r": 0, "terrain": "forest" },
+      { "q": 5, "r": 0, "terrain": "forest", "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "grass" },
+      { "q": 1, "r": 1, "terrain": "forest" },
+      { "q": 2, "r": 1, "terrain": "shrine" },
+      { "q": 3, "r": 1, "terrain": "grass" },
+      { "q": 4, "r": 1, "terrain": "stone", "elev": 1 },
+      { "q": 5, "r": 1, "terrain": "stone", "elev": 1 },
+      { "q": 0, "r": 2, "terrain": "grass" },
+      { "q": 1, "r": 2, "terrain": "water", "cost": 3 },
+      { "q": 2, "r": 2, "terrain": "grass" },
+      { "q": 3, "r": 2, "terrain": "forest", "fx": "fog" },
+      { "q": 4, "r": 2, "terrain": "ruins" },
+      { "q": 5, "r": 2, "terrain": "stone", "elev": 1 },
+      { "q": 0, "r": 3, "terrain": "forest", "fx": "fog" },
+      { "q": 1, "r": 3, "terrain": "grass" },
+      { "q": 2, "r": 3, "terrain": "ruins" },
+      { "q": 3, "r": 3, "terrain": "grass" },
+      { "q": 4, "r": 3, "terrain": "grass" },
+      { "q": 5, "r": 3, "terrain": "forest" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 2 },
+      { "kind": "enemy", "ref": "spore-a", "slot": 1, "q": 4, "r": 2 },
+      { "kind": "enemy", "ref": "spore-b", "slot": 1, "q": 4, "r": 3 },
+      { "kind": "enemy", "ref": "druid-zealot", "slot": 2, "q": 5, "r": 1 }
+    ],
+    "exits": [{ "q": 5, "r": 0, "to": "next" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "spore-a", "unit": "Verdant Spore", "level": 2, "ai": "patrol" },
+          { "id": "spore-b", "unit": "Verdant Spore", "level": 2, "ai": "patrol" }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          { "id": "druid-zealot", "unit": "Verdant Spore", "level": 3, "ai": "aggressive" }
+        ],
+        "trigger": { "kind": "clear", "wave": 1 }
+      }
+    ],
+    "scripts": ["fog_atmospheric"]
+  },
+  "rewards": {
+    "xp": 90,
+    "gold": 35,
+    "items": [{ "itemId": 101, "qty": 2 }],
+    "firstClearBonus": { "xp": 50, "gold": 20, "items": [], "gems": 0 }
+  }
+}

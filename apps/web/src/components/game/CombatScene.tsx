@@ -70,6 +70,210 @@ const ELEMENT_GLOW: Record<string, number> = {
   void:    0xc59cff,
 };
 
+// Class-themed sprite shape. Mapped from unit name so we don't need a
+// new field on the engine's Actor type. Falls back to "soldier" (circle
+// + sword) for unknowns. Each shape is drawn into a single Graphics
+// scaled by hexSize.
+type Archetype =
+  | "swordsman" | "tank" | "mage" | "guardian"
+  | "healer" | "rogue" | "support" | "wildcard"
+  | "wraith" | "husk" | "stalker" | "brute" | "reaper" | "spore" | "lord";
+
+const UNIT_TO_ARCHETYPE: Record<string, Archetype> = {
+  Aevra: "swordsman",
+  Kyo: "tank",
+  Lyra: "mage",
+  Brann: "guardian",
+  Mira: "healer",
+  Vex: "rogue",
+  Solen: "support",
+  Null: "wildcard",
+  "Frost Wraith": "wraith",
+  "Ember Husk": "husk",
+  "Void Stalker": "stalker",
+  "Tide Brute": "brute",
+  "Sky Reaper": "reaper",
+  "Verdant Spore": "spore",
+  "Void Lord": "lord",
+};
+
+const archetypeOf = (actor: Actor): Archetype => {
+  return UNIT_TO_ARCHETYPE[actor.unit] ?? (actor.side === "player" ? "swordsman" : "wraith");
+};
+
+/**
+ * Draw a class-themed body shape into a Graphics. Each archetype is a
+ * geometric silhouette (sword, shield, star, dagger, etc) tinted by the
+ * actor's side (blue for player, red for enemy) with an element accent.
+ *
+ * Sizes are expressed in fractions of hexSize so they scale with the
+ * board. We deliberately keep these as pure Pixi Graphics (no PNGs) so
+ * the bundle stays tiny — when we eventually ship sprite sheets, the
+ * fallback here still renders if assets fail to load.
+ */
+const drawArchetype = (
+  g: Graphics,
+  actor: Actor,
+  hexSize: number,
+  elementColor: number,
+): void => {
+  const fill = SIDE_FILL[actor.side] ?? 0x888888;
+  const alpha = actor.defeated ? 0.25 : 1;
+  const stroke = { color: 0x000000, width: 2, alpha: 0.65 } as const;
+  const accent = { color: elementColor, alpha: actor.defeated ? 0.2 : 0.9 } as const;
+  const s = hexSize;
+  const archetype = archetypeOf(actor);
+
+  // Common: outer body shape per archetype
+  switch (archetype) {
+    case "swordsman": {
+      // Circle base + upward sword
+      g.circle(0, 0, s * 0.4).fill({ color: fill, alpha }).stroke(stroke);
+      // Sword blade pointing up
+      g.poly([0, -s * 0.55, s * 0.07, -s * 0.15, -s * 0.07, -s * 0.15])
+        .fill({ color: 0xeeeeee, alpha: alpha * 0.95 }).stroke(stroke);
+      // Crossguard
+      g.rect(-s * 0.15, -s * 0.18, s * 0.3, s * 0.05)
+        .fill({ color: 0x8b5e3c, alpha }).stroke(stroke);
+      break;
+    }
+    case "tank":
+    case "guardian": {
+      // Rounded square shield + cross emblem
+      const w = s * 0.7, h = s * 0.78;
+      g.roundRect(-w / 2, -h / 2, w, h, s * 0.16)
+        .fill({ color: fill, alpha }).stroke(stroke);
+      // Cross emblem
+      g.rect(-s * 0.06, -s * 0.28, s * 0.12, s * 0.56).fill(accent);
+      g.rect(-s * 0.22, -s * 0.06, s * 0.44, s * 0.12).fill(accent);
+      break;
+    }
+    case "mage": {
+      // 5-point star (canon mage silhouette)
+      g.star(0, 0, 5, s * 0.45, s * 0.2).fill({ color: fill, alpha }).stroke(stroke);
+      // Inner star for element accent
+      g.star(0, 0, 5, s * 0.22, s * 0.1).fill(accent);
+      break;
+    }
+    case "healer": {
+      // Plus sign + soft circle behind
+      g.circle(0, 0, s * 0.4).fill({ color: fill, alpha: alpha * 0.9 }).stroke(stroke);
+      g.rect(-s * 0.08, -s * 0.3, s * 0.16, s * 0.6).fill({ color: 0xffffff, alpha });
+      g.rect(-s * 0.3, -s * 0.08, s * 0.6, s * 0.16).fill({ color: 0xffffff, alpha });
+      break;
+    }
+    case "rogue": {
+      // Diamond (dagger silhouette)
+      g.poly([0, -s * 0.5, s * 0.35, 0, 0, s * 0.5, -s * 0.35, 0])
+        .fill({ color: fill, alpha }).stroke(stroke);
+      g.poly([0, -s * 0.25, s * 0.16, 0, 0, s * 0.25, -s * 0.16, 0]).fill(accent);
+      break;
+    }
+    case "support": {
+      // Pentagon
+      const pts: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        const a = (-Math.PI / 2) + (i * 2 * Math.PI) / 5;
+        pts.push(Math.cos(a) * s * 0.42, Math.sin(a) * s * 0.42);
+      }
+      g.poly(pts).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(0, 0, s * 0.16).fill(accent);
+      break;
+    }
+    case "wildcard": {
+      // Hexagon (matches the board, hints "of everywhere")
+      const pts: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i * Math.PI) / 3;
+        pts.push(Math.cos(a) * s * 0.42, Math.sin(a) * s * 0.42);
+      }
+      g.poly(pts).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(0, 0, s * 0.18).fill(accent);
+      break;
+    }
+    // ── Enemies ──────────────────────────────────────────────────
+    case "wraith": {
+      // Ghost: rounded top + wavy bottom
+      const w = s * 0.7;
+      g.roundRect(-w / 2, -s * 0.45, w, s * 0.7, s * 0.34)
+        .fill({ color: fill, alpha }).stroke(stroke);
+      g.poly([-w / 2, s * 0.25, -w / 4, s * 0.05, 0, s * 0.25,
+              w / 4, s * 0.05, w / 2, s * 0.25, w / 2, s * 0.3, -w / 2, s * 0.3])
+        .fill({ color: fill, alpha });
+      // Eyes
+      g.circle(-s * 0.13, -s * 0.1, s * 0.06).fill({ color: 0x000000, alpha });
+      g.circle(s * 0.13, -s * 0.1, s * 0.06).fill({ color: 0x000000, alpha });
+      break;
+    }
+    case "husk": {
+      // Lumpy circle + jagged edge (cracked ember)
+      g.circle(0, 0, s * 0.42).fill({ color: fill, alpha }).stroke(stroke);
+      // Cracks
+      g.moveTo(-s * 0.3, -s * 0.2).lineTo(s * 0.1, 0).lineTo(s * 0.3, s * 0.2)
+        .stroke({ color: 0x000000, width: 2, alpha: alpha * 0.7 });
+      g.circle(s * 0.15, -s * 0.18, s * 0.07).fill(accent);
+      break;
+    }
+    case "stalker": {
+      // Sharp downward triangle (claw)
+      g.poly([0, s * 0.5, s * 0.45, -s * 0.35, -s * 0.45, -s * 0.35])
+        .fill({ color: fill, alpha }).stroke(stroke);
+      // Eye slits
+      g.rect(-s * 0.2, -s * 0.18, s * 0.12, s * 0.04).fill({ color: 0xffea61, alpha });
+      g.rect(s * 0.08, -s * 0.18, s * 0.12, s * 0.04).fill({ color: 0xffea61, alpha });
+      break;
+    }
+    case "brute": {
+      // Wide rectangle + chunky horns
+      g.rect(-s * 0.42, -s * 0.25, s * 0.84, s * 0.55)
+        .fill({ color: fill, alpha }).stroke(stroke);
+      g.poly([-s * 0.42, -s * 0.25, -s * 0.5, -s * 0.5, -s * 0.3, -s * 0.25]).fill({ color: fill, alpha }).stroke(stroke);
+      g.poly([s * 0.42, -s * 0.25, s * 0.5, -s * 0.5, s * 0.3, -s * 0.25]).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(-s * 0.15, -s * 0.05, s * 0.06).fill({ color: 0xff3030, alpha });
+      g.circle(s * 0.15, -s * 0.05, s * 0.06).fill({ color: 0xff3030, alpha });
+      break;
+    }
+    case "reaper": {
+      // Inverted triangle with wing barbs
+      g.poly([0, s * 0.45, s * 0.4, -s * 0.4, -s * 0.4, -s * 0.4])
+        .fill({ color: fill, alpha }).stroke(stroke);
+      g.poly([-s * 0.4, -s * 0.4, -s * 0.62, -s * 0.2, -s * 0.4, -s * 0.1]).fill({ color: fill, alpha });
+      g.poly([s * 0.4, -s * 0.4, s * 0.62, -s * 0.2, s * 0.4, -s * 0.1]).fill({ color: fill, alpha });
+      g.circle(0, -s * 0.18, s * 0.08).fill(accent);
+      break;
+    }
+    case "spore": {
+      // Cluster: 4 small bumps
+      g.circle(0, -s * 0.2, s * 0.22).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(-s * 0.25, s * 0.1, s * 0.2).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(s * 0.25, s * 0.1, s * 0.2).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(0, s * 0.3, s * 0.18).fill({ color: fill, alpha }).stroke(stroke);
+      g.circle(0, 0, s * 0.1).fill(accent);
+      break;
+    }
+    case "lord": {
+      // Large jagged crown (boss tier)
+      g.circle(0, s * 0.05, s * 0.45).fill({ color: fill, alpha }).stroke(stroke);
+      g.poly([
+        -s * 0.45, -s * 0.1,
+        -s * 0.3, -s * 0.4,
+        -s * 0.15, -s * 0.15,
+         0,        -s * 0.45,
+         s * 0.15, -s * 0.15,
+         s * 0.3,  -s * 0.4,
+         s * 0.45, -s * 0.1,
+      ]).fill({ color: fill, alpha }).stroke(stroke);
+      // Big sinister eye
+      g.circle(0, s * 0.05, s * 0.18).fill({ color: 0x000000, alpha });
+      g.circle(0, s * 0.05, s * 0.08).fill(accent);
+      break;
+    }
+  }
+
+  // Side accent ring around the sprite for player vs enemy clarity.
+  g.circle(0, 0, s * 0.5).stroke({ color: fill, width: 2, alpha: actor.defeated ? 0.15 : 0.45 });
+};
+
 export const CombatScene = ({
   width = DEFAULT_W,
   height = DEFAULT_H,
@@ -382,19 +586,10 @@ const updateActorSprite = (
   sprite.glow.circle(0, 0, hexSize * 0.5);
   sprite.glow.fill({ color: glowColor, alpha: actor.defeated ? 0.05 : 0.22 });
 
-  // Body — bigger, with side-themed fill + thicker outline for definition.
+  // Body — archetype-themed sprite (sword/shield/staff/etc) per
+  // class. Reads at a glance instead of being one-of-many circles.
   sprite.body.clear();
-  sprite.body.circle(0, 0, hexSize * 0.4);
-  sprite.body.fill({
-    color: SIDE_FILL[actor.side] ?? 0x888888,
-    alpha: actor.defeated ? 0.25 : 1,
-  });
-  sprite.body.stroke({ color: 0x000000, width: 2, alpha: 0.6 });
-  // Small element-tint accent dot at top-right of the body — like a
-  // class icon. Helps tell similar-side actors apart.
-  sprite.body.circle(hexSize * 0.22, -hexSize * 0.22, hexSize * 0.13);
-  sprite.body.fill({ color: glowColor, alpha: actor.defeated ? 0.2 : 0.85 });
-  sprite.body.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
+  drawArchetype(sprite.body, actor, hexSize, glowColor);
 
   sprite.hpBar.clear();
   const w = hexSize * 0.78;

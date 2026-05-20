@@ -15,9 +15,15 @@ import lv05 from "../levels/05-hollow-voidstep-atrium.json" with { type: "json" 
 import lv06 from "../levels/06-verdant-hidden-glade.json" with { type: "json" };
 import lv07 from "../levels/07-aetheric-spire-trial.json" with { type: "json" };
 import lv08 from "../levels/08-hollow-mirror-rift.json" with { type: "json" };
+import lv09 from "../levels/09-misty-druid-grove.json" with { type: "json" };
+import lv10 from "../levels/10-thornroot-tangle.json" with { type: "json" };
+import lv11 from "../levels/11-glowing-firefly-hollow.json" with { type: "json" };
+import lv12 from "../levels/12-ironbark-bridge.json" with { type: "json" };
+import lv13 from "../levels/13-deepwood-warden.json" with { type: "json" };
 
 const RAW_LEVELS: readonly unknown[] = [
   lv01, lv02, lv03, lv04, lv05, lv06, lv07, lv08,
+  lv09, lv10, lv11, lv12, lv13,
 ];
 
 // Procedural fill: the game guideline targets 100 levels across 5 realms.

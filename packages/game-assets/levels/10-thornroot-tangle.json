@@ -1,0 +1,73 @@
+{
+  "slug": "thornroot-tangle",
+  "realmId": 1,
+  "levelNumber": 10,
+  "name": "Thornroot Tangle",
+  "type": "treasure",
+  "difficulty": 3,
+  "minAccountLevel": 5,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "forest" },
+      { "q": 1, "r": 0, "terrain": "wall" },
+      { "q": 2, "r": 0, "terrain": "ruins", "tag": "chest_a" },
+      { "q": 3, "r": 0, "terrain": "wall" },
+      { "q": 4, "r": 0, "terrain": "forest" },
+      { "q": 5, "r": 0, "terrain": "shrine", "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "grass" },
+      { "q": 1, "r": 1, "terrain": "forest" },
+      { "q": 2, "r": 1, "terrain": "grass" },
+      { "q": 3, "r": 1, "terrain": "forest" },
+      { "q": 4, "r": 1, "terrain": "grass" },
+      { "q": 5, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "grass" },
+      { "q": 1, "r": 2, "terrain": "forest" },
+      { "q": 2, "r": 2, "terrain": "ruins", "tag": "chest_b" },
+      { "q": 3, "r": 2, "terrain": "forest" },
+      { "q": 4, "r": 2, "terrain": "grass" },
+      { "q": 5, "r": 2, "terrain": "stone" },
+      { "q": 0, "r": 3, "terrain": "forest" },
+      { "q": 1, "r": 3, "terrain": "wall" },
+      { "q": 2, "r": 3, "terrain": "grass" },
+      { "q": 3, "r": 3, "terrain": "wall" },
+      { "q": 4, "r": 3, "terrain": "forest" },
+      { "q": 5, "r": 3, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 2 },
+      { "kind": "enemy", "ref": "thorn-a", "slot": 1, "q": 4, "r": 1 },
+      { "kind": "enemy", "ref": "thorn-b", "slot": 1, "q": 4, "r": 2 }
+    ],
+    "exits": [{ "q": 5, "r": 0, "to": "next" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "thorn-a", "unit": "Verdant Spore", "level": 3, "ai": "defensive" },
+          { "id": "thorn-b", "unit": "Verdant Spore", "level": 3, "ai": "defensive" }
+        ]
+      }
+    ],
+    "scripts": ["chest_reveal"]
+  },
+  "rewards": {
+    "xp": 110,
+    "gold": 60,
+    "items": [{ "itemId": 102, "qty": 1 }, { "itemId": 103, "qty": 1 }],
+    "firstClearBonus": { "xp": 60, "gold": 30, "items": [], "gems": 1 }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      { "id": "thornroot-cache", "q": 2, "r": 0, "reveal": "search",
+        "reward": { "xp": 40, "gold": 25, "items": [{ "itemId": 104, "qty": 1 }] } },
+      { "id": "ancient-rune", "q": 2, "r": 2, "reveal": "walk",
+        "reward": { "xp": 20, "gold": 0, "items": [] } }
+    ]
+  }
+}

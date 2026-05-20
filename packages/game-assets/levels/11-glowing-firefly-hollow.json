@@ -1,0 +1,72 @@
+{
+  "slug": "glowing-firefly-hollow",
+  "realmId": 1,
+  "levelNumber": 11,
+  "name": "Glowing Firefly Hollow",
+  "type": "hidden",
+  "difficulty": 3,
+  "minAccountLevel": 6,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "forest", "fx": "shimmer" },
+      { "q": 1, "r": 0, "terrain": "forest" },
+      { "q": 2, "r": 0, "terrain": "shrine", "fx": "shimmer" },
+      { "q": 3, "r": 0, "terrain": "forest" },
+      { "q": 4, "r": 0, "terrain": "forest", "fx": "shimmer" },
+      { "q": 5, "r": 0, "terrain": "ruins", "tag": "exit" },
+      { "q": 0, "r": 1, "terrain": "grass" },
+      { "q": 1, "r": 1, "terrain": "water", "cost": 3 },
+      { "q": 2, "r": 1, "terrain": "grass" },
+      { "q": 3, "r": 1, "terrain": "water", "cost": 3 },
+      { "q": 4, "r": 1, "terrain": "grass" },
+      { "q": 5, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "grass" },
+      { "q": 1, "r": 2, "terrain": "grass" },
+      { "q": 2, "r": 2, "terrain": "forest", "fx": "shimmer", "tag": "lore_rune" },
+      { "q": 3, "r": 2, "terrain": "grass" },
+      { "q": 4, "r": 2, "terrain": "grass" },
+      { "q": 5, "r": 2, "terrain": "stone" },
+      { "q": 0, "r": 3, "terrain": "forest" },
+      { "q": 1, "r": 3, "terrain": "grass" },
+      { "q": 2, "r": 3, "terrain": "ruins" },
+      { "q": 3, "r": 3, "terrain": "grass" },
+      { "q": 4, "r": 3, "terrain": "forest" },
+      { "q": 5, "r": 3, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 2 },
+      { "kind": "enemy", "ref": "shade-a", "slot": 1, "q": 4, "r": 2 },
+      { "kind": "enemy", "ref": "shade-b", "slot": 1, "q": 4, "r": 3 }
+    ],
+    "exits": [{ "q": 5, "r": 0, "to": "next", "requires": "boss_dead" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "shade-a", "unit": "Void Stalker", "level": 3, "ai": "ranged" },
+          { "id": "shade-b", "unit": "Void Stalker", "level": 3, "ai": "ranged" }
+        ]
+      }
+    ],
+    "boss": { "id": "firefly-monarch", "unit": "Verdant Spore", "level": 5, "hpMultiplier": 1.6, "script": "phase_at_50" },
+    "scripts": ["lore_reveal"]
+  },
+  "rewards": {
+    "xp": 140,
+    "gold": 70,
+    "items": [{ "itemId": 105, "qty": 1 }],
+    "firstClearBonus": { "xp": 80, "gold": 40, "items": [], "gems": 2 }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      { "id": "firefly-lore-1", "q": 2, "r": 2, "reveal": "search",
+        "reward": { "xp": 60, "gold": 30, "items": [] } }
+    ]
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "slug": "deepwood-warden",
+  "realmId": 1,
+  "levelNumber": 13,
+  "name": "Deepwood Warden",
+  "type": "boss",
+  "difficulty": 5,
+  "minAccountLevel": 8,
+  "version": 1,
+  "map": {
+    "width": 6,
+    "height": 4,
+    "tiles": [
+      { "q": 0, "r": 0, "terrain": "ruins" },
+      { "q": 1, "r": 0, "terrain": "forest" },
+      { "q": 2, "r": 0, "terrain": "shrine" },
+      { "q": 3, "r": 0, "terrain": "shrine", "fx": "shimmer" },
+      { "q": 4, "r": 0, "terrain": "forest" },
+      { "q": 5, "r": 0, "terrain": "ruins", "tag": "exit", "fx": "shimmer" },
+      { "q": 0, "r": 1, "terrain": "grass" },
+      { "q": 1, "r": 1, "terrain": "forest" },
+      { "q": 2, "r": 1, "terrain": "grass" },
+      { "q": 3, "r": 1, "terrain": "grass" },
+      { "q": 4, "r": 1, "terrain": "forest" },
+      { "q": 5, "r": 1, "terrain": "stone" },
+      { "q": 0, "r": 2, "terrain": "grass" },
+      { "q": 1, "r": 2, "terrain": "grass" },
+      { "q": 2, "r": 2, "terrain": "grass" },
+      { "q": 3, "r": 2, "terrain": "grass" },
+      { "q": 4, "r": 2, "terrain": "grass" },
+      { "q": 5, "r": 2, "terrain": "stone" },
+      { "q": 0, "r": 3, "terrain": "forest" },
+      { "q": 1, "r": 3, "terrain": "ruins" },
+      { "q": 2, "r": 3, "terrain": "forest" },
+      { "q": 3, "r": 3, "terrain": "forest" },
+      { "q": 4, "r": 3, "terrain": "ruins" },
+      { "q": 5, "r": 3, "terrain": "stone" }
+    ],
+    "spawns": [
+      { "kind": "player", "slot": 1, "q": 0, "r": 1 },
+      { "kind": "player", "slot": 2, "q": 0, "r": 2 },
+      { "kind": "enemy", "ref": "deepwood-warden", "slot": 1, "q": 3, "r": 2 },
+      { "kind": "enemy", "ref": "thorn-add-1", "slot": 1, "q": 2, "r": 1 },
+      { "kind": "enemy", "ref": "thorn-add-2", "slot": 1, "q": 4, "r": 3 }
+    ],
+    "exits": [{ "q": 5, "r": 0, "to": "realm_hub", "requires": "boss_dead" }]
+  },
+  "encounter": {
+    "waves": [
+      {
+        "index": 1,
+        "enemies": [
+          { "id": "deepwood-warden", "unit": "Tide Brute", "level": 5, "ai": "aggressive" },
+          { "id": "thorn-add-1", "unit": "Verdant Spore", "level": 3, "ai": "defensive" },
+          { "id": "thorn-add-2", "unit": "Verdant Spore", "level": 3, "ai": "defensive" }
+        ]
+      },
+      {
+        "index": 2,
+        "enemies": [
+          { "id": "warden-summon-1", "unit": "Verdant Spore", "level": 4, "ai": "aggressive" },
+          { "id": "warden-summon-2", "unit": "Verdant Spore", "level": 4, "ai": "aggressive" }
+        ],
+        "trigger": { "kind": "turn", "value": 4 }
+      }
+    ],
+    "boss": { "id": "deepwood-warden", "unit": "Tide Brute", "level": 6, "hpMultiplier": 2.0, "script": "summon_at_50" },
+    "scripts": ["boss_intro_dialog", "warden_roar"]
+  },
+  "rewards": {
+    "xp": 280,
+    "gold": 150,
+    "items": [{ "itemId": 107, "qty": 1 }, { "itemId": 108, "qty": 2 }],
+    "firstClearBonus": { "xp": 200, "gold": 100, "items": [{ "itemId": 109, "qty": 1 }], "gems": 5 }
+  },
+  "discoverySecrets": {
+    "hidden": [
+      { "id": "warden-journal", "q": 3, "r": 0, "reveal": "search",
+        "reward": { "xp": 120, "gold": 50, "items": [] } }
+    ]
+  }
+}

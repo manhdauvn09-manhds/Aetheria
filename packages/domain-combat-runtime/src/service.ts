@@ -286,34 +286,78 @@ export class CombatRunService {
 // synthesise a 6×4 plain grid with one player + one enemy so the
 // engine has a valid starting state that's deterministic per run.
 
-// Roster used for the synthesised encounter. Difficulty scales with level
-// number so progression feels visible even before the level-designer
-// pipeline lands. Indexes 0..7 mirror the 8-character roster from the
-// game guideline (Aevra, Kyo, Lyra, Brann, Mira, Vex, Solen, Null).
+// Roster used for the synthesised encounter. Indexes 0..7 mirror the
+// 8-character roster from docs/01_GAME_GUIDELINE.md §5. Stats below are
+// the "real" balance pass — derived from the role wheel (tank, dps,
+// healer, support, assassin) so each hero feels distinct in combat.
+//
+// Balance philosophy:
+//   - Tank   : highest HP+DEF, lowest SPD; absorbs damage, slow to act.
+//   - Bruiser: tanky DPS, moderate everything.
+//   - DPS    : medium HP, high ATK, mid SPD; the steady killer.
+//   - Mage   : low HP, highest ATK, high SPD; glass cannon.
+//   - Healer : low ATK, mid HP + DEF, mid SPD; outpaces tanks, not assassins.
+//   - Asn    : lowest HP, very high SPD, high ATK; turn-1 burst.
+//   - Support: medium everything, slightly tankier than DPS.
+//   - Wild   : averages between Aevra and Vex; "tempo" pick.
+//
+// AP/move are uniform (3 AP, 2 move) for the synth encounter so the
+// engine spec doesn't fork; per-skill scaling lands when skill data
+// hits the catalog.
 const HERO_ROSTER: ReadonlyArray<{
   readonly id: string;
   readonly unit: string;
+  readonly role:
+    | "tank" | "bruiser" | "dps" | "mage" | "healer" | "assassin" | "support" | "wildcard";
   readonly element: "verdant" | "ember" | "frost" | "tide" | "sky" | "void";
+  readonly hp: number;
   readonly atk: number;
   readonly def: number;
   readonly spd: number;
 }> = [
-  { id: "aevra", unit: "Aevra",  element: "ember",   atk: 32, def: 10, spd: 65 },
-  { id: "kyo",   unit: "Kyo",    element: "void",    atk: 28, def: 15, spd: 55 },
-  { id: "lyra",  unit: "Lyra",   element: "sky",     atk: 36, def:  8, spd: 60 },
-  { id: "brann", unit: "Brann",  element: "verdant", atk: 24, def: 22, spd: 45 },
+  // 0  Aevra    — Aetherwalker, hybrid DPS. The flagship; balanced.
+  { id: "aevra", unit: "Aevra",  role: "dps",      element: "ember",   hp: 92,  atk: 32, def: 12, spd: 65 },
+  // 1  Kyo      — Bladepriest, tank/DPS. Frontline bruiser.
+  { id: "kyo",   unit: "Kyo",    role: "bruiser",  element: "void",    hp: 112, atk: 26, def: 20, spd: 50 },
+  // 2  Lyra     — Stormcaller, AoE mage. Glass cannon.
+  { id: "lyra",  unit: "Lyra",   role: "mage",     element: "sky",     hp: 76,  atk: 40, def:  8, spd: 60 },
+  // 3  Brann    — Earthwarden, pure tank.
+  { id: "brann", unit: "Brann",  role: "tank",     element: "verdant", hp: 134, atk: 20, def: 28, spd: 40 },
+  // 4  Mira     — Lifebinder, healer. Mid stats, low ATK.
+  { id: "mira",  unit: "Mira",   role: "healer",   element: "verdant", hp: 88,  atk: 18, def: 16, spd: 55 },
+  // 5  Vex      — Shadowblade, assassin. Highest SPD, fragile.
+  { id: "vex",   unit: "Vex",    role: "assassin", element: "void",    hp: 72,  atk: 38, def: 10, spd: 80 },
+  // 6  Solen    — Sunoracle, support. Modest stats, gameplay value via buffs.
+  { id: "solen", unit: "Solen",  role: "support",  element: "sky",     hp: 90,  atk: 22, def: 16, spd: 58 },
+  // 7  Null     — Voidchild, wildcard. Average between Aevra + Vex.
+  { id: "null",  unit: "Null",   role: "wildcard", element: "void",    hp: 96,  atk: 30, def: 14, spd: 62 },
 ];
 
+// Enemy archetypes — one per element, plus a boss-tier "Void Lord" for
+// final-trial levels. Stats are intentionally slightly weaker than the
+// matching-role hero so level-1 is winnable for a fresh player; level
+// scaling adds depth as the player progresses.
 const ENEMY_ARCHETYPES: ReadonlyArray<{
   readonly id: string;
   readonly unit: string;
   readonly element: "verdant" | "ember" | "frost" | "tide" | "sky" | "void";
+  readonly hp: number;
+  readonly atk: number;
+  readonly def: number;
+  readonly spd: number;
 }> = [
-  { id: "frost_wraith", unit: "Frost Wraith", element: "frost"   },
-  { id: "ember_husk",   unit: "Ember Husk",   element: "ember"   },
-  { id: "void_stalker", unit: "Void Stalker", element: "void"    },
-  { id: "tide_brute",   unit: "Tide Brute",   element: "tide"    },
+  { id: "verdant_spore", unit: "Verdant Spore", element: "verdant", hp: 62, atk: 20, def: 14, spd: 42 },
+  { id: "ember_husk",    unit: "Ember Husk",    element: "ember",   hp: 68, atk: 22, def: 12, spd: 44 },
+  { id: "frost_wraith",  unit: "Frost Wraith",  element: "frost",   hp: 56, atk: 24, def:  8, spd: 50 },
+  { id: "tide_brute",    unit: "Tide Brute",    element: "tide",    hp: 82, atk: 18, def: 16, spd: 36 },
+  { id: "sky_reaper",    unit: "Sky Reaper",    element: "sky",     hp: 58, atk: 26, def:  8, spd: 54 },
+  { id: "void_stalker",  unit: "Void Stalker",  element: "void",    hp: 52, atk: 28, def:  6, spd: 56 },
 ];
+
+const BOSS_ARCHETYPE = {
+  id: "void_lord", unit: "Void Lord", element: "void" as const,
+  hp: 180, atk: 36, def: 18, spd: 55,
+};
 
 const synthesiseInit = (
   ref: RunRef,
@@ -330,14 +374,17 @@ const synthesiseInit = (
       tiles.push({ q, r, terrain, elev: 0 });
     }
   }
+  // Boss every 20th level → final trial of each realm.
+  const isBoss = level.levelNumber > 0 && level.levelNumber % 20 === 0;
   // Hero rotates through roster by levelNumber so each level shows variety.
   const heroIdx = Math.max(0, (level.levelNumber - 1)) % HERO_ROSTER.length;
   const enemyIdx = Math.max(0, (level.levelNumber - 1)) % ENEMY_ARCHETYPES.length;
   const heroSpec = HERO_ROSTER[heroIdx]!;
-  const enemySpec = ENEMY_ARCHETYPES[enemyIdx]!;
-  // HP scales gently with level so higher levels feel meatier.
-  const heroHp = 80 + Math.min(40, level.levelNumber * 2);
-  const enemyHp = 50 + Math.min(60, level.levelNumber * 3);
+  const enemySpec = isBoss ? BOSS_ARCHETYPE : ENEMY_ARCHETYPES[enemyIdx]!;
+  // HP scales gently with level so higher levels feel meatier. Hero
+  // scales slower than enemy so the difficulty curve actually rises.
+  const heroHp = heroSpec.hp + Math.floor(level.levelNumber * 1.5);
+  const enemyHp = enemySpec.hp + Math.min(120, level.levelNumber * 3);
   const player = synthActor(
     heroSpec.id, heroSpec.unit, "player", heroSpec.element,
     { q: 0, r: 1 }, heroHp,
@@ -346,7 +393,11 @@ const synthesiseInit = (
   const enemy = synthActor(
     enemySpec.id, enemySpec.unit, "enemy", enemySpec.element,
     { q: 4, r: 2 }, enemyHp,
-    { atk: 24 + level.levelNumber, def: 8, spd: 48 },
+    {
+      atk: enemySpec.atk + Math.floor(level.levelNumber / 2),
+      def: enemySpec.def,
+      spd: enemySpec.spd,
+    },
   );
   // `seed` omitted on purpose — `createBattle` derives it from `battleId`.
   return {
