@@ -139,7 +139,6 @@ export const sfxDefeat = (): void => {
 export const sfxVictory = (): void => {
   const c = getCtx();
   if (!c) return;
-  const t = c.currentTime;
   // Schedule 3 notes ~120ms apart at increasing pitch
   for (let i = 0; i < 3; i++) {
     setTimeout(() => blip(523.25 * Math.pow(2, i / 6), 0.16, "triangle", 0.4), i * 120);
