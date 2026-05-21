@@ -238,6 +238,26 @@ Test-Case 'combat.start spawns single Void Lord boss on level 20' {
     Assert-Eq 'Void Lord' $foes[0].unit 'boss unit'
 }
 
+# Move action: multi-step path. Active hero moves 1 tile toward the
+# adjacent forward tile — engine validates each step is adjacent so the
+# pathfinder client-side has to produce that array.
+Test-Case 'combat.submitAction move (1 hex) advances hero' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $rid = [string]$rstart.run.id
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    $hero = $cs.state.actors | Where-Object { $_.id -eq $cs.state.activeActorId } | Select-Object -First 1
+    Assert-NotNull $hero 'active hero'
+    # Adjacent step: q+1 (heroes spawn on left column so q+1 is always inside the map)
+    $target = @{ q = ($hero.pos.q + 1); r = $hero.pos.r }
+    $r = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $rid
+        action = @{ kind = 'move'; actorId = $hero.id; path = @($target) }
+    }
+    $moved = $r.state.actors | Where-Object { $_.id -eq $hero.id } | Select-Object -First 1
+    Assert-Eq $target.q $moved.pos.q 'hero q advanced'
+    Assert-Eq $target.r $moved.pos.r 'hero r unchanged'
+}
+
 Test-Case 'combat.submitAction use_skill (bulwark) applies aether_surge status' {
     $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 2 }
     $rid = [string]$rstart.run.id

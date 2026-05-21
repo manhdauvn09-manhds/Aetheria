@@ -49,7 +49,10 @@ import {
 import { AppError } from "@aetheria/schema-api";
 import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
 
-export type CombatMysqlClient = Pick<MysqlClient, "run">;
+export type CombatMysqlClient = Pick<
+  MysqlClient,
+  "run" | "profile" | "inventory" | "item" | "$transaction"
+>;
 
 export interface CombatRunDeps {
   readonly mysql: CombatMysqlClient;
@@ -68,6 +71,8 @@ export interface CombatSubmitResult {
   readonly state: BattleState;
   readonly events: ReturnType<typeof applyAction>["events"];
   readonly runStatus: RunStatus;
+  /** Present only when runStatus transitioned to "completed" this call. */
+  readonly rewards?: GrantedRewards;
 }
 
 export interface CombatReplayResult {
@@ -85,7 +90,19 @@ interface RunRow {
   readonly actionLog: unknown;
   readonly snapshot: unknown;
   readonly revision: number;
-  readonly level: { readonly levelNumber: number; readonly name: string };
+  readonly level: {
+    readonly levelNumber: number;
+    readonly name: string;
+    /** rewards JSON: { xp, gold, items[], firstClearBonus? } */
+    readonly rewards: unknown;
+  };
+}
+
+/** Reward payload server emits to the client after a victorious submitAction. */
+export interface GrantedRewards {
+  readonly xp: number;
+  readonly gold: number;
+  readonly items: ReadonlyArray<{ itemId: number; qty: number }>;
 }
 
 export class CombatRunService {
@@ -214,6 +231,27 @@ export class CombatRunService {
       );
     }
 
+    // ── Reward grant on victory transition ───────────────────────────
+    // We grant ONLY on victory (not draw — draws don't unlock the next
+    // level either). Failures (defeat) award nothing.
+    let granted: GrantedRewards | undefined;
+    if (phase === "victory") {
+      try {
+        granted = await this.grantRewards(ref.userId, run.level.rewards);
+      } catch (e) {
+        // Don't fail the whole submitAction if rewards crash — the
+        // combat result is already authoritative. Log + carry on; an
+        // operator can manually backfill from the audit log.
+        await audit.write({
+          actor: ref.userId,
+          action: "combat.rewards_grant_failed",
+          targetType: "run",
+          targetId: ref.runId,
+          payload: { error: e instanceof Error ? e.message : String(e) },
+        });
+      }
+    }
+
     await audit.write({
       actor: ref.userId,
       action: "combat.submit_action",
@@ -225,9 +263,71 @@ export class CombatRunService {
         events: aggregatedEvents.length,
         aiActions: appendedActions.length - 1,
         phase,
+        rewardsGranted: granted ?? null,
       },
     });
-    return { state: result.state, events: aggregatedEvents, runStatus };
+    return {
+      state: result.state,
+      events: aggregatedEvents,
+      runStatus,
+      ...(granted ? { rewards: granted } : {}),
+    };
+  }
+
+  // ── Reward grant helper ─────────────────────────────────────────────
+  //
+  // Pulled out so the submitAction flow stays linear. Reads the level's
+  // rewards JSON (xp/gold/items), credits the user's profile in one
+  // update, and upserts each item stack. Single transaction so partial
+  // grants can't happen if the DB hiccups mid-loop.
+
+  private async grantRewards(
+    userId: bigint,
+    rewardsJson: unknown,
+  ): Promise<GrantedRewards> {
+    const rewards = normaliseRewards(rewardsJson);
+    if (rewards.xp <= 0 && rewards.gold <= 0 && rewards.items.length === 0) {
+      return rewards;
+    }
+
+    await this.deps.mysql.$transaction(async (tx: MysqlPrisma.Prisma.TransactionClient) => {
+      // Profile increments — gold + accountXp. tolerateDbMiss isn't
+      // needed because rewards only fire on a successful combat.
+      if (rewards.gold > 0 || rewards.xp > 0) {
+        await tx.profile.update({
+          where: { userId },
+          data: {
+            ...(rewards.gold > 0 ? { gold: { increment: rewards.gold } } : {}),
+            ...(rewards.xp > 0 ? { accountXp: { increment: rewards.xp } } : {}),
+          },
+        });
+      }
+      for (const it of rewards.items) {
+        const itemId = BigInt(it.itemId);
+        // Skip unknown items quietly so a placeholder reward (itemId
+        // referencing a not-yet-seeded catalog entry) doesn't crash
+        // the whole grant.
+        const known = await tx.item.findUnique({
+          where: { id: itemId },
+          select: { id: true },
+        });
+        if (!known) continue;
+        await tx.inventory.upsert({
+          where: { userId_itemId: { userId, itemId } },
+          create: { userId, itemId, quantity: it.qty },
+          update: { quantity: { increment: it.qty } },
+        });
+      }
+    });
+
+    await audit.write({
+      actor: userId,
+      action: "combat.rewards_granted",
+      targetType: "user",
+      targetId: userId,
+      payload: rewards as unknown as Record<string, unknown>,
+    });
+    return rewards;
   }
 
   async replay(ref: RunRef): Promise<CombatReplayResult> {
@@ -258,7 +358,7 @@ export class CombatRunService {
         actionLog: true,
         snapshot: true,
         revision: true,
-        level: { select: { levelNumber: true, name: true } },
+        level: { select: { levelNumber: true, name: true, rewards: true } },
       },
     });
     if (!row) throw AppError.notFound("run", ref.runId);
@@ -485,6 +585,33 @@ const synthActor = (
   cooldowns: {},
   defeated: false,
 });
+
+/**
+ * Coerce the level row's `rewards` JSON into a typed { xp, gold, items }
+ * payload. Tolerates missing/null fields — the synthesised levels and
+ * the seed placeholder rows can both have empty objects.
+ */
+const normaliseRewards = (raw: unknown): GrantedRewards => {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return { xp: 0, gold: 0, items: [] };
+  }
+  const r = raw as Record<string, unknown>;
+  const xp = typeof r.xp === "number" && r.xp >= 0 ? Math.floor(r.xp) : 0;
+  const gold = typeof r.gold === "number" && r.gold >= 0 ? Math.floor(r.gold) : 0;
+  const items: { itemId: number; qty: number }[] = [];
+  if (Array.isArray(r.items)) {
+    for (const it of r.items) {
+      if (it === null || typeof it !== "object") continue;
+      const o = it as Record<string, unknown>;
+      const itemId = typeof o.itemId === "number" ? Math.floor(o.itemId) : null;
+      const qty = typeof o.qty === "number" ? Math.floor(o.qty) : null;
+      if (itemId !== null && itemId > 0 && qty !== null && qty > 0 && qty <= 999) {
+        items.push({ itemId, qty });
+      }
+    }
+  }
+  return { xp, gold, items };
+};
 
 const parseActionLog = (raw: unknown): readonly Action[] => {
   // MySQL JSON column returns a parsed value already, but tolerate the

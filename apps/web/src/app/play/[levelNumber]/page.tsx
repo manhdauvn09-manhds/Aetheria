@@ -26,6 +26,7 @@ import { CombatHud } from "@/components/game/CombatHud";
 import { CombatTutorial } from "@/components/game/CombatTutorial";
 import { HexMapRenderer } from "@/components/game/HexMapRenderer";
 import { VictoryScreen } from "@/components/game/VictoryScreen";
+import { findHexPath } from "@/lib/hex/pathfind";
 import { trpc } from "@/lib/trpc/client";
 import { useCombat } from "@/store/combat";
 import { useGameFlow } from "@/store/gameFlow";
@@ -199,9 +200,18 @@ const InGameInner = (): JSX.Element => {
       if (!cur?.activeActorId) return;
       const active = cur.actors.find((a) => a.id === cur.activeActorId);
       if (active?.side !== "player") return;
-      // Single-step adjacent moves only; engine rejects non-adjacent paths.
+      // Compute a multi-step adjacent path so clicking far tiles works
+      // (engine validates step adjacency; we honour AP+move budget too).
+      const path = findHexPath(cur, active, coord);
+      if (!path || path.length === 0) {
+        // Unreachable — flash the highlight then bail so the user knows
+        // the click registered but nothing happened.
+        setHighlight(coord);
+        setCombatError("Tile not reachable this turn");
+        return;
+      }
       setHighlight(coord);
-      onSubmitAction({ kind: "move", actorId: active.id, path: [coord] });
+      onSubmitAction({ kind: "move", actorId: active.id, path });
     },
     [onSubmitAction],
   );

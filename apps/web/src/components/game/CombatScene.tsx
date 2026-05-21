@@ -26,6 +26,9 @@ import {
 } from "@aetheria/domain-combat";
 
 import { axialToPixel, hexCorners, pixelToAxial } from "@/lib/hex/math";
+import {
+  sfxAttack, sfxBuff, sfxCrit, sfxDefeat, sfxHeal, sfxResonance,
+} from "@/lib/audio/sfx";
 import { useCombat } from "@/store/combat";
 
 interface CombatSceneProps {
@@ -693,6 +696,29 @@ const updateActorSprite = (
 // in order. The combat events are short enough that a 200–400 ms beat
 // per event keeps the scene responsive.
 
+/** Route each engine event to its corresponding SFX. */
+const fireSfxForEvent = (event: Event): void => {
+  switch (event.type) {
+    case "damage_dealt":
+      if (event.crit) sfxCrit(); else sfxAttack();
+      return;
+    case "healed":
+      sfxHeal();
+      return;
+    case "status_applied":
+      sfxBuff();
+      return;
+    case "actor_defeated":
+      sfxDefeat();
+      return;
+    case "resonance_triggered":
+      sfxResonance();
+      return;
+    default:
+      return;
+  }
+};
+
 const animateEvent = async (
   Pixi: typeof PixiTypes,
   event: Event,
@@ -700,6 +726,8 @@ const animateEvent = async (
   fxLayer: Container | null,
   hexSize: number,
 ): Promise<void> => {
+  // SFX hook — fire-and-forget; sfx module is no-op under SSR.
+  fireSfxForEvent(event);
   switch (event.type) {
     case "actor_moved": {
       const sprite = actors.get(event.actorId);

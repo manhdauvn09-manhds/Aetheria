@@ -15,9 +15,11 @@
 // surface what the level promised so the player has a closing beat.
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import type { Actor, BattleState } from "@aetheria/domain-combat";
+
+import { sfxLoss, sfxVictory } from "@/lib/audio/sfx";
 
 interface VictoryScreenProps {
   readonly state: BattleState;
@@ -51,6 +53,15 @@ export const VictoryScreen = ({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [visible, onClose]);
+
+  // Play outcome jingle exactly once when the modal opens.
+  const playedRef = useRef(false);
+  useEffect(() => {
+    if (!visible || playedRef.current) return;
+    playedRef.current = true;
+    if (outcome === "victory") sfxVictory();
+    else if (outcome === "defeat" || outcome === "draw") sfxLoss();
+  }, [visible, outcome]);
 
   if (!visible) return null;
   if (outcome !== "victory" && outcome !== "defeat" && outcome !== "draw") return null;

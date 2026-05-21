@@ -7,7 +7,7 @@
 // HUD is dumb about networking — `onSubmit(action)` is the single
 // outward seam. The page composes optimistic apply + tRPC submission.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   hexDistance,
@@ -17,6 +17,7 @@ import {
   type Event,
 } from "@aetheria/domain-combat";
 
+import { setMuted } from "@/lib/audio/sfx";
 import { useCombat } from "@/store/combat";
 
 interface CombatHudProps {
@@ -65,7 +66,10 @@ export const CombatHud = ({
           <span className="text-xs uppercase tracking-wider text-zinc-500">Phase · </span>
           <span className="font-mono">{phaseLabel}</span>
         </div>
-        <div className="text-xs text-zinc-500">turn {state.turn}</div>
+        <div className="flex items-center gap-2">
+          <MuteToggle />
+          <div className="text-xs text-zinc-500">turn {state.turn}</div>
+        </div>
       </header>
 
       {active ? (
@@ -136,6 +140,8 @@ export const CombatHud = ({
         </button>
       </div>
 
+      <ResonanceBadge state={state} />
+
       {pending ? (
         <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-2 text-xs text-amber-200">
           Awaiting server confirmation for{" "}
@@ -202,6 +208,66 @@ const SkillButton = ({
       {spec.name}
       {cd > 0 ? <span className="ml-1 text-xs opacity-70">(cd {String(cd)})</span> : null}
     </button>
+  );
+};
+
+// ── Mute toggle ───────────────────────────────────────────────────────
+
+const MuteToggle = (): JSX.Element => {
+  const initial = typeof localStorage !== "undefined"
+    ? localStorage.getItem("aetheria.muted") === "1"
+    : false;
+  const [muted, setMutedState] = useState(initial);
+  return (
+    <button
+      type="button"
+      title={muted ? "Sound off (click to unmute)" : "Sound on (click to mute)"}
+      onClick={() => { setMuted(!muted); setMutedState(!muted); }}
+      className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
+    >
+      {muted ? "🔇" : "🔊"}
+    </button>
+  );
+};
+
+// ── Resonance indicator ───────────────────────────────────────────────
+// The engine triggers a +50% damage bonus when two non-defeated party
+// members share an element (see helpers.resonanceCheck). We surface it
+// in the HUD so the player can plan team comps + see when it's "armed".
+
+const RESONANCE_TINT: Record<string, string> = {
+  verdant: "border-emerald-600 bg-emerald-950/40 text-emerald-200",
+  ember:   "border-orange-600 bg-orange-950/40 text-orange-200",
+  frost:   "border-sky-600 bg-sky-950/40 text-sky-200",
+  tide:    "border-cyan-600 bg-cyan-950/40 text-cyan-200",
+  sky:     "border-indigo-600 bg-indigo-950/40 text-indigo-200",
+  void:    "border-violet-600 bg-violet-950/40 text-violet-200",
+};
+
+const ResonanceBadge = ({ state }: { state: BattleState }): JSX.Element | null => {
+  // Group living players by element; ≥ 2 of the same element = armed.
+  const counts = new Map<string, number>();
+  for (const a of state.actors) {
+    if (a.side !== "player" || a.defeated) continue;
+    counts.set(a.element, (counts.get(a.element) ?? 0) + 1);
+  }
+  let armedElement: string | null = null;
+  let armedCount = 0;
+  for (const [el, n] of counts) {
+    if (n >= 2 && n > armedCount) {
+      armedCount = n;
+      armedElement = el;
+    }
+  }
+  if (!armedElement) return null;
+  const tone = RESONANCE_TINT[armedElement] ?? "border-violet-600 bg-violet-950/40 text-violet-200";
+  return (
+    <div className={`rounded-md border ${tone} p-2 text-xs`}>
+      <span className="font-semibold uppercase tracking-wider">Resonance armed</span>{" "}
+      <span className="opacity-80">
+        — {armedCount.toString()}× {armedElement}; next matching attack +50% damage (AoE)
+      </span>
+    </div>
   );
 };
 
