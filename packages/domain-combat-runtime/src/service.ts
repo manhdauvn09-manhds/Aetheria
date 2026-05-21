@@ -28,6 +28,7 @@
 // of scope for this layer.
 
 import { audit } from "@aetheria/core";
+import { events as defaultEventBus, type EventBus } from "@aetheria/domain-events";
 import {
   applyAction,
   createBattle,
@@ -56,6 +57,10 @@ export type CombatMysqlClient = Pick<
 
 export interface CombatRunDeps {
   readonly mysql: CombatMysqlClient;
+  /** Optional event bus for quest/battle-pass progress. Defaults to the
+   *  module-level `events` singleton when not provided so existing
+   *  callers don't need to wire anything. */
+  readonly events?: EventBus;
 }
 
 export interface RunRef {
@@ -115,7 +120,11 @@ export class CombatRunService {
     if (run.status !== "in_progress") {
       throw AppError.invalidAction("Run is not in progress", { status: run.status });
     }
-    const init = synthesiseInit(ref, run.level);
+    // Read the user's chosen team from profile.preferences (if any).
+    // Falls back to the level-rotation default in synthesiseInit() when
+    // empty. Picked here (vs in synth) to keep synth pure.
+    const selectedTeam = await this.loadSelectedTeam(ref.userId);
+    const init = synthesiseInit(ref, run.level, selectedTeam);
     const fresh = createBattle(init);
     // Optimistic concurrency: only update if the row's revision still
     // matches what we loaded. updateMany returns a count of 0 if some
@@ -252,6 +261,63 @@ export class CombatRunService {
       }
     }
 
+    // ── Domain events for quest/battle-pass progress ─────────────────
+    // Publish LevelCompleted + RunFinished + EnemyDefeated when relevant.
+    // QuestService.start() subscribes via @aetheria/domain-events bus.
+    if (phase === "victory" || phase === "defeat" || phase === "draw") {
+      const bus = this.deps.events ?? defaultEventBus;
+      const runStatusForEvent: "completed" | "failed" | "abandoned" =
+        phase === "victory" ? "completed"
+          : phase === "defeat" ? "failed"
+          : "completed"; // draw counts as completed for finish-runs quests
+      try {
+        if (phase === "victory") {
+          await bus.emit("LevelCompleted", {
+            userId: ref.userId.toString(),
+            runId: ref.runId.toString(),
+            levelId: run.levelId.toString(),
+            score: 0,
+            stars: 1,
+          });
+        }
+        await bus.emit("RunFinished", {
+          userId: ref.userId.toString(),
+          runId: ref.runId.toString(),
+          levelId: run.levelId.toString(),
+          status: runStatusForEvent,
+          score: 0,
+          stars: phase === "victory" ? 1 : 0,
+        });
+      } catch (e) {
+        // Event bus failures must not break combat — log + continue.
+        await audit.write({
+          actor: ref.userId,
+          action: "combat.event_publish_failed",
+          targetType: "run",
+          targetId: ref.runId,
+          payload: { error: e instanceof Error ? e.message : String(e) },
+        });
+      }
+    }
+    // Also: emit EnemyDefeated for each killed enemy in this submit.
+    // The engine emits actor_defeated events; we map them to domain.
+    for (const ev of aggregatedEvents) {
+      if (ev.type === "actor_defeated") {
+        const killed = result.state.actors.find((a) => a.id === ev.actorId);
+        if (killed && killed.side === "enemy") {
+          try {
+            const bus = this.deps.events ?? defaultEventBus;
+            await bus.emit("EnemyDefeated", {
+              userId: ref.userId.toString(),
+              archetype: killed.unit,
+            });
+          } catch {
+            // Swallow — combat already committed
+          }
+        }
+      }
+    }
+
     await audit.write({
       actor: ref.userId,
       action: "combat.submit_action",
@@ -280,6 +346,31 @@ export class CombatRunService {
   // rewards JSON (xp/gold/items), credits the user's profile in one
   // update, and upserts each item stack. Single transaction so partial
   // grants can't happen if the DB hiccups mid-loop.
+
+  // ── Selected-team reader ────────────────────────────────────────────
+  //
+  // Pulls `preferences.selectedTeam` from the user's profile if it's
+  // a valid 1..3-length array of known hero IDs. Anything malformed
+  // returns null and the synth falls back to its level rotation.
+
+  private async loadSelectedTeam(userId: bigint): Promise<readonly string[] | null> {
+    const profile = await this.deps.mysql.profile.findUnique({
+      where: { userId },
+      select: { preferences: true },
+    });
+    if (!profile?.preferences || typeof profile.preferences !== "object") return null;
+    const team = (profile.preferences as { selectedTeam?: unknown }).selectedTeam;
+    if (!Array.isArray(team)) return null;
+    const validIds = new Set(HERO_ROSTER.map((h) => h.id));
+    const filtered: string[] = [];
+    for (const t of team) {
+      if (typeof t === "string" && validIds.has(t) && !filtered.includes(t)) {
+        filtered.push(t);
+      }
+      if (filtered.length >= 3) break;
+    }
+    return filtered.length >= 1 ? filtered : null;
+  }
 
   private async grantRewards(
     userId: bigint,
@@ -459,17 +550,19 @@ const BOSS_ARCHETYPE = {
   hp: 180, atk: 36, def: 18, spd: 55,
 };
 
-// Role → signature skill mapping. Each hero gets ONE skill from this
-// table at synth time. IDs must match SKILL_CATALOG in domain-combat.
-const ROLE_TO_SKILL: Record<typeof HERO_ROSTER[number]["role"], string> = {
-  tank:     "bulwark",
-  bruiser:  "bulwark",
-  dps:      "power_strike",
-  mage:     "power_strike",
-  healer:   "heal",
-  assassin: "power_strike",
-  support:  "bless",
-  wildcard: "power_strike",
+// Role → signature skill mapping. Each hero gets one or two skills
+// from this table at synth time. IDs must match SKILL_CATALOG in
+// domain-combat. DPS and Assassin now carry a status-applying skill
+// alongside their burst attack so combat plays with actual DOT depth.
+const ROLE_TO_SKILLS: Record<typeof HERO_ROSTER[number]["role"], readonly string[]> = {
+  tank:     ["bulwark"],
+  bruiser:  ["bulwark"],
+  dps:      ["power_strike", "firebolt"],       // burst + burn DOT
+  mage:     ["power_strike"],
+  healer:   ["heal"],
+  assassin: ["power_strike", "venom_dart"],     // burst + poison DOT
+  support:  ["bless"],
+  wildcard: ["power_strike", "firebolt"],
 };
 
 const PARTY_SIZE = 3;
@@ -477,6 +570,9 @@ const PARTY_SIZE = 3;
 const synthesiseInit = (
   ref: RunRef,
   level: { levelNumber: number; name: string },
+  /** User-chosen team (1..3 hero IDs). When null, falls back to the
+   *  per-level rotation so existing tests + new players still work. */
+  selectedTeam: readonly string[] | null = null,
 ): CreateBattleInput => {
   const tiles: Tile[] = [];
   for (let q = 0; q < 6; q++) {
@@ -493,23 +589,47 @@ const synthesiseInit = (
   const baseHeroIdx = Math.max(0, (level.levelNumber - 1)) % HERO_ROSTER.length;
   const baseEnemyIdx = Math.max(0, (level.levelNumber - 1)) % ENEMY_ARCHETYPES.length;
 
-  // Party of PARTY_SIZE picked from the roster, rotating so consecutive
-  // levels use different heroes. Positions in left column (q=0).
+  // Build the party. Player-chosen team wins if present, otherwise
+  // rotate through the roster by level. Always positioned in the left
+  // column (q=0, r=0..2).
   const heroPositions = [
     { q: 0, r: 0 },
     { q: 0, r: 1 },
     { q: 0, r: 2 },
   ];
+  const partySpecs: typeof HERO_ROSTER[number][] = [];
+  if (selectedTeam && selectedTeam.length > 0) {
+    for (const id of selectedTeam) {
+      const spec = HERO_ROSTER.find((h) => h.id === id);
+      if (spec) partySpecs.push(spec);
+      if (partySpecs.length >= PARTY_SIZE) break;
+    }
+    // If user picked < 3 heroes, fill remaining slots with rotation.
+    let pad = 0;
+    while (partySpecs.length < PARTY_SIZE) {
+      const fillSpec = HERO_ROSTER[(baseHeroIdx + pad) % HERO_ROSTER.length]!;
+      if (!partySpecs.find((p) => p.id === fillSpec.id)) {
+        partySpecs.push(fillSpec);
+      }
+      pad++;
+      if (pad > HERO_ROSTER.length) break;
+    }
+  } else {
+    for (let i = 0; i < PARTY_SIZE; i++) {
+      partySpecs.push(HERO_ROSTER[(baseHeroIdx + i) % HERO_ROSTER.length]!);
+    }
+  }
+
   const heroes: Actor[] = [];
-  for (let i = 0; i < PARTY_SIZE; i++) {
-    const spec = HERO_ROSTER[(baseHeroIdx + i) % HERO_ROSTER.length]!;
-    const skillId = ROLE_TO_SKILL[spec.role];
+  for (let i = 0; i < partySpecs.length; i++) {
+    const spec = partySpecs[i]!;
+    const skillIds = ROLE_TO_SKILLS[spec.role];
     const hp = spec.hp + Math.floor(level.levelNumber * 1.5);
     heroes.push(synthActor(
       `${spec.id}_${String(i)}`, spec.unit, "player", spec.element,
       heroPositions[i]!, hp,
       { atk: spec.atk, def: spec.def, spd: spec.spd },
-      [skillId],
+      skillIds,
     ));
   }
 

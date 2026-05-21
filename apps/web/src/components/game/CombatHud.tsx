@@ -161,7 +161,9 @@ const SKILL_UI: Record<string, {
   name: string; apCost: number; cooldown: number;
   needsEnemyTarget?: boolean; rangeHint?: string; color: string;
 }> = {
-  power_strike: { name: "Power Strike", apCost: 2, cooldown: 1, needsEnemyTarget: true, rangeHint: "range 2", color: "amber" },
+  power_strike: { name: "Power Strike", apCost: 2, cooldown: 1, needsEnemyTarget: true, rangeHint: "range 2",         color: "amber" },
+  firebolt:     { name: "Firebolt",     apCost: 2, cooldown: 2, needsEnemyTarget: true, rangeHint: "burn 6×2t",       color: "orange" },
+  venom_dart:   { name: "Venom Dart",   apCost: 2, cooldown: 2, needsEnemyTarget: true, rangeHint: "poison 4×3t",     color: "lime" },
   heal:         { name: "Heal",         apCost: 2, cooldown: 2, rangeHint: "self / ally",   color: "emerald" },
   bulwark:      { name: "Bulwark",      apCost: 1, cooldown: 2, rangeHint: "self buff",     color: "indigo" },
   bless:        { name: "Bless",        apCost: 2, cooldown: 2, rangeHint: "ally buff",     color: "violet" },
@@ -169,6 +171,8 @@ const SKILL_UI: Record<string, {
 
 const COLOR_CLASSES: Record<string, string> = {
   amber:   "border-amber-700/60 bg-amber-950/40 text-amber-200 hover:bg-amber-900/60",
+  orange:  "border-orange-700/60 bg-orange-950/40 text-orange-200 hover:bg-orange-900/60",
+  lime:    "border-lime-700/60 bg-lime-950/40 text-lime-200 hover:bg-lime-900/60",
   emerald: "border-emerald-700/60 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/60",
   indigo:  "border-indigo-700/60 bg-indigo-950/40 text-indigo-200 hover:bg-indigo-900/60",
   violet:  "border-violet-700/60 bg-violet-950/40 text-violet-200 hover:bg-violet-900/60",
@@ -296,9 +300,17 @@ const ReconcileLine = ({
   );
 };
 
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  burn:          { label: "🔥 burn",     cls: "bg-orange-900/60 text-orange-200" },
+  poison:        { label: "☠ poison",   cls: "bg-lime-900/60 text-lime-200" },
+  freeze:        { label: "❄ freeze",   cls: "bg-sky-900/60 text-sky-200" },
+  stagger:       { label: "💫 stagger",  cls: "bg-zinc-800 text-zinc-200" },
+  aether_surge:  { label: "✨ surge",    cls: "bg-violet-900/60 text-violet-200" },
+};
+
 const ActorRow = ({ label, actor }: { label: string; actor: Actor }): JSX.Element => (
   <div className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-950/40 p-2">
-    <div>
+    <div className="flex-1">
       <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
       <div className="text-zinc-100">
         <span className="font-semibold">{actor.unit || actor.id}</span>{" "}
@@ -307,6 +319,22 @@ const ActorRow = ({ label, actor }: { label: string; actor: Actor }): JSX.Elemen
       <div className="text-xs text-zinc-400">
         {actor.element} · q{actor.pos.q.toString()},r{actor.pos.r.toString()}
       </div>
+      {actor.statuses.length > 0 ? (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {actor.statuses.map((s, i) => {
+            const badge = STATUS_BADGE[s.kind] ?? { label: s.kind, cls: "bg-zinc-800 text-zinc-300" };
+            return (
+              <span
+                key={`${s.kind}-${i.toString()}`}
+                title={`${badge.label} · ${s.turns.toString()}t · potency ${s.potency.toString()}`}
+                className={`rounded px-1.5 py-0.5 text-[10px] ${badge.cls}`}
+              >
+                {badge.label} ({s.turns.toString()}t)
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
     <div className="text-right text-xs">
       <div>

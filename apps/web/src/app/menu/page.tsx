@@ -49,6 +49,7 @@ const MenuInner = (): JSX.Element => {
           title="Continue"
           subtitle="Resume an active run (auto-detected)."
         />
+        <MenuButton href="/team" title="Team Builder" subtitle="Choose your party of 3 heroes." accent />
         <MenuButton href="/roster" title="Roster" subtitle="Heroes, ascensions, skill trees." />
         <MenuButton href="/quests" title="Quests" subtitle="Daily + weekly challenges." />
         <MenuButton href="/battlepass" title="Battle Pass" subtitle="Seasonal track rewards." />

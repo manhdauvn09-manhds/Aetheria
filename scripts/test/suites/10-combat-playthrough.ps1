@@ -238,6 +238,31 @@ Test-Case 'combat.start spawns single Void Lord boss on level 20' {
     Assert-Eq 'Void Lord' $foes[0].unit 'boss unit'
 }
 
+# Team builder: writing selectedTeam to preferences propagates to the
+# next combat.start. We pick a 2-hero team (Mira + Brann) so the test
+# can verify the synth honoured the choice instead of auto-rotating.
+Test-Case 'combat.start honours selectedTeam from profile.preferences' {
+    # Save selected team via account.updateProfile (existing tRPC).
+    $null = Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
+        preferences = @{ selectedTeam = @('mira', 'brann') }
+    }
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    $players = @($cs.state.actors | Where-Object { $_.side -eq 'player' })
+    # Mira + Brann should be in slots 0 and 1. Slot 2 is rotation-fill.
+    Assert-True ($players.Count -ge 2) "party has heroes"
+    $unit0 = $players[0].unit
+    $unit1 = $players[1].unit
+    $okM = ($unit0 -eq 'Mira') -or ($unit1 -eq 'Mira')
+    $okB = ($unit0 -eq 'Brann') -or ($unit1 -eq 'Brann')
+    Assert-True $okM "Mira in selected team (got slot0=$unit0 slot1=$unit1)"
+    Assert-True $okB "Brann in selected team (got slot0=$unit0 slot1=$unit1)"
+    # Reset to empty so other tests get auto-rotation
+    $null = Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
+        preferences = @{ selectedTeam = @() }
+    }
+}
+
 # Move action: multi-step path. Active hero moves 1 tile toward the
 # adjacent forward tile — engine validates each step is adjacent so the
 # pathfinder client-side has to produce that array.
@@ -282,6 +307,43 @@ Test-Case 'combat.submitAction use_skill (bulwark) applies aether_surge status' 
         Assert-True ($updated.stats.ap -lt $tank.stats.ap) "AP spent (was $($tank.stats.ap), now $($updated.stats.ap))"
     } catch {
         if ($_.Exception.Message -notmatch '(WRONG_TURN|combat:)') {
+            throw "unexpected error: $($_.Exception.Message)"
+        }
+    }
+}
+
+Test-Case 'combat.submitAction firebolt applies burn status on target' {
+    # Find a DPS hero (Aevra/Vex/Null) with firebolt skill.
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $rid = [string]$rstart.run.id
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    $dps = $cs.state.actors | Where-Object { $_.side -eq 'player' -and $_.skills -contains 'firebolt' } | Select-Object -First 1
+    if ($null -eq $dps) {
+        Write-Host '         (skipped — no DPS with firebolt in party for this level rotation)' -ForegroundColor DarkYellow
+        return
+    }
+    # Use the engine's active actor — accept WRONG_TURN if firebolt-owner isn't first
+    if ($cs.state.activeActorId -ne $dps.id) {
+        Write-Host '         (skipped — firebolt owner is not the active actor this run)' -ForegroundColor DarkYellow
+        return
+    }
+    # Pick the closest enemy in range 2
+    $enemy = $cs.state.actors | Where-Object { $_.side -eq 'enemy' } | Select-Object -First 1
+    try {
+        $r = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+            runId = $rid
+            action = @{ kind = 'use_skill'; actorId = $dps.id; skillId = 'firebolt'; target = $enemy.id }
+        }
+        $updated = $r.state.actors | Where-Object { $_.id -eq $enemy.id } | Select-Object -First 1
+        if ($updated.defeated) {
+            # OK — enemy died before burn could land (rare crit on lvl 1).
+            return
+        }
+        $hasBurn = $updated.statuses | Where-Object { $_.kind -eq 'burn' }
+        Assert-NotNull $hasBurn "enemy should have burn status applied"
+    } catch {
+        # OUT_OF_RANGE is acceptable depending on enemy position rotation
+        if ($_.Exception.Message -notmatch '(OUT_OF_RANGE|combat:)') {
             throw "unexpected error: $($_.Exception.Message)"
         }
     }

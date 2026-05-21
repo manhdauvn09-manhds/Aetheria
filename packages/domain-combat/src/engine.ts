@@ -358,6 +358,34 @@ const SKILL_CATALOG: Readonly<Record<string, SkillSpec>> = {
     range: 2,
     dmgMul: 1.6,
   },
+  // Ranged attack that ALSO applies a damage-over-time burn. Burn ticks
+  // are handled by turn.tickStatuses — each tick deals `potency` raw
+  // damage at the start of the target's turn until the counter expires.
+  firebolt: {
+    id: "firebolt",
+    name: "Firebolt",
+    apCost: 2,
+    cooldown: 2,
+    kind: "ranged_attack",
+    range: 2,
+    dmgMul: 1.2,
+    statusKind: "burn",
+    statusTurns: 2,
+    statusPotency: 6,
+  },
+  // Ranged attack + poison DOT — slower stacking damage source.
+  venom_dart: {
+    id: "venom_dart",
+    name: "Venom Dart",
+    apCost: 2,
+    cooldown: 2,
+    kind: "ranged_attack",
+    range: 2,
+    dmgMul: 1.0,
+    statusKind: "poison",
+    statusTurns: 3,
+    statusPotency: 4,
+  },
   heal: {
     id: "heal",
     name: "Heal",
@@ -493,11 +521,43 @@ const applyUseSkill = (
         killerId: actor.id,
       } satisfies ActorDefeatedEvent);
     }
-    next = mutateActor(next, tgt.id, (a) => ({
-      ...a,
-      stats: { ...a.stats, hp: newHp },
-      defeated: newHp === 0,
-    }));
+    next = mutateActor(next, tgt.id, (a) => {
+      const updated: Actor = {
+        ...a,
+        stats: { ...a.stats, hp: newHp },
+        defeated: newHp === 0,
+      };
+      // If the skill specifies a status (e.g. firebolt → burn,
+      // venom_dart → poison) and the target survived, apply it. The
+      // existing turn.tickStatuses handler will DOT them on their next
+      // turn boundary.
+      if (newHp > 0 && spec.statusKind && spec.statusTurns && spec.statusPotency !== undefined) {
+        const incoming: StatusEffect = {
+          kind: spec.statusKind,
+          turns: spec.statusTurns,
+          potency: spec.statusPotency,
+          source: actor.id,
+        };
+        // Refresh existing stack from the same source rather than pile up
+        const filtered = a.statuses.filter(
+          (s) => !(s.kind === incoming.kind && s.source === incoming.source),
+        );
+        updated.statuses = [...filtered, incoming];
+      }
+      return updated;
+    });
+    // Emit status_applied event if a status landed (target still alive).
+    if (newHp > 0 && spec.statusKind && spec.statusTurns && spec.statusPotency !== undefined) {
+      events.push({
+        type: "status_applied",
+        t: state.log.length + events.length,
+        targetId: tgt.id,
+        status: spec.statusKind,
+        turns: spec.statusTurns,
+        potency: spec.statusPotency,
+        sourceId: actor.id,
+      });
+    }
     next = { ...next, rng };
   } else if (spec.kind === "heal") {
     const tgt = targetActor!;
