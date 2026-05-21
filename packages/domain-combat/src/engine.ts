@@ -522,15 +522,11 @@ const applyUseSkill = (
       } satisfies ActorDefeatedEvent);
     }
     next = mutateActor(next, tgt.id, (a) => {
-      const updated: Actor = {
-        ...a,
-        stats: { ...a.stats, hp: newHp },
-        defeated: newHp === 0,
-      };
       // If the skill specifies a status (e.g. firebolt → burn,
       // venom_dart → poison) and the target survived, apply it. The
       // existing turn.tickStatuses handler will DOT them on their next
       // turn boundary.
+      let nextStatuses: readonly StatusEffect[] = a.statuses;
       if (newHp > 0 && spec.statusKind && spec.statusTurns && spec.statusPotency !== undefined) {
         const incoming: StatusEffect = {
           kind: spec.statusKind,
@@ -542,9 +538,14 @@ const applyUseSkill = (
         const filtered = a.statuses.filter(
           (s) => !(s.kind === incoming.kind && s.source === incoming.source),
         );
-        updated.statuses = [...filtered, incoming];
+        nextStatuses = [...filtered, incoming];
       }
-      return updated;
+      return {
+        ...a,
+        stats: { ...a.stats, hp: newHp },
+        defeated: newHp === 0,
+        statuses: nextStatuses,
+      };
     });
     // Emit status_applied event if a status landed (target still alive).
     if (newHp > 0 && spec.statusKind && spec.statusTurns && spec.statusPotency !== undefined) {

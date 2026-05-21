@@ -309,6 +309,8 @@ export class CombatRunService {
             const bus = this.deps.events ?? defaultEventBus;
             await bus.emit("EnemyDefeated", {
               userId: ref.userId.toString(),
+              runId: ref.runId.toString(),
+              enemyId: killed.id,
               archetype: killed.unit,
             });
           } catch {
