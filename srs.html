@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aetheria — Software Requirements Specification</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font:14px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;
+    background:#0a0a0f;color:#d9d9e0;padding:24px;
+  }
+  .container{max-width:1100px;margin:0 auto}
+  header{
+    border-bottom:2px solid #7c5cff;padding-bottom:16px;margin-bottom:24px;
+  }
+  h1{color:#a89cff;font-size:28px;letter-spacing:.5px}
+  h2{color:#a89cff;font-size:22px;margin-top:32px;margin-bottom:12px;border-bottom:1px solid #2a2a3a;padding-bottom:6px}
+  h3{color:#7c5cff;font-size:17px;margin-top:20px;margin-bottom:8px}
+  .sub{color:#888;font-size:13px;margin-top:4px}
+  ul{margin-left:24px;margin-top:6px}
+  li{margin-bottom:4px}
+  code{
+    font:13px Monaco,Consolas,monospace;
+    background:#1a1a26;padding:2px 6px;border-radius:3px;color:#9cd66c;
+  }
+  pre{
+    background:#1a1a26;padding:12px;border-radius:4px;
+    overflow-x:auto;margin:12px 0;font:12px Monaco,Consolas,monospace;
+    color:#aaa;
+  }
+  table{width:100%;border-collapse:collapse;margin:12px 0}
+  th{
+    text-align:left;padding:8px 10px;background:#1a1a26;
+    color:#a89cff;font-size:12px;text-transform:uppercase;
+  }
+  td{padding:8px 10px;border-bottom:1px solid #1a1a26;vertical-align:top}
+  .toc{
+    background:#13131c;border:1px solid #2a2a3a;border-radius:4px;
+    padding:16px;margin-bottom:24px;
+  }
+  .toc h3{margin-top:0}
+  .toc ol{margin-left:24px}
+  .toc a{color:#7c5cff;text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .new{color:#2196F3;font-weight:600}
+  .removed{color:#d6463f;text-decoration:line-through}
+  .badge-new{
+    display:inline-block;background:#1c3d5d;color:#2196F3;
+    padding:1px 8px;border-radius:3px;font-size:11px;
+    font-weight:600;letter-spacing:.5px;margin-left:6px;
+  }
+  .stamp{color:#666;font-size:12px;text-align:right}
+  @media(max-width:640px){
+    body{padding:12px}
+    h1{font-size:22px}h2{font-size:18px}h3{font-size:15px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>📋 Aetheria — SRS</h1>
+  <p class="sub">Software Requirements Specification. Tự sinh từ code hiện tại.</p>
+  <p class="stamp">Last updated: 2026-05-24 · All sections initial (no prior version)</p>
+</header>
+
+<section class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#overview">1. Overview</a></li>
+    <li><a href="#stack">2. Tech Stack</a></li>
+    <li><a href="#arch">3. Architecture</a></li>
+    <li><a href="#features">4. Features</a></li>
+    <li><a href="#api">5. API surface (tRPC)</a></li>
+    <li><a href="#data">6. Data model</a></li>
+    <li><a href="#security">7. Security</a></li>
+    <li><a href="#ops">8. Operations</a></li>
+  </ol>
+</section>
+
+<h2 id="overview">1. Overview <span class="badge-new">NEW</span></h2>
+<p><span class="new">Aetheria is a free-to-play, turn-based hex-grid strategy RPG built on a TypeScript monorepo. The web client (Next.js 15 + Pixi.js 8) is responsive (mobile + desktop). The server (Fastify + tRPC v10) is server-authoritative for all combat. Production runs on Hetzner Ubuntu 24.04 behind Cloudflare, co-resident with a separate PrivateDatingLevel stack via Docker compose project isolation.</span></p>
+
+<h2 id="stack">2. Tech Stack <span class="badge-new">NEW</span></h2>
+<table>
+  <tr><th>Layer</th><th>Choice</th></tr>
+  <tr><td>Frontend</td><td><span class="new">Next.js 15 App Router · React 18 · TypeScript · Tailwind · Pixi.js 8 (with /unsafe-eval polyfill) · Zustand · tRPC client · Socket.IO client</span></td></tr>
+  <tr><td>Backend</td><td><span class="new">Fastify 5 · tRPC v10 · Node 22 · tsx runtime · Zod validation · Jose JWT</span></td></tr>
+  <tr><td>Data</td><td><span class="new">MySQL 8 · Prisma v5 · Redis 7 (cache + sessions) · ioredis</span></td></tr>
+  <tr><td>Auth</td><td><span class="new">Email + Argon2id · OAuth (Google, Discord) · JWT access + refresh rotation · HIBP password breach check</span></td></tr>
+  <tr><td>Realtime</td><td><span class="new">Socket.IO server (apps/realtime, port 18102) · sticky sessions + Redis adapter</span></td></tr>
+  <tr><td>Infrastructure</td><td><span class="new">Hetzner Cloud VPS · Caddy reverse proxy · Cloudflare Full Strict SSL · fail2ban · Hetzner Cloud Firewall</span></td></tr>
+  <tr><td>Build</td><td><span class="new">pnpm 9 workspaces · Turbo · Docker multi-stage builds</span></td></tr>
+</table>
+
+<h2 id="arch">3. Architecture <span class="badge-new">NEW</span></h2>
+<p><span class="new">Monorepo with 4 apps (api / web / realtime / worker) and 20+ domain packages. Each domain (auth, combat, world, quests, social, etc.) exports a Service factory + tRPC sub-router that <code>apps/api</code> composes.</span></p>
+
+<h3>Request flow</h3>
+<pre><span class="new">Browser → Cloudflare → Caddy (host) → Aetheria container (127.0.0.1:18100/01/02)
+   ↓
+Next.js / Fastify-tRPC → service layer → Prisma → MySQL 8
+                                       → ioredis → Redis 7</span></pre>
+
+<h3>Combat loop</h3>
+<p><span class="new">Server-authoritative: client predicts, then reconciles with server. Combat state stored as <code>{schemaVersion, state}</code> JSON envelope in <code>runs.snapshot</code> column. Action log replayed against engine seed for integrity check. Optimistic CAS via <code>runs.revision</code> counter prevents race-clobber.</span></p>
+
+<h2 id="features">4. Features <span class="badge-new">NEW</span></h2>
+
+<h3>4.1 Game world</h3>
+<ul>
+  <li><span class="new">100 levels organised into 5 realms (Verdant Reach, Ember Wastes, Frostspire, Tideglass, Voidmaw). 13 hand-authored, 87 procedurally generated.</span></li>
+  <li><span class="new">20-position archetype cycle per realm: intro → skirmish → patrol → cache → elite → … → realm-boss (Void Lord).</span></li>
+  <li><span class="new">Difficulty scales with level number (1-10 difficulty tiers).</span></li>
+</ul>
+
+<h3>4.2 Heroes</h3>
+<ul>
+  <li><span class="new">8-character roster: Aevra (DPS), Kyo (Bruiser), Lyra (Mage), Brann (Tank), Mira (Healer), Vex (Assassin), Solen (Support), Null (Wildcard). Role-tuned HP/ATK/DEF/SPD.</span></li>
+  <li><span class="new">Vector SVG sprites per archetype, loaded as Pixi textures (fallback to Graphics shapes).</span></li>
+  <li><span class="new">Team Builder page: pick 1-3 heroes, persisted to <code>profile.preferences.selectedTeam</code>. Empty = level rotation default.</span></li>
+</ul>
+
+<h3>4.3 Combat</h3>
+<ul>
+  <li><span class="new">6×4 hex grid. AP system (3/turn). Element wheel (Verdant/Ember/Frost/Tide/Sky/Void) with damage advantage 0.75/1.0/1.25.</span></li>
+  <li><span class="new">Actions: Move (multi-step BFS pathfinder client-side, engine validates step adjacency), Attack, Defend, End Turn.</span></li>
+  <li><span class="new">Skills catalog (6): power_strike, firebolt (burn DOT), venom_dart (poison DOT), heal, bulwark (self_buff), bless (ally_buff). Each hero gets role-mapped skills.</span></li>
+  <li><span class="new">Status effects active: burn / poison DOT tick on turn boundary (engine turn.tickStatuses). Aether_surge buff for defense.</span></li>
+  <li><span class="new">Resonance: +50% AoE damage when 2+ party heroes share element. HUD badge surfaces "armed" state.</span></li>
+  <li><span class="new">Server-side enemy AI: chase → attack-if-adjacent → end-turn fallback.</span></li>
+  <li><span class="new">Victory/Defeat/Draw modal with HP recap + reward summary + Next Level / Retry CTAs.</span></li>
+</ul>
+
+<h3>4.4 Progression</h3>
+<ul>
+  <li><span class="new">Account XP + gold tracked on <code>profile</code>. Reward grant on victory: profile increment + inventory item upsert inside one transaction.</span></li>
+  <li><span class="new">Daily + weekly quests (3 + 2 seeded): complete_levels, defeat_enemies, finish_runs. Progress tracked via event bus (LevelCompleted / RunFinished / EnemyDefeated). Claim button → XP grant.</span></li>
+</ul>
+
+<h3>4.5 Mobile</h3>
+<ul>
+  <li><span class="new">Responsive canvas: ResizeObserver-driven sizing. hexSize scales 14-38 px to fit any viewport without horizontal scroll.</span></li>
+  <li><span class="new">Pixi perf hints: cap resolution at 2 (avoid hi-DPR fillrate burn), antialias off when navigator.hardwareConcurrency ≤ 4.</span></li>
+  <li><span class="new">Tap-friendly: all HUD + action buttons py-2 (~44px target, Apple HIG).</span></li>
+  <li><span class="new">touch-none class on canvas wrapper to suppress browser pan/zoom, deferring to Pixi pointer events.</span></li>
+</ul>
+
+<h3>4.6 Audio</h3>
+<ul>
+  <li><span class="new">Procedural Web Audio SFX: attack/crit/heal/buff/defeat/victory/loss/skill/click. No audio assets. Mute toggle 🔊/🔇.</span></li>
+</ul>
+
+<h2 id="api">5. API surface (tRPC) <span class="badge-new">NEW</span></h2>
+<p><span class="new">All procedures are HTTPS POST to <code>https://aetheria-api.games-core.com/trpc/&lt;name&gt;?batch=1</code>. Auth procedures additionally wrapped by Next.js <code>/api/auth/*</code> routes that set the httpOnly refresh cookie.</span></p>
+
+<h3>5.1 Auth</h3>
+<ul>
+  <li><code>auth.signupWithEmail</code> <span class="new">— signup with HIBP password breach check, enumeration-resistant conflict message</span></li>
+  <li><code>auth.loginWithEmail</code></li>
+  <li><code>auth.refreshToken</code> <span class="new">— reuse detection: invalid JTI → revoke ALL user sessions (OWASP)</span></li>
+  <li><code>auth.logout</code></li>
+  <li><code>auth.requestPasswordReset / confirmPasswordReset</code> <span class="new">— HIBP check on new password</span></li>
+  <li><code>auth.requestEmailVerification / confirmEmailVerification</code> <span class="new">— timing-safe token compare</span></li>
+</ul>
+
+<h3>5.2 Account</h3>
+<ul>
+  <li><code>account.getProfile</code> · <code>account.updateProfile</code> <span class="new">(preferences.selectedTeam, avatarUrl whitelist, 8KB cap)</span></li>
+  <li><code>account.getLeaderboard</code></li>
+</ul>
+
+<h3>5.3 World</h3>
+<ul>
+  <li><code>world.realms</code> · <code>world.levelsForRealm</code> <span class="new">(merges DB rows + game-assets fallback)</span></li>
+  <li><code>world.startLevel</code> <span class="new">(auto-upserts levels row for FK resolution)</span></li>
+  <li><code>world.resumeRun</code> · <code>world.abandonRun</code></li>
+</ul>
+
+<h3>5.4 Combat</h3>
+<ul>
+  <li><code>combat.start</code> <span class="new">— synthesises 3-hero party from selectedTeam or rotation; 2 enemies non-boss, 1 Void Lord on lvl%20==0</span></li>
+  <li><code>combat.submitAction</code> <span class="new">— validates skill ∈ catalog AND ∈ actor.skills; CAS write; reward grant on victory</span></li>
+  <li><code>combat.replay</code></li>
+</ul>
+
+<h3>5.5 Other domains</h3>
+<ul>
+  <li><code>roster.list / unlockCharacter / ascend / equipSkin</code></li>
+  <li><code>skills.tree / invest / respec</code></li>
+  <li><code>inventory.list / consume / craft</code> <span class="new">(atomic decrement, no race over-spend)</span></li>
+  <li><code>quests.daily / weekly / claim</code></li>
+  <li><code>save.list / snapshot / load / reconcile / delete</code></li>
+  <li><code>pvp.queueStatus / requestMatch / getMatchState / applyMatchAction / leaderboard</code></li>
+  <li><code>chat.sendMessage / getMessages</code> · <code>friends.list / send / accept</code> · <code>guild.create / invite / list</code></li>
+  <li><code>battlepass.currentSeason / claim</code> · <code>shop.list / purchase</code></li>
+  <li><code>notifications.list / mark</code> · <code>admin.* / telemetry.event</code></li>
+</ul>
+
+<h2 id="data">6. Data model <span class="badge-new">NEW</span></h2>
+<p><span class="new">Prisma schema (<code>packages/schema-db</code>). Core tables:</span></p>
+<ul>
+  <li><code>users</code> · <code>profiles</code> <span class="new">(preferences JSON, accountXp, gold)</span></li>
+  <li><code>characters</code> · <code>skills</code> · <code>user_characters</code> · <code>user_skills</code></li>
+  <li><code>levels</code> · <code>realms</code> · <code>runs</code> <span class="new">(snapshot {schemaVersion,state}, actionLog[], revision counter)</span></li>
+  <li><code>inventory</code> · <code>items</code></li>
+  <li><code>quests</code> · <code>user_quests</code> <span class="new">(progress JSON, status active/completed/claimed)</span></li>
+  <li><code>save_states</code> (slot 0=auto, 1-3=manual)</li>
+  <li><code>guilds</code> · <code>guild_members</code> · <code>friendships</code> · <code>chat_messages</code></li>
+  <li><code>pvp_matches</code> · <code>mmr</code></li>
+  <li><code>audit_log</code> · <code>feature_flags</code></li>
+</ul>
+
+<h2 id="security">7. Security <span class="badge-new">NEW</span></h2>
+<ul>
+  <li><span class="new">Argon2id password hashing. JWT (jose) access (15-min) + refresh (30-day) with rotation + reuse detection.</span></li>
+  <li><span class="new">HIBP k-anonymity password breach check at signup + reset (soft-fail on network errors).</span></li>
+  <li><span class="new">Rate-limit: global 100/min/IP + auth-specific 10/60s/IP (Redis-backed).</span></li>
+  <li><span class="new">ENFORCE_CLOUDFLARE=false (after Caddy CF header forwarding fix).</span></li>
+  <li><span class="new">Helmet: CSP <code>default-src 'none'</code> on API; <code>script-src 'self' 'unsafe-eval'</code> on web (Pixi v8 requirement, documented trade-off).</span></li>
+  <li><span class="new">SSRF guard on avatarUrl: scheme whitelist (https-only), private-IP block.</span></li>
+  <li><span class="new">Preferences payload 8KB cap. Combat snapshot CAS + replay-hash integrity.</span></li>
+  <li><span class="new">User enumeration mitigation: signup unifies conflict cases to single generic 409 + constant-time lookups.</span></li>
+  <li><span class="new">consoleMailer REFUSES to log in production (would leak reset tokens to stderr).</span></li>
+  <li><span class="new">.env.prod permissions 0600. fail2ban + Hetzner Cloud Firewall (operator IP whitelist only on :22).</span></li>
+</ul>
+
+<h2 id="ops">8. Operations <span class="badge-new">NEW</span></h2>
+<ul>
+  <li><span class="new">Compose project: <code>aetheria-prod</code> (isolated docker network from PLD <code>pld-prod</code>).</span></li>
+  <li><span class="new">Host ports: <code>127.0.0.1:18100</code> (web), <code>:18101</code> (api), <code>:18102</code> (realtime). Caddy reverse-proxies on :443 with CF Origin CA cert.</span></li>
+  <li><span class="new">URL pattern: dash naming (<code>aetheria-api.games-core.com</code>) — CF Free wildcard supports 1 level only.</span></li>
+  <li><span class="new">Backup: MySQL nightly dump at 03:15 UTC, 14-day retention at <code>/var/backups/aetheria/mysql/</code>.</span></li>
+  <li><span class="new">Test suite: <code>scripts/test/run-all.ps1</code> — 110+ cases across 10 suites (infra / security / auth / account / world / save / realtime / misc-tRPC / URL-pattern / combat-playthrough).</span></li>
+  <li><span class="new">Deploy: scp source → docker compose build api web → up -d. PLD untouched (different compose project).</span></li>
+</ul>
+
+</div>
+</body>
+</html>
