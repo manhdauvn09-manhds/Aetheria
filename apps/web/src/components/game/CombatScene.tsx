@@ -45,7 +45,6 @@ interface CombatSceneProps {
 
 const DEFAULT_W = 720;
 const DEFAULT_H = 460;
-const DEFAULT_HEX = 32;
 // On phones (≤ 480px) we drop hexSize so the 6×4 grid fits across the
 // viewport without horizontal scrolling. The aspect-ratio (~1.57) is
 // preserved by deriving height from width.
