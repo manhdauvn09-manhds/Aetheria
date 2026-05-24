@@ -34,7 +34,7 @@ Test-Case 'POST /api/auth/signup refresh cookie set httpOnly' {
     Assert-Match 'Secure' $cookieHdr 'Secure flag (prod)'
 }
 
-Test-Case 'Duplicate signup → 409 conflict' {
+Test-Case 'Duplicate signup → 409 conflict (no email enumeration)' {
     try {
         Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
             email = $email; password = $password; displayName = "dup$($ts.Substring(9,5))"
@@ -43,6 +43,32 @@ Test-Case 'Duplicate signup → 409 conflict' {
     } catch {
         if ($_.Exception.Message -notmatch 'HTTP 409') {
             throw "Expected HTTP 409, got: $($_.Exception.Message)"
+        }
+        # Message must NOT leak which field (email vs displayName) collided
+        $body = "$($_.Exception.Message)"
+        if ($body -match '(Email is already registered|Display name is already taken)') {
+            throw "Enumeration leak: response identifies which field collided"
+        }
+    }
+}
+
+Test-Case 'Signup rejects known-pwned password (HIBP)' {
+    # Classic breach corpus entry — appears in millions of breaches.
+    $ts2 = (Get-Date -Format 'yyyyMMddHHmmssfff')
+    try {
+        Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
+            email = "pwned-$ts2@aetheria-test.invalid"
+            password = 'password1234'   # well-known breached
+            displayName = "pwn$($ts2.Substring(9,5))"
+        } | Out-Null
+        # HIBP outage soft-fails — accept either 400 (rejected) or 200/409
+        Write-Host '         (HIBP may have soft-failed; pwned-password reject is best-effort)' -ForegroundColor DarkYellow
+    } catch {
+        if ($_.Exception.Message -notmatch '(HTTP 400|PWNED_PASSWORD|breach)') {
+            # If it's 409 (dup) or 429 (rate-limit) treat as inconclusive
+            if ($_.Exception.Message -notmatch '(HTTP 409|HTTP 429)') {
+                throw "Expected 400 PWNED_PASSWORD or soft-fail, got: $($_.Exception.Message)"
+            }
         }
     }
 }

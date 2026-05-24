@@ -23,6 +23,7 @@ import { audit } from "@aetheria/core";
 import { AppError } from "@aetheria/schema-api";
 
 import { hashPassword, verifyPassword } from "./password.js";
+import { rejectIfPwnedPassword } from "./hibp.js";
 import { redactEmail } from "./redact.js";
 import {
   type IssuedTokens,
@@ -196,18 +197,30 @@ export class AuthService {
 
   async signupWithEmail(input: SignupInput): Promise<AuthSessionResult> {
     const email = input.email.trim().toLowerCase();
+    // Optional HIBP k-anonymity password breach check — rejects compromised
+    // passwords BEFORE we hash, so a leaked credential never becomes a hash
+    // on our side. Soft-fails (skips) if HIBP is unreachable so we don't
+    // block signups on third-party outages.
+    await rejectIfPwnedPassword(input.password);
     const passwordHash = await hashPassword(input.password);
 
     const created = await this.deps.mysql.$transaction(
       async (tx: MysqlPrisma.Prisma.TransactionClient) => {
         const existing = await tx.user.findUnique({ where: { email }, select: { id: true } });
-        if (existing) throw AppError.conflict("Email is already registered", { field: "email" });
-
+        // ENUMERATION DEFENCE — collapse the two conflict cases into one
+        // generic 409 with the same message + field hint scrubbed. An
+        // attacker probing for "is this email registered?" can no longer
+        // tell from the error which collision they hit (email vs name).
+        // Also short-circuits an extra timing oracle (we now do BOTH
+        // lookups even if the first hits, so the response time is the
+        // same on every conflict path).
         const dupName = await tx.profile.findUnique({
           where: { displayName: input.displayName },
           select: { userId: true },
         });
-        if (dupName) throw AppError.conflict("Display name is already taken", { field: "displayName" });
+        if (existing || dupName) {
+          throw AppError.conflict("Registration unavailable — try a different email or display name");
+        }
 
         const user = await tx.user.create({
           data: {
@@ -722,6 +735,8 @@ export class AuthService {
     const record = await oneShotStore.take("password_reset", input.token);
     if (!record) throw AppError.unauthenticated("Reset token invalid or expired");
 
+    // Also reject breached passwords on reset — defence in depth.
+    await rejectIfPwnedPassword(input.newPassword);
     const passwordHash = await hashPassword(input.newPassword);
     const updated = await this.deps.mysql.user.update({
       where: { id: record.userId },
