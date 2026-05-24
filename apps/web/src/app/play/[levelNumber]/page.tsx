@@ -231,7 +231,7 @@ const InGameInner = (): JSX.Element => {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-3 py-4 sm:gap-6 sm:px-6 sm:py-12">
       <CombatTutorial />
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
@@ -239,18 +239,18 @@ const InGameInner = (): JSX.Element => {
             Level {levelNumber.toString()}
             {startLevel.data ? ` · ${startLevel.data.level.type}` : ""}
           </div>
-          <h1 className="font-display text-3xl tracking-tight text-realm-aetheric">
+          <h1 className="font-display text-2xl tracking-tight text-realm-aetheric sm:text-3xl">
             {startLevel.data?.level.name ?? "Loading…"}
           </h1>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <CombatHelp />
           {!combatMode && activeRun ? (
             <button
               type="button"
               onClick={onEngage}
               disabled={startCombat.isLoading}
-              className="rounded-md border border-amber-700/60 bg-amber-950/40 px-3 py-1 text-amber-200 hover:bg-amber-900/60 disabled:opacity-60"
+              className="rounded-md border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-amber-200 hover:bg-amber-900/60 disabled:opacity-60"
             >
               {startCombat.isLoading ? "Engaging…" : "Engage combat"}
             </button>
@@ -264,7 +264,7 @@ const InGameInner = (): JSX.Element => {
                 setHighlight(null);
                 setTargetId(null);
               }}
-              className="rounded-md border border-zinc-700 px-3 py-1 text-zinc-300 hover:bg-zinc-800"
+              className="rounded-md border border-zinc-700 px-3 py-2 text-zinc-300 hover:bg-zinc-800"
             >
               Exit combat
             </button>
@@ -275,7 +275,7 @@ const InGameInner = (): JSX.Element => {
               setPaused((p) => !p);
               setScene(paused ? "in_game" : "pause");
             }}
-            className="rounded-md border border-zinc-700 px-3 py-1 text-zinc-300 hover:bg-zinc-800"
+            className="rounded-md border border-zinc-700 px-3 py-2 text-zinc-300 hover:bg-zinc-800"
           >
             {paused ? "Resume" : "Pause"}
           </button>
@@ -283,7 +283,7 @@ const InGameInner = (): JSX.Element => {
             type="button"
             onClick={onAbandon}
             disabled={abandonRun.isLoading}
-            className="rounded-md border border-rose-700/50 px-3 py-1 text-rose-300 hover:bg-rose-950/40 disabled:opacity-60"
+            className="rounded-md border border-rose-700/50 px-3 py-2 text-rose-300 hover:bg-rose-950/40 disabled:opacity-60"
           >
             {abandonRun.isLoading ? "Abandoning…" : "Abandon"}
           </button>
@@ -332,9 +332,6 @@ const InGameInner = (): JSX.Element => {
         <section className="relative">
           <HexMapRenderer
             map={map}
-            hexSize={28}
-            width={840}
-            height={500}
             onTileClick={(t) => {
               setSelected(t);
             }}

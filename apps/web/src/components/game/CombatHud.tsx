@@ -102,7 +102,7 @@ export const CombatHud = ({
             if (!active || !target) return;
             onSubmit({ kind: "attack", actorId: active.id, targetId: target.id });
           }}
-          className="rounded-md border border-rose-700/60 bg-rose-950/40 px-3 py-1 text-rose-200 hover:bg-rose-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-rose-700/60 bg-rose-950/40 px-3 py-2 text-rose-200 hover:bg-rose-900/60 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Attack
         </button>
@@ -123,7 +123,7 @@ export const CombatHud = ({
             if (!active) return;
             onSubmit({ kind: "defend", actorId: active.id });
           }}
-          className="rounded-md border border-sky-700/60 bg-sky-950/40 px-3 py-1 text-sky-200 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-sky-700/60 bg-sky-950/40 px-3 py-2 text-sky-200 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Defend
         </button>
@@ -134,7 +134,7 @@ export const CombatHud = ({
             if (!active) return;
             onSubmit({ kind: "end_turn", actorId: active.id });
           }}
-          className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1 text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           End turn
         </button>
@@ -207,7 +207,7 @@ const SkillButton = ({
           : { kind: "use_skill", actorId: active.id, skillId };
         onSubmit(action);
       }}
-      className={`rounded-md border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40 ${cls}`}
+      className={`rounded-md border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-40 ${cls}`}
     >
       {spec.name}
       {cd > 0 ? <span className="ml-1 text-xs opacity-70">(cd {String(cd)})</span> : null}

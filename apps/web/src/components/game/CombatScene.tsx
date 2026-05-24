@@ -12,7 +12,7 @@
 // Pixi runs only in the browser, so this component is `"use client"` and
 // loads `pixi.js` lazily via dynamic import in a `useEffect`.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type * as PixiTypes from "pixi.js";
 import type { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
@@ -46,6 +46,18 @@ interface CombatSceneProps {
 const DEFAULT_W = 720;
 const DEFAULT_H = 460;
 const DEFAULT_HEX = 32;
+// On phones (≤ 480px) we drop hexSize so the 6×4 grid fits across the
+// viewport without horizontal scrolling. The aspect-ratio (~1.57) is
+// preserved by deriving height from width.
+const MIN_W = 280;
+const MAX_W = 1080;
+const ASPECT = DEFAULT_W / DEFAULT_H; // canvas width / height
+/** Pick a hexSize that keeps the 6-column grid fully inside `width`. */
+const hexSizeForWidth = (w: number): number => {
+  // hexCorners radius = size; column step ≈ 1.5 * size; 6 columns + edge
+  // padding → size ≈ (w - 24) / (6 * 1.5 + 1).
+  return Math.max(14, Math.min(38, Math.floor((w - 24) / 10)));
+};
 const TILE_FILL: Record<string, number> = {
   plain: 0x2c5d34,
   forest: 0x1f5926,
@@ -325,14 +337,24 @@ const drawArchetype = (
 };
 
 export const CombatScene = ({
-  width = DEFAULT_W,
-  height = DEFAULT_H,
-  hexSize = DEFAULT_HEX,
+  width: widthProp,
+  height: heightProp,
+  hexSize: hexSizeProp,
   onTileClick,
   onActorClick,
   highlightTile = null,
 }: CombatSceneProps): JSX.Element => {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  // Measured container width drives canvas + hexSize so the scene
+  // resizes for phones/tablets without horizontal scroll. The first
+  // paint uses a sensible default; ResizeObserver below updates it.
+  const [measured, setMeasured] = useState<{ w: number; h: number; hex: number }>(() => {
+    const w = widthProp ?? DEFAULT_W;
+    return { w, h: heightProp ?? Math.round(w / ASPECT), hex: hexSizeProp ?? hexSizeForWidth(w) };
+  });
+  const width = measured.w;
+  const height = measured.h;
+  const hexSize = measured.hex;
   // Keep the latest non-reactive props/handlers in refs so the Pixi
   // setup effect can be mount-once without restarting on every render.
   const stateRef = useRef<BattleState | null>(null);
@@ -383,13 +405,18 @@ export const CombatScene = ({
       if (cancelled) return;
 
       app = new Pixi.Application();
+      // Cap resolution at 2 to avoid burning fillrate on hi-dpi phones
+      // (some Android devices report DPR up to 4). Skip antialias when
+      // hardware concurrency is low — proxy for "low-end device".
+      const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+      const lowEnd = (navigator.hardwareConcurrency ?? 4) <= 4;
       await app.init({
         width,
         height,
         background: 0x07060d,
-        antialias: true,
+        antialias: !lowEnd,
         autoDensity: true,
-        resolution: window.devicePixelRatio,
+        resolution: dpr,
       });
       if (cancelled || !app) {
         app?.destroy(true);
@@ -567,11 +594,33 @@ export const CombatScene = ({
     void state;
   }, [eventQueue, state]);
 
+  // Responsive sizing: observe the host's parent width and recompute
+  // canvas + hexSize when it changes. Caller can still override via
+  // explicit props (widthProp/heightProp/hexSizeProp).
+  useEffect(() => {
+    if (widthProp !== undefined && heightProp !== undefined) return; // fixed
+    const host = hostRef.current;
+    if (!host) return;
+    const parent = host.parentElement ?? host;
+    const update = (): void => {
+      const w = Math.max(MIN_W, Math.min(MAX_W, parent.clientWidth));
+      const h = heightProp ?? Math.round(w / ASPECT);
+      const hex = hexSizeProp ?? hexSizeForWidth(w);
+      setMeasured((prev) =>
+        prev.w === w && prev.h === h && prev.hex === hex ? prev : { w, h, hex },
+      );
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, [widthProp, heightProp, hexSizeProp]);
+
   return (
     <div
       ref={hostRef}
-      style={{ width, height }}
-      className="rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden"
+      style={{ width: "100%", maxWidth: width, height }}
+      className="rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden touch-none"
     />
   );
 };

@@ -42,19 +42,55 @@ interface HexMapRendererProps {
 const DEFAULT_HEX_SIZE = 28;
 const DEFAULT_W = 800;
 const DEFAULT_H = 480;
+const MIN_W = 280;
+const MAX_W = 1080;
+const ASPECT = DEFAULT_W / DEFAULT_H;
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 3;
+/** Scale hex size down on narrow viewports so the grid fits. */
+const hexSizeForWidth = (w: number): number =>
+  Math.max(12, Math.min(DEFAULT_HEX_SIZE, Math.floor((w - 24) / 11)));
 
 export const HexMapRenderer = ({
   map,
-  hexSize = DEFAULT_HEX_SIZE,
-  width = DEFAULT_W,
-  height = DEFAULT_H,
+  hexSize: hexSizeProp,
+  width: widthProp,
+  height: heightProp,
   onTileClick,
 }: HexMapRendererProps): JSX.Element => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverTile, setHoverTile] = useState<Axial | null>(null);
   const [lastClick, setLastClick] = useState<Axial | null>(null);
+  const [measured, setMeasured] = useState<{ w: number; h: number; hex: number }>(() => {
+    const w = widthProp ?? DEFAULT_W;
+    return {
+      w,
+      h: heightProp ?? Math.round(w / ASPECT),
+      hex: hexSizeProp ?? hexSizeForWidth(w),
+    };
+  });
+  const width = measured.w;
+  const height = measured.h;
+  const hexSize = measured.hex;
+
+  // Track parent size so the canvas reflows on orientation change /
+  // window resize without page reload.
+  useEffect(() => {
+    if (widthProp !== undefined && heightProp !== undefined) return;
+    const host = containerRef.current;
+    if (!host) return;
+    const parent = host.parentElement ?? host;
+    const update = (): void => {
+      const w = Math.max(MIN_W, Math.min(MAX_W, parent.clientWidth));
+      const h = heightProp ?? Math.round(w / ASPECT);
+      const hex = hexSizeProp ?? hexSizeForWidth(w);
+      setMeasured((p) => (p.w === w && p.h === h && p.hex === hex ? p : { w, h, hex }));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, [widthProp, heightProp, hexSizeProp]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -75,13 +111,15 @@ export const HexMapRenderer = ({
       if (cancelled) return;
 
       app = new Pixi.Application();
+      const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+      const lowEnd = (navigator.hardwareConcurrency ?? 4) <= 4;
       await app.init({
         width,
         height,
         background: 0x0a0a0f,
-        antialias: true,
+        antialias: !lowEnd,
         autoDensity: true,
-        resolution: window.devicePixelRatio,
+        resolution: dpr,
       });
       if (cancelled || !app) {
         app?.destroy(true);
@@ -210,8 +248,8 @@ export const HexMapRenderer = ({
     <div className="space-y-2">
       <div
         ref={containerRef}
-        style={{ width, height }}
-        className="rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden"
+        style={{ width: "100%", maxWidth: width, height }}
+        className="rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden touch-none"
       />
       <div className="flex items-center justify-between text-xs text-zinc-500">
         <span>
