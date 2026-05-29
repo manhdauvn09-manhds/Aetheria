@@ -52,7 +52,7 @@ Test-Case 'account.updateProfile rejects taken displayName' {
     try {
         $other = Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
             email = "dup-$ts2@aetheria-test.invalid"
-            password = 'TestPass1234!'
+            password = 'Aq7!zKmTvW4xP9r'
             displayName = "other$($ts2.Substring(8,5))"
         }
     } catch {

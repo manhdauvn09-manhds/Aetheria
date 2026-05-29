@@ -29,6 +29,8 @@
 
 import { audit } from "@aetheria/core";
 import { events as defaultEventBus, type EventBus } from "@aetheria/domain-events";
+import { findLevelByNumber } from "@aetheria/game-assets";
+import { applyAccountXp } from "@aetheria/progression-runtime";
 import {
   applyAction,
   createBattle,
@@ -52,7 +54,7 @@ import type { MysqlClient, MysqlPrisma } from "@aetheria/schema-db/mysql";
 
 export type CombatMysqlClient = Pick<
   MysqlClient,
-  "run" | "profile" | "inventory" | "item" | "$transaction"
+  "run" | "profile" | "inventory" | "item" | "userCharacter" | "$transaction"
 >;
 
 export interface CombatRunDeps {
@@ -94,6 +96,7 @@ interface RunRow {
   readonly status: string;
   readonly actionLog: unknown;
   readonly snapshot: unknown;
+  readonly partyConfig: unknown;
   readonly revision: number;
   readonly level: {
     readonly levelNumber: number;
@@ -120,23 +123,40 @@ export class CombatRunService {
     if (run.status !== "in_progress") {
       throw AppError.invalidAction("Run is not in progress", { status: run.status });
     }
-    // Read the user's chosen team from profile.preferences (if any).
-    // Falls back to the level-rotation default in synthesiseInit() when
-    // empty. Picked here (vs in synth) to keep synth pure.
-    const selectedTeam = await this.loadSelectedTeam(ref.userId);
-    const init = synthesiseInit(ref, run.level, selectedTeam);
+
+    // ── RESUME (#4) ──────────────────────────────────────────────────
+    // If combat was already started for this run (snapshot present) and
+    // is mid-fight, return the existing state instead of rebuilding —
+    // leaving + re-entering /play/[N] no longer wipes progress. Only
+    // rebuild when the battle has actually ended (or no snapshot yet).
+    if (run.snapshot !== null && run.snapshot !== undefined) {
+      try {
+        const existing = hydrate(run.snapshot);
+        const live = existing.phase === "player_turn"
+          || existing.phase === "enemy_turn"
+          || existing.phase === "resolving"
+          || existing.phase === "setup";
+        if (live) {
+          return { state: existing };
+        }
+      } catch {
+        // Corrupt snapshot — fall through to a fresh start below.
+      }
+    }
+
+    // ── FRESH START ──────────────────────────────────────────────────
+    // Resolve the party: selectedTeam ∩ owned heroes, fallback to
+    // rotation. Persist the resolved IDs so combat.replay rebuilds the
+    // identical init even if preferences change later.
+    const partyIds = await this.resolveOwnedParty(ref.userId);
+    const init = synthesiseInit(ref, run.level, partyIds);
     const fresh = createBattle(init);
-    // Optimistic concurrency: only update if the row's revision still
-    // matches what we loaded. updateMany returns a count of 0 if some
-    // other request raced ahead — we surface that as a conflict so the
-    // client can retry with a fresh load.
     const cas = await this.deps.mysql.run.updateMany({
       where: { id: ref.runId, revision: run.revision },
       data: {
-        // hydrate() expects the SerializedState envelope `{schemaVersion, state}`,
-        // not raw BattleState. Use serializeState() to keep the contract.
         snapshot: serializeState(fresh) as unknown as MysqlPrisma.Prisma.InputJsonValue,
         actionLog: [] as unknown as MysqlPrisma.Prisma.InputJsonValue,
+        partyConfig: (partyIds ?? null) as unknown as MysqlPrisma.Prisma.InputJsonValue,
         revision: { increment: 1 },
       },
     });
@@ -148,7 +168,7 @@ export class CombatRunService {
       action: "combat.start",
       targetType: "run",
       targetId: ref.runId,
-      payload: { battleId: fresh.battleId, levelNumber: run.level.levelNumber },
+      payload: { battleId: fresh.battleId, levelNumber: run.level.levelNumber, party: partyIds },
     });
     return { state: fresh };
   }
@@ -374,6 +394,39 @@ export class CombatRunService {
     return filtered.length >= 1 ? filtered : null;
   }
 
+  // ── Owned-party resolver (#3) ───────────────────────────────────────
+  //
+  // The party is the intersection of the player's chosen team and the
+  // heroes they actually OWN. Ownership = a user_characters row whose
+  // character.codename matches a roster id, UNION the always-unlocked
+  // starter set (so brand-new accounts with zero unlocks still play and
+  // pre-migration accounts aren't bricked). Returns null → rotation.
+  private async resolveOwnedParty(userId: bigint): Promise<readonly string[] | null> {
+    // Starters are always available even without a user_characters row.
+    const STARTERS = new Set(["aevra", "kyo", "lyra", "brann"]);
+    const owned = new Set<string>(STARTERS);
+    try {
+      const rows = await this.deps.mysql.userCharacter.findMany({
+        where: { userId },
+        select: { character: { select: { codename: true } } },
+      });
+      for (const row of rows) {
+        const code = row.character?.codename;
+        if (code && HERO_ROSTER.some((h) => h.id === code)) owned.add(code);
+      }
+    } catch {
+      // user_characters unreadable (fresh DB) — starters only.
+    }
+    const selected = await this.loadSelectedTeam(userId);
+    // No preference → default to the starter trio (always owned). This
+    // keeps the party owned-consistent + deterministic for replay,
+    // instead of falling back to a rotation that could field unowned
+    // heroes.
+    const wanted = selected ?? ["aevra", "kyo", "lyra"];
+    const filtered = wanted.filter((id) => owned.has(id));
+    return filtered.length >= 1 ? filtered : ["aevra", "kyo", "lyra"];
+  }
+
   private async grantRewards(
     userId: bigint,
     rewardsJson: unknown,
@@ -384,16 +437,17 @@ export class CombatRunService {
     }
 
     await this.deps.mysql.$transaction(async (tx: MysqlPrisma.Prisma.TransactionClient) => {
-      // Profile increments — gold + accountXp. tolerateDbMiss isn't
-      // needed because rewards only fire on a successful combat.
-      if (rewards.gold > 0 || rewards.xp > 0) {
+      // Gold via direct increment. XP via applyAccountXp (#2) so
+      // accountLevel is RECOMPUTED and level-up milestones fire —
+      // previously a raw accountXp increment left accountLevel stuck.
+      if (rewards.gold > 0) {
         await tx.profile.update({
           where: { userId },
-          data: {
-            ...(rewards.gold > 0 ? { gold: { increment: rewards.gold } } : {}),
-            ...(rewards.xp > 0 ? { accountXp: { increment: rewards.xp } } : {}),
-          },
+          data: { gold: { increment: rewards.gold } },
         });
+      }
+      if (rewards.xp > 0) {
+        await applyAccountXp(tx, userId, rewards.xp);
       }
       for (const it of rewards.items) {
         const itemId = BigInt(it.itemId);
@@ -427,7 +481,10 @@ export class CombatRunService {
     const run = await this.loadRun(ref);
     const log = parseActionLog(run.actionLog);
     const stored = this.hydrateOrThrow(run);
-    const init = synthesiseInit(ref, run.level);
+    // Rebuild from the EXACT party persisted at start time (party_config)
+    // so a profile change between play + replay can't false-flag a tamper.
+    const partyIds = parsePartyConfig(run.partyConfig);
+    const init = synthesiseInit(ref, run.level, partyIds);
     // Replay against the same init seed, then compare against the
     // snapshot's serialized hash. Mismatch ⇒ tampered run.
     const replayed = replayActions({ init, actions: log });
@@ -450,6 +507,7 @@ export class CombatRunService {
         status: true,
         actionLog: true,
         snapshot: true,
+        partyConfig: true,
         revision: true,
         level: { select: { levelNumber: true, name: true, rewards: true } },
       },
@@ -569,107 +627,213 @@ const ROLE_TO_SKILLS: Record<typeof HERO_ROSTER[number]["role"], readonly string
 
 const PARTY_SIZE = 3;
 
+// Map the authored TerrainKind (game-assets) → engine BattleTerrain.
+// Engine has no grass/sand/ash/ruins, so collapse those to the nearest
+// mechanical equivalent (grass/sand/ash → plain, ruins → stone).
+const TERRAIN_MAP: Record<string, Tile["terrain"]> = {
+  grass: "plain", forest: "forest", stone: "stone", sand: "plain",
+  ash: "plain", water: "water", ice: "ice", lava: "lava",
+  void: "void", ruins: "stone", shrine: "shrine", wall: "wall",
+};
+
+/** Resolve an authored enemy `unit` string to an ENEMY_ARCHETYPES spec. */
+const resolveEnemySpec = (unit: string): typeof ENEMY_ARCHETYPES[number] => {
+  // Exact match first.
+  const exact = ENEMY_ARCHETYPES.find((e) => e.unit === unit);
+  if (exact) return exact;
+  // Keyword heuristic for hand-authored unit names (dire_wolf, ice_wight…).
+  const u = unit.toLowerCase();
+  const byKw = (kw: string[], id: string): typeof ENEMY_ARCHETYPES[number] | undefined =>
+    kw.some((k) => u.includes(k)) ? ENEMY_ARCHETYPES.find((e) => e.id === id) : undefined;
+  return (
+    byKw(["wolf", "spore", "verdant", "thorn", "druid"], "verdant_spore") ??
+    byKw(["husk", "ember", "cinder", "bandit", "flame"], "ember_husk") ??
+    byKw(["wraith", "ice", "wight", "frost", "shade"], "frost_wraith") ??
+    byKw(["brute", "leviath", "tide", "warden", "reef"], "tide_brute") ??
+    byKw(["reaper", "sky", "wind", "storm"], "sky_reaper") ??
+    byKw(["stalker", "void", "null", "shadow"], "void_stalker") ??
+    ENEMY_ARCHETYPES[0]! // safe default
+  );
+};
+
+/**
+ * Resolve the party hero specs from a list of roster IDs. Unknown IDs are
+ * dropped; short lists are filled by level rotation so the party is always
+ * exactly PARTY_SIZE. Deterministic given (partyIds, levelNumber).
+ */
+const resolvePartySpecs = (
+  partyIds: readonly string[] | null,
+  levelNumber: number,
+): typeof HERO_ROSTER[number][] => {
+  const baseIdx = Math.max(0, levelNumber - 1) % HERO_ROSTER.length;
+  const specs: typeof HERO_ROSTER[number][] = [];
+  for (const id of partyIds ?? []) {
+    const spec = HERO_ROSTER.find((h) => h.id === id);
+    if (spec && !specs.find((s) => s.id === spec.id)) specs.push(spec);
+    if (specs.length >= PARTY_SIZE) break;
+  }
+  let pad = 0;
+  while (specs.length < PARTY_SIZE && pad <= HERO_ROSTER.length) {
+    const fill = HERO_ROSTER[(baseIdx + pad) % HERO_ROSTER.length]!;
+    if (!specs.find((s) => s.id === fill.id)) specs.push(fill);
+    pad++;
+  }
+  return specs;
+};
+
 const synthesiseInit = (
   ref: RunRef,
   level: { levelNumber: number; name: string },
-  /** User-chosen team (1..3 hero IDs). When null, falls back to the
-   *  per-level rotation so existing tests + new players still work. */
-  selectedTeam: readonly string[] | null = null,
+  /** Resolved party hero IDs (already ownership-filtered by the caller).
+   *  null → level rotation. */
+  partyIds: readonly string[] | null = null,
 ): CreateBattleInput => {
-  const tiles: Tile[] = [];
-  for (let q = 0; q < 6; q++) {
-    for (let r = 0; r < 4; r++) {
-      const terrain: Tile["terrain"] =
-        r === 0 && (q === 1 || q === 4) ? "forest" :
-        r === 3 && q === 5             ? "shrine" :
-                                         "plain";
-      tiles.push({ q, r, terrain, elev: 0 });
-    }
-  }
-  // Boss every 20th level → final trial of each realm.
-  const isBoss = level.levelNumber > 0 && level.levelNumber % 20 === 0;
-  const baseHeroIdx = Math.max(0, (level.levelNumber - 1)) % HERO_ROSTER.length;
-  const baseEnemyIdx = Math.max(0, (level.levelNumber - 1)) % ENEMY_ARCHETYPES.length;
+  const n = level.levelNumber;
+  const isBoss = n > 0 && n % 20 === 0;
+  const partySpecs = resolvePartySpecs(partyIds, n);
 
-  // Build the party. Player-chosen team wins if present, otherwise
-  // rotate through the roster by level. Always positioned in the left
-  // column (q=0, r=0..2).
-  const heroPositions = [
-    { q: 0, r: 0 },
-    { q: 0, r: 1 },
-    { q: 0, r: 2 },
-  ];
-  const partySpecs: typeof HERO_ROSTER[number][] = [];
-  if (selectedTeam && selectedTeam.length > 0) {
-    for (const id of selectedTeam) {
-      const spec = HERO_ROSTER.find((h) => h.id === id);
-      if (spec) partySpecs.push(spec);
-      if (partySpecs.length >= PARTY_SIZE) break;
-    }
-    // If user picked < 3 heroes, fill remaining slots with rotation.
-    let pad = 0;
-    while (partySpecs.length < PARTY_SIZE) {
-      const fillSpec = HERO_ROSTER[(baseHeroIdx + pad) % HERO_ROSTER.length]!;
-      if (!partySpecs.find((p) => p.id === fillSpec.id)) {
-        partySpecs.push(fillSpec);
+  // ── Load authored geometry from game-assets (same source the
+  // ── map-view uses, so combat matches what the player saw). ──
+  const asset = findLevelByNumber(n);
+  const heroSpawns: { q: number; r: number }[] = [];
+  const enemySpawns: { q: number; r: number; unit?: string }[] = [];
+  let tiles: Tile[];
+  let width = 6;
+  let height = 4;
+
+  if (asset?.map?.tiles?.length) {
+    width = asset.map.width;
+    height = asset.map.height;
+    tiles = asset.map.tiles.map((t) => ({
+      q: t.q,
+      r: t.r,
+      terrain: TERRAIN_MAP[t.terrain] ?? "plain",
+      elev: t.elev ?? 0,
+    }));
+    for (const sp of asset.map.spawns ?? []) {
+      if (sp.kind === "player") heroSpawns.push({ q: sp.q, r: sp.r });
+      else if (sp.kind === "enemy") {
+        const wave1 = asset.encounter?.waves?.[0]?.enemies ?? [];
+        const ref2 = (sp as { ref?: string }).ref;
+        const matched = ref2 ? wave1.find((e) => e.id === ref2) : undefined;
+        // exactOptionalPropertyTypes: only set `unit` when defined.
+        enemySpawns.push(
+          matched?.unit !== undefined
+            ? { q: sp.q, r: sp.r, unit: matched.unit }
+            : { q: sp.q, r: sp.r },
+        );
       }
-      pad++;
-      if (pad > HERO_ROSTER.length) break;
     }
   } else {
-    for (let i = 0; i < PARTY_SIZE; i++) {
-      partySpecs.push(HERO_ROSTER[(baseHeroIdx + i) % HERO_ROSTER.length]!);
+    // Fallback flat 6×4 grid (asset missing — shouldn't happen for 1..100).
+    tiles = [];
+    for (let q = 0; q < 6; q++) {
+      for (let r = 0; r < 4; r++) {
+        tiles.push({ q, r, terrain: "plain", elev: 0 });
+      }
     }
   }
 
-  const heroes: Actor[] = [];
-  for (let i = 0; i < partySpecs.length; i++) {
-    const spec = partySpecs[i]!;
-    const skillIds = ROLE_TO_SKILLS[spec.role];
-    const hp = spec.hp + Math.floor(level.levelNumber * 1.5);
-    heroes.push(synthActor(
-      `${spec.id}_${String(i)}`, spec.unit, "player", spec.element,
-      heroPositions[i]!, hp,
-      { atk: spec.atk, def: spec.def, spd: spec.spd },
-      skillIds,
-    ));
+  // Default spawn positions when the asset omits them.
+  if (heroSpawns.length === 0) {
+    heroSpawns.push({ q: 0, r: 0 }, { q: 0, r: 1 }, { q: 0, r: 2 });
+  }
+  if (enemySpawns.length === 0) {
+    enemySpawns.push({ q: width - 1, r: 1 }, { q: width - 1, r: 2 });
   }
 
-  // Enemies: boss gets 1 strong; non-boss gets 2 (paired). Right column.
+  // Ensure NO two actors share a tile and there are enough distinct
+  // positions for the whole party. Authored levels may declare fewer
+  // player spawns than PARTY_SIZE (level 1 has 2, party is 3), which
+  // would otherwise stack heroes on one hex and break targeting.
+  const passable = new Set(
+    tiles
+      .filter((t) => t.terrain !== "wall" && t.terrain !== "void")
+      .map((t) => `${String(t.q)},${String(t.r)}`),
+  );
+  const used = new Set<string>();
+  const claim = (q: number, r: number): boolean => {
+    const k = `${String(q)},${String(r)}`;
+    if (used.has(k) || !passable.has(k)) return false;
+    used.add(k);
+    return true;
+  };
+  const padSpawns = (
+    list: { q: number; r: number; unit?: string }[],
+    need: number,
+    fromRight: boolean,
+  ): void => {
+    // First, de-dupe the authored spawns against already-claimed tiles.
+    for (const sp of list) {
+      if (!claim(sp.q, sp.r)) {
+        // collided — find nearest free tile
+        const free = nearestFreeTile(sp.q, sp.r, passable, used);
+        if (free) { sp.q = free.q; sp.r = free.r; claim(free.q, free.r); }
+      }
+    }
+    // Then append extra distinct tiles until we have `need`.
+    let guard = 0;
+    while (list.length < need && guard++ < 200) {
+      const colOrder = fromRight
+        ? Array.from({ length: width }, (_, i) => width - 1 - i)
+        : Array.from({ length: width }, (_, i) => i);
+      let placed = false;
+      for (const q of colOrder) {
+        for (let r = 0; r < height && !placed; r++) {
+          if (claim(q, r)) { list.push({ q, r }); placed = true; }
+        }
+        if (placed) break;
+      }
+      if (!placed) break;
+    }
+  };
+  padSpawns(heroSpawns, partySpecs.length, false);
+  // Enemy spawns claimed AFTER heroes so they never overlap. Boss needs
+  // only 1 position; non-boss keeps its authored count (min 1).
+  padSpawns(enemySpawns, isBoss ? 1 : Math.max(1, enemySpawns.length), true);
+
+  // ── Heroes ──
+  const heroes: Actor[] = partySpecs.map((spec, i) => {
+    const pos = heroSpawns[i] ?? heroSpawns[heroSpawns.length - 1]!;
+    const hp = spec.hp + Math.floor(n * 1.5);
+    return synthActor(
+      `${spec.id}_${String(i)}`, spec.unit, "player", spec.element,
+      pos, hp,
+      { atk: spec.atk, def: spec.def, spd: spec.spd },
+      ROLE_TO_SKILLS[spec.role],
+    );
+  });
+
+  // ── Enemies ──
   const enemies: Actor[] = [];
   if (isBoss) {
-    const ehp = BOSS_ARCHETYPE.hp + Math.min(200, level.levelNumber * 5);
+    // Boss levels: one strong Void Lord at the first enemy spawn.
+    const pos = enemySpawns[0] ?? { q: width - 1, r: 1 };
+    const ehp = BOSS_ARCHETYPE.hp + Math.min(200, n * 5);
     enemies.push(synthActor(
       BOSS_ARCHETYPE.id, BOSS_ARCHETYPE.unit, "enemy", BOSS_ARCHETYPE.element,
-      { q: 5, r: 1 }, ehp,
-      {
-        atk: BOSS_ARCHETYPE.atk + Math.floor(level.levelNumber / 2),
-        def: BOSS_ARCHETYPE.def,
-        spd: BOSS_ARCHETYPE.spd,
-      },
+      pos, ehp,
+      { atk: BOSS_ARCHETYPE.atk + Math.floor(n / 2), def: BOSS_ARCHETYPE.def, spd: BOSS_ARCHETYPE.spd },
       [],
     ));
   } else {
-    const enemyPositions = [{ q: 5, r: 1 }, { q: 5, r: 2 }];
-    for (let i = 0; i < enemyPositions.length; i++) {
-      const spec = ENEMY_ARCHETYPES[(baseEnemyIdx + i) % ENEMY_ARCHETYPES.length]!;
-      const ehp = spec.hp + Math.min(120, level.levelNumber * 3);
+    enemySpawns.forEach((sp, i) => {
+      const spec = sp.unit
+        ? resolveEnemySpec(sp.unit)
+        : ENEMY_ARCHETYPES[(Math.max(0, n - 1) + i) % ENEMY_ARCHETYPES.length]!;
+      const ehp = spec.hp + Math.min(120, n * 3);
       enemies.push(synthActor(
         `${spec.id}_${String(i)}`, spec.unit, "enemy", spec.element,
-        enemyPositions[i]!, ehp,
-        {
-          atk: spec.atk + Math.floor(level.levelNumber / 2),
-          def: spec.def,
-          spd: spec.spd,
-        },
+        { q: sp.q, r: sp.r }, ehp,
+        { atk: spec.atk + Math.floor(n / 2), def: spec.def, spd: spec.spd },
         [],
       ));
-    }
+    });
   }
 
   return {
     battleId: `run-${ref.runId.toString()}`,
-    config: { width: 6, height: 4, turnLimit: 30, defaultApRegen: 3 },
+    config: { width, height, turnLimit: 30, defaultApRegen: 3 },
     tiles,
     actors: [...heroes, ...enemies],
     firstTurn: "player",
@@ -713,6 +877,34 @@ const synthActor = (
  * payload. Tolerates missing/null fields — the synthesised levels and
  * the seed placeholder rows can both have empty objects.
  */
+/** Find the closest passable, unclaimed tile to (q,r) by ring search. */
+const nearestFreeTile = (
+  q: number,
+  r: number,
+  passable: ReadonlySet<string>,
+  used: ReadonlySet<string>,
+): { q: number; r: number } | null => {
+  for (let radius = 1; radius <= 8; radius++) {
+    for (let dq = -radius; dq <= radius; dq++) {
+      for (let dr = -radius; dr <= radius; dr++) {
+        if (Math.abs(dq) !== radius && Math.abs(dr) !== radius) continue;
+        const nq = q + dq;
+        const nr = r + dr;
+        const k = `${String(nq)},${String(nr)}`;
+        if (passable.has(k) && !used.has(k)) return { q: nq, r: nr };
+      }
+    }
+  }
+  return null;
+};
+
+/** Parse the run's persisted party_config JSON → hero-id array or null. */
+const parsePartyConfig = (raw: unknown): readonly string[] | null => {
+  if (!Array.isArray(raw)) return null;
+  const ids = raw.filter((x): x is string => typeof x === "string");
+  return ids.length >= 1 ? ids : null;
+};
+
 const normaliseRewards = (raw: unknown): GrantedRewards => {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     return { xp: 0, gold: 0, items: [] };

@@ -362,6 +362,8 @@ export const CombatScene = ({
   // Imperative repaint hook for the highlight overlay. Set inside the
   // Pixi setup effect; called from the prop-change effect below.
   const repaintHighlightRef = useRef<(coord: Coord | null) => void>(() => undefined);
+  // Imperative recenter hook (set in Pixi setup, called by the button).
+  const recenterRef = useRef<() => void>(() => undefined);
 
   // We *do* read from the store, but only to drive imperative Pixi
   // updates — never to re-create the canvas.
@@ -387,6 +389,9 @@ export const CombatScene = ({
     let unsubState: (() => void) | null = null;
     let unsubQueue: (() => void) | null = null;
     let animating = false;
+    // Tracks which battle we've auto-framed so pan/zoom isn't reset
+    // on every state re-render. null until first paint.
+    let centeredBattleId: string | null = null;
 
     void (async () => {
       // `pixi.js/unsafe-eval` is the misnamed CSP-safe variant: it has
@@ -437,8 +442,92 @@ export const CombatScene = ({
       app.stage.eventMode = "static";
       app.stage.hitArea = app.screen;
 
+      // ── Pan + zoom state ──────────────────────────────────────────
+      // We hand-roll pan (pointer drag) + zoom (wheel + pinch) so the
+      // whole board is reachable on phones where the canvas is smaller
+      // than the grid at a comfortable hex size. A drag beyond
+      // DRAG_THRESHOLD px suppresses the tap so dragging never selects.
+      const MIN_ZOOM = 0.5;
+      const MAX_ZOOM = 2.5;
+      const DRAG_THRESHOLD = 6;
+      let dragging = false;
+      let dragMoved = false;
+      let dragStart = { x: 0, y: 0 };
+      let worldStart = { x: 0, y: 0 };
+      // Pinch state (two active pointers)
+      const activePointers = new Map<number, { x: number; y: number }>();
+      let pinchStartDist = 0;
+      let pinchStartScale = 1;
+
+      const clampZoom = (z: number): number => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+
+      const zoomAround = (cx: number, cy: number, nextScale: number): void => {
+        if (!world) return;
+        const s0 = world.scale.x;
+        const s1 = clampZoom(nextScale);
+        if (s1 === s0) return;
+        // Keep the world-point under (cx,cy) fixed while scaling.
+        const wx = (cx - world.position.x) / s0;
+        const wy = (cy - world.position.y) / s0;
+        world.scale.set(s1, s1);
+        world.position.set(cx - wx * s1, cy - wy * s1);
+      };
+
+      const onPointerDown = (e: {
+        global: { x: number; y: number };
+        pointerId?: number;
+      }): void => {
+        if (!world) return;
+        const id = e.pointerId ?? 0;
+        activePointers.set(id, { x: e.global.x, y: e.global.y });
+        if (activePointers.size === 2) {
+          // Begin pinch — record initial finger distance + scale.
+          const pts = [...activePointers.values()];
+          pinchStartDist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+          pinchStartScale = world.scale.x;
+          dragging = false;
+          return;
+        }
+        dragging = true;
+        dragMoved = false;
+        dragStart = { x: e.global.x, y: e.global.y };
+        worldStart = { x: world.position.x, y: world.position.y };
+      };
+
+      const onPointerMove = (e: {
+        global: { x: number; y: number };
+        pointerId?: number;
+      }): void => {
+        if (!world) return;
+        const id = e.pointerId ?? 0;
+        if (activePointers.has(id)) activePointers.set(id, { x: e.global.x, y: e.global.y });
+
+        if (activePointers.size === 2 && pinchStartDist > 0) {
+          const pts = [...activePointers.values()];
+          const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+          const midX = (pts[0]!.x + pts[1]!.x) / 2;
+          const midY = (pts[0]!.y + pts[1]!.y) / 2;
+          zoomAround(midX, midY, pinchStartScale * (dist / pinchStartDist));
+          return;
+        }
+        if (!dragging) return;
+        const dx = e.global.x - dragStart.x;
+        const dy = e.global.y - dragStart.y;
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) dragMoved = true;
+        world.position.set(worldStart.x + dx, worldStart.y + dy);
+      };
+
+      const onPointerUp = (e: { pointerId?: number }): void => {
+        const id = e.pointerId ?? 0;
+        activePointers.delete(id);
+        if (activePointers.size < 2) pinchStartDist = 0;
+        dragging = false;
+      };
+
+      // Tap = select. Only fires when the gesture wasn't a drag.
       const onPointerTap = (e: { global: { x: number; y: number } }): void => {
         if (!world) return;
+        if (dragMoved) { dragMoved = false; return; }
         const wx = (e.global.x - world.position.x) / world.scale.x;
         const wy = (e.global.y - world.position.y) / world.scale.y;
         const axial = pixelToAxial(wx, wy, hexSize);
@@ -455,7 +544,34 @@ export const CombatScene = ({
           handlersRef.current.onTileClick?.({ q: axial.q, r: axial.r });
         }
       };
+
+      const onWheel = (ev: WheelEvent): void => {
+        if (!world || !app) return;
+        ev.preventDefault();
+        const rect = app.canvas.getBoundingClientRect();
+        const cx = ev.clientX - rect.left;
+        const cy = ev.clientY - rect.top;
+        const factor = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
+        zoomAround(cx, cy, world.scale.x * factor);
+      };
+
+      app.stage.on("pointerdown", onPointerDown);
+      app.stage.on("pointermove", onPointerMove);
+      app.stage.on("pointerup", onPointerUp);
+      app.stage.on("pointerupoutside", onPointerUp);
       app.stage.on("pointertap", onPointerTap);
+      app.canvas.addEventListener("wheel", onWheel, { passive: false });
+
+      // Imperative recenter (called by the "Recenter" button via ref).
+      recenterRef.current = (): void => {
+        const s = stateRef.current;
+        if (!world || !s) return;
+        const b = boundsOf(s.tiles, hexSize);
+        const cx = (b.minX + b.maxX) / 2;
+        const cy = (b.minY + b.maxY) / 2;
+        world.scale.set(1, 1);
+        world.position.set(width / 2 - cx, height / 2 - cy);
+      };
 
       const renderTiles = (s: BattleState): void => {
         if (!tileLayer.current || !world) return;
@@ -470,11 +586,17 @@ export const CombatScene = ({
           g.position.set(x, y);
           tileLayer.current.addChild(g);
         }
-        // Centre once on first render (or whenever battle id changes).
-        const min = boundsOf(s.tiles, hexSize);
-        const cx = (min.minX + min.maxX) / 2;
-        const cy = (min.minY + min.maxY) / 2;
-        world.position.set(width / 2 - cx, height / 2 - cy);
+        // Centre ONLY when the battle changes — re-centering every
+        // render would fight the user's pan/zoom. centeredBattleId
+        // tracks which battle we've already framed.
+        if (centeredBattleId !== s.battleId) {
+          centeredBattleId = s.battleId;
+          const min = boundsOf(s.tiles, hexSize);
+          const cx = (min.minX + min.maxX) / 2;
+          const cy = (min.minY + min.maxY) / 2;
+          world.scale.set(1, 1);
+          world.position.set(width / 2 - cx, height / 2 - cy);
+        }
       };
 
       const renderHighlight = (coord: Coord | null): void => {
@@ -562,6 +684,11 @@ export const CombatScene = ({
         // throws "Cannot read properties of null (reading 'canvas')".
         const canvasEl = app?.canvas ?? null;
         try {
+          canvasEl?.removeEventListener("wheel", onWheel);
+          app?.stage.off("pointerdown", onPointerDown);
+          app?.stage.off("pointermove", onPointerMove);
+          app?.stage.off("pointerup", onPointerUp);
+          app?.stage.off("pointerupoutside", onPointerUp);
           app?.stage.off("pointertap", onPointerTap);
         } catch { /* ignore: app already torn down */ }
         try {
@@ -616,11 +743,27 @@ export const CombatScene = ({
   }, [widthProp, heightProp, hexSizeProp]);
 
   return (
-    <div
-      ref={hostRef}
-      style={{ width: "100%", maxWidth: width, height }}
-      className="rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden touch-none"
-    />
+    <div className="relative" style={{ maxWidth: width }}>
+      <div
+        ref={hostRef}
+        style={{ width: "100%", maxWidth: width, height }}
+        className="rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden touch-none"
+      />
+      {/* Pan/zoom controls — overlaid top-right of the canvas. */}
+      <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-1">
+        <button
+          type="button"
+          aria-label="Recenter view"
+          onClick={() => recenterRef.current()}
+          className="pointer-events-auto rounded border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+        >
+          ⊙ Recenter
+        </button>
+      </div>
+      <p className="mt-1 text-center text-[10px] text-zinc-600">
+        drag = di chuyển · cuộn / chụm 2 ngón = zoom · chạm = chọn ô
+      </p>
+    </div>
   );
 };
 

@@ -223,11 +223,17 @@ Test-Case 'combat.start spawns party of 3 heroes (not solo)' {
     }
 }
 
-Test-Case 'combat.start spawns 2 enemies on non-boss level' {
+Test-Case 'combat.start spawns authored enemies on non-boss level' {
+    # Enemy count now comes from the level's authored spawn list (1..4),
+    # not a hardcoded 2. Assert a sane range + no tile collision.
     $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 3 }
     $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
     $foes = @($cs.state.actors | Where-Object { $_.side -eq 'enemy' })
-    Assert-Eq 2 $foes.Count "enemy count on non-boss level"
+    Assert-True ($foes.Count -ge 1 -and $foes.Count -le 6) "enemy count in range (got $($foes.Count))"
+    # No two actors share a tile.
+    $positions = @($cs.state.actors | ForEach-Object { "$($_.pos.q),$($_.pos.r)" })
+    $unique = @($positions | Sort-Object -Unique)
+    Assert-Eq $positions.Count $unique.Count "all actors on distinct tiles"
 }
 
 Test-Case 'combat.start spawns single Void Lord boss on level 20' {
@@ -238,29 +244,62 @@ Test-Case 'combat.start spawns single Void Lord boss on level 20' {
     Assert-Eq 'Void Lord' $foes[0].unit 'boss unit'
 }
 
-# Team builder: writing selectedTeam to preferences propagates to the
-# next combat.start. We pick a 2-hero team (Mira + Brann) so the test
-# can verify the synth honoured the choice instead of auto-rotating.
-Test-Case 'combat.start honours selectedTeam from profile.preferences' {
-    # Save selected team via account.updateProfile (existing tRPC).
+# Team builder + ownership (#3): selectedTeam propagates to combat.start,
+# but ONLY owned heroes survive. Starters (aevra/kyo/lyra/brann) are
+# always owned, so a starter-only team round-trips fully. Picking an
+# unowned hero (e.g. Vex) is silently dropped + rotation-filled.
+Test-Case 'combat.start honours selectedTeam (owned heroes only)' {
+    # Brann + Lyra are both starters → both must appear.
     $null = Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
-        preferences = @{ selectedTeam = @('mira', 'brann') }
+        preferences = @{ selectedTeam = @('brann', 'lyra') }
     }
     $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
     $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
     $players = @($cs.state.actors | Where-Object { $_.side -eq 'player' })
-    # Mira + Brann should be in slots 0 and 1. Slot 2 is rotation-fill.
     Assert-True ($players.Count -ge 2) "party has heroes"
-    $unit0 = $players[0].unit
-    $unit1 = $players[1].unit
-    $okM = ($unit0 -eq 'Mira') -or ($unit1 -eq 'Mira')
-    $okB = ($unit0 -eq 'Brann') -or ($unit1 -eq 'Brann')
-    Assert-True $okM "Mira in selected team (got slot0=$unit0 slot1=$unit1)"
-    Assert-True $okB "Brann in selected team (got slot0=$unit0 slot1=$unit1)"
-    # Reset to empty so other tests get auto-rotation
+    $units = ($players | ForEach-Object { $_.unit }) -join ','
+    Assert-True ($units -match 'Brann') "Brann (starter) in team (got $units)"
+    Assert-True ($units -match 'Lyra') "Lyra (starter) in team (got $units)"
+    # Unowned hero (Vex) must be DROPPED — fresh test user owns no extras.
+    $null = Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
+        preferences = @{ selectedTeam = @('vex') }
+    }
+    $r2start = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $cs2 = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$r2start.run.id }
+    $units2 = (@($cs2.state.actors | Where-Object { $_.side -eq 'player' }) | ForEach-Object { $_.unit }) -join ','
+    Assert-True ($units2 -notmatch 'Vex') "unowned Vex dropped, fell back to starters (got $units2)"
+    # Reset
     $null = Invoke-TrpcMutation -Procedure 'account.updateProfile' -Payload @{
         preferences = @{ selectedTeam = @() }
     }
+}
+
+# Mid-combat resume (#4): calling combat.start twice on the same run
+# returns the SAME ongoing battle (snapshot preserved), not a fresh one.
+Test-Case 'combat.start resumes in-progress battle (no wipe)' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $rid = [string]$rstart.run.id
+    $cs1 = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    $battleId1 = $cs1.state.battleId
+    # Take an action so state diverges from the fresh init.
+    $hero = $cs1.state.actors | Where-Object { $_.id -eq $cs1.state.activeActorId } | Select-Object -First 1
+    $null = Invoke-TrpcMutation -Procedure 'combat.submitAction' -Payload @{
+        runId = $rid; action = @{ kind = 'defend'; actorId = $hero.id }
+    }
+    # Re-start → must return the SAME battle with the spent AP, not reset.
+    $cs2 = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = $rid }
+    Assert-Eq $battleId1 $cs2.state.battleId 'same battleId on resume'
+    $heroAfter = $cs2.state.actors | Where-Object { $_.id -eq $hero.id } | Select-Object -First 1
+    Assert-True ($heroAfter.stats.ap -lt 3) "AP preserved from before resume (got $($heroAfter.stats.ap))"
+}
+
+# Bridge (#1): combat uses the level's REAL terrain, not a flat grid.
+Test-Case 'combat.start uses authored level terrain (not flat plain)' {
+    $rstart = Invoke-TrpcMutation -Procedure 'world.startLevel' -Payload @{ levelNumber = 1 }
+    $cs = Invoke-TrpcMutation -Procedure 'combat.start' -Payload @{ runId = [string]$rstart.run.id }
+    $terrains = @($cs.state.tiles | ForEach-Object { $_.terrain } | Sort-Object -Unique)
+    # Level 1 (Forest Trail) has forest/water/stone — more than just "plain".
+    Assert-True ($terrains.Count -gt 1) "varied terrain (got: $($terrains -join ','))"
 }
 
 # Move action: multi-step path. Active hero moves 1 tile toward the

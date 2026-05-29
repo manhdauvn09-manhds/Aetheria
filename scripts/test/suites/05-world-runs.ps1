@@ -92,7 +92,7 @@ Test-Case 'world.resumeRun is scoped by user (no cross-user access)' {
     try {
         $other = Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
             email = "x-$ts@aetheria-test.invalid"
-            password = 'TestPass1234!'
+            password = 'Aq7!zKmTvW4xP9r'
             displayName = "x$($ts.Substring(8,5))"
         }
     } catch {
@@ -105,10 +105,19 @@ Test-Case 'world.resumeRun is scoped by user (no cross-user access)' {
     $otherTok = ($other.Content | ConvertFrom-Json).access.value
     $payload = [System.Web.HttpUtility]::UrlEncode("{`"0`":{`"json`":{`"runId`":$($script:RunId)}}}")
     $headers = @{ 'Origin' = $script:BaseUrl; 'Authorization' = "Bearer $otherTok" }
-    $resp = Invoke-HttpRaw -Method GET -Url "$script:ApiUrl/trpc/world.resumeRun`?batch=1&input=$payload" -Headers $headers
-    $j = $resp.Content | ConvertFrom-Json
-    Assert-NotNull $j[0].error 'cross-user access must error'
-    Assert-Match '(NOT_FOUND|not found|404)' "$($j[0].error.json.message)" 'cross-user error is NOT_FOUND'
+    # tRPC surfaces NOT_FOUND as a real HTTP 404, so Invoke-HttpRaw throws.
+    # Either path is acceptable as long as the run is denied to the other
+    # user: a thrown 404/NOT_FOUND, or a 200 with a tRPC error envelope.
+    try {
+        $resp = Invoke-HttpRaw -Method GET -Url "$script:ApiUrl/trpc/world.resumeRun`?batch=1&input=$payload" -Headers $headers
+        $j = $resp.Content | ConvertFrom-Json
+        Assert-NotNull $j[0].error 'cross-user access must error'
+        Assert-Match '(NOT_FOUND|not found|404)' "$($j[0].error.json.message)" 'cross-user error is NOT_FOUND'
+    } catch {
+        if ($_.Exception.Message -notmatch '(NOT_FOUND|not found|404)') {
+            throw "Expected cross-user denial (404/NOT_FOUND), got: $($_.Exception.Message)"
+        }
+    }
 }
 
 End-Suite

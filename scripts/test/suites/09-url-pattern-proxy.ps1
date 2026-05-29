@@ -115,7 +115,7 @@ Test-Case 'Signup with email-as-displayName → 400 VALIDATION_FAILED' {
     try {
         Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
             email = "bademail-$tsx@aetheria-test.invalid"
-            password = 'TestPass1234!'
+            password = 'Aq7!zKmTvW4xP9r'
             displayName = "bademail-$tsx@aetheria-test.invalid"
         } | Out-Null
         throw 'Should have rejected displayName containing @ and .'
@@ -145,7 +145,7 @@ Test-Case 'Signup with invalid email → 400 VALIDATION_FAILED' {
     try {
         Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
             email = "not-an-email"
-            password = 'TestPass1234!'
+            password = 'Aq7!zKmTvW4xP9r'
             displayName = "validname$suffix"
         } | Out-Null
         throw 'Should have rejected invalid email'
@@ -160,7 +160,7 @@ Test-Case 'Signup with too-short displayName (1 char) → 400' {
     try {
         Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
             email = "shortname-$tsx@aetheria-test.invalid"
-            password = 'TestPass1234!'
+            password = 'Aq7!zKmTvW4xP9r'
             displayName = 'a'
         } | Out-Null
         throw 'Should have rejected 1-char displayName'
@@ -200,7 +200,7 @@ Test-Case 'Signup with malformed JSON body → 400' {
 
 $probeEmail = "probe-$tsx@aetheria-test.invalid"
 $probeName = "probe$suffix"
-$probePass = 'TestPass1234!'
+$probePass = 'Aq7!zKmTvW4xP9r'
 $probeToken = $null
 
 Test-Case 'Signup with valid inputs → 200 + session JSON (URL wiring works)' {

@@ -20,13 +20,15 @@
     "clean":     "rimraf dist .turbo"
   },
   "dependencies": {
-    "@aetheria/core":          "workspace:*",
-    "@aetheria/domain-combat": "workspace:*",
-    "@aetheria/domain-events": "workspace:*",
-    "@aetheria/schema-api":    "workspace:*",
-    "@aetheria/schema-db":     "workspace:*",
-    "@aetheria/shared-types":  "workspace:*",
-    "zod":                     "^3.23.8"
+    "@aetheria/core":            "workspace:*",
+    "@aetheria/domain-combat":   "workspace:*",
+    "@aetheria/domain-events":   "workspace:*",
+    "@aetheria/game-assets":     "workspace:*",
+    "@aetheria/progression-runtime": "workspace:*",
+    "@aetheria/schema-api":      "workspace:*",
+    "@aetheria/schema-db":       "workspace:*",
+    "@aetheria/shared-types":    "workspace:*",
+    "zod":                       "^3.23.8"
   },
   "devDependencies": {
     "@aetheria/config": "workspace:*",

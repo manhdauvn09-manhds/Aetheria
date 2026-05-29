@@ -139,10 +139,28 @@ function Get-TestUser {
     $ts = (Get-Date -Format 'yyyyMMddHHmmssfff')
     $email = "ts-$ts@aetheria-test.invalid"
     $name = "ts$($ts.Substring(8,6))"
-    $resp = Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
-        email = $email
-        password = 'TestPass1234!'
-        displayName = $name
+    # Auth bucket is 10 signups/60s/IP. When the full suite runs many
+    # auth-heavy suites back-to-back the bucket can be exhausted by the
+    # time a later suite calls Get-TestUser. Back off once (wait out the
+    # window) + retry so the full run self-heals instead of cascading
+    # 429s through suites 04/05/06.
+    $resp = $null
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        try {
+            $resp = Invoke-HttpRaw -Method POST -Url "$script:BaseUrl/api/auth/signup" -Body @{
+                email = $email
+                password = 'Aq7!zKmTvW4xP9r'
+                displayName = $name
+            }
+            break
+        } catch {
+            if ($attempt -lt 2 -and $_.Exception.Message -match '429') {
+                Write-Host '         (auth bucket full — waiting 62s then retrying signup…)' -ForegroundColor DarkYellow
+                Start-Sleep -Seconds 62
+                continue
+            }
+            throw
+        }
     }
     $data = $resp.Content | ConvertFrom-Json
     $script:TestState.Token = $data.access.value

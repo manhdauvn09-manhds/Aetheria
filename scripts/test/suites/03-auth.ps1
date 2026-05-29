@@ -7,7 +7,7 @@ Start-Suite '03' 'Authentication flow'
 $ts = (Get-Date -Format 'yyyyMMddHHmmssfff')
 $email = "auth-$ts@aetheria-test.invalid"
 $displayName = "auth$($ts.Substring(8,6))"
-$password = 'TestPass1234!'
+$password = 'Aq7!zKmTvW4xP9r'
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 Test-Case 'POST /api/auth/signup creates account' {
