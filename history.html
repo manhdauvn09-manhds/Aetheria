@@ -85,6 +85,29 @@
 <tbody>
 
 <tr>
+  <td>2026-05-30 07:00</td>
+  <td><span class="hash">941c5e6</span></td>
+  <td><span class="badge b-feat">FEAT</span></td>
+  <td>
+    <strong>Combat bridge: real level data + roster ownership + resume + XP fix + pan/zoom.</strong>
+    <div class="diff-note">Diff vs <span class="hash">1a065a9</span> (7 commits squashed):</div>
+    <details open><summary>Key changes</summary><ul>
+      <li><strong>#1 Level bridge</strong> — synthesiseInit reads map+encounter from game-assets (was flat 6×4). Terrain mapped (grass→plain, ruins→stone). Spawn de-collision guarantees no actor overlap.</li>
+      <li><strong>#2 XP fix</strong> — grantRewards now calls applyAccountXp (was raw increment that left accountLevel=1 forever).</li>
+      <li><strong>#3 Roster ownership</strong> — party = selectedTeam ∩ owned heroes. Starters always available. Unowned heroes silently dropped.</li>
+      <li><strong>#4 Mid-combat resume</strong> — combat.start returns existing snapshot if battle live; no more progress wipe on re-enter.</li>
+      <li><strong>Pan/zoom</strong> — CombatScene: drag-pan + wheel/pinch-zoom + Recenter button. Fixes "board off-screen" on mobile.</li>
+      <li><strong>Security</strong> — Signup enumeration mitigated (generic 409). HIBP password breach check (signup + reset). .env.prod chmod 600.</li>
+      <li><strong>Team builder</strong> — /team page pick 1-3 heroes. DOT statuses (firebolt burn, venom_dart poison). Daily quest event bus wiring.</li>
+      <li><strong>Deploy key</strong> — SSH github-aetheria (never expires), remote switched from HTTPS to SSH.</li>
+      <li><strong>Migration 05</strong> — runs.party_config column + characters reseed (codenames match combat roster).</li>
+    </ul></details>
+  </td>
+  <td class="target">api + web + DB</td>
+  <td class="status-ok">✓ SUCCESS</td>
+</tr>
+
+<tr>
   <td>2026-05-24 14:35</td>
   <td><span class="hash">1a065a9</span></td>
   <td><span class="badge b-fix">FIX</span></td>

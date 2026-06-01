@@ -63,7 +63,7 @@
 <header>
   <h1>📋 Aetheria — SRS</h1>
   <p class="sub">Software Requirements Specification. Tự sinh từ code hiện tại.</p>
-  <p class="stamp">Last updated: 2026-05-24 · All sections initial (no prior version)</p>
+  <p class="stamp">Last updated: 2026-05-30 · Delta from 2026-05-24: bridge fixes #1-#4 + security + pan/zoom</p>
 </header>
 
 <section class="toc">
@@ -120,23 +120,24 @@ Next.js / Fastify-tRPC → service layer → Prisma → MySQL 8
 <ul>
   <li><span class="new">8-character roster: Aevra (DPS), Kyo (Bruiser), Lyra (Mage), Brann (Tank), Mira (Healer), Vex (Assassin), Solen (Support), Null (Wildcard). Role-tuned HP/ATK/DEF/SPD.</span></li>
   <li><span class="new">Vector SVG sprites per archetype, loaded as Pixi textures (fallback to Graphics shapes).</span></li>
-  <li><span class="new">Team Builder page: pick 1-3 heroes, persisted to <code>profile.preferences.selectedTeam</code>. Empty = level rotation default.</span></li>
+  <li><span class="new">Team Builder page: pick 1-3 heroes, persisted to <code>profile.preferences.selectedTeam</code>.</span> <span style="color:#2196F3;font-weight:bold">Party = selectedTeam ∩ owned heroes (starters always available). Unowned heroes silently dropped + rotation-filled. Resolved party persisted to <code>runs.party_config</code> for deterministic replay.</span></li>
 </ul>
 
 <h3>4.3 Combat</h3>
 <ul>
-  <li><span class="new">6×4 hex grid. AP system (3/turn). Element wheel (Verdant/Ember/Frost/Tide/Sky/Void) with damage advantage 0.75/1.0/1.25.</span></li>
-  <li><span class="new">Actions: Move (multi-step BFS pathfinder client-side, engine validates step adjacency), Attack, Defend, End Turn.</span></li>
+  <li><span class="new">6×4 hex grid</span> <span style="color:#2196F3;font-weight:bold">→ now uses authored level geometry from game-assets (terrain, spawns, exits match map-view). Spawn de-collision guarantees distinct tiles.</span> AP system (3/turn). Element wheel with damage advantage 0.75/1.0/1.25.</li>
+  <li><span class="new">Actions: Move (multi-step BFS pathfinder client-side, engine validates step adjacency), Attack, Defend, End Turn.</span> <span style="color:#2196F3;font-weight:bold">Pan/zoom: drag + wheel/pinch + Recenter button on CombatScene canvas.</span></li>
   <li><span class="new">Skills catalog (6): power_strike, firebolt (burn DOT), venom_dart (poison DOT), heal, bulwark (self_buff), bless (ally_buff). Each hero gets role-mapped skills.</span></li>
   <li><span class="new">Status effects active: burn / poison DOT tick on turn boundary (engine turn.tickStatuses). Aether_surge buff for defense.</span></li>
   <li><span class="new">Resonance: +50% AoE damage when 2+ party heroes share element. HUD badge surfaces "armed" state.</span></li>
   <li><span class="new">Server-side enemy AI: chase → attack-if-adjacent → end-turn fallback.</span></li>
   <li><span class="new">Victory/Defeat/Draw modal with HP recap + reward summary + Next Level / Retry CTAs.</span></li>
+  <li><span style="color:#2196F3;font-weight:bold">Mid-combat resume: combat.start returns existing in-progress snapshot instead of rebuilding. Leaving + re-entering /play/[N] preserves fight progress.</span></li>
 </ul>
 
 <h3>4.4 Progression</h3>
 <ul>
-  <li><span class="new">Account XP + gold tracked on <code>profile</code>. Reward grant on victory: profile increment + inventory item upsert inside one transaction.</span></li>
+  <li><span style="color:red;text-decoration:line-through">Account XP + gold tracked on profile. Reward grant on victory: profile increment + inventory item upsert inside one transaction.</span> <span style="color:#2196F3;font-weight:bold">XP now routes through applyAccountXp (recomputes accountLevel + emits LeveledUp milestones). Gold via direct increment. Both inside single $transaction with inventory upserts.</span></li>
   <li><span class="new">Daily + weekly quests (3 + 2 seeded): complete_levels, defeat_enemies, finish_runs. Progress tracked via event bus (LevelCompleted / RunFinished / EnemyDefeated). Claim button → XP grant.</span></li>
 </ul>
 
@@ -222,7 +223,7 @@ Next.js / Fastify-tRPC → service layer → Prisma → MySQL 8
   <li><span class="new">Helmet: CSP <code>default-src 'none'</code> on API; <code>script-src 'self' 'unsafe-eval'</code> on web (Pixi v8 requirement, documented trade-off).</span></li>
   <li><span class="new">SSRF guard on avatarUrl: scheme whitelist (https-only), private-IP block.</span></li>
   <li><span class="new">Preferences payload 8KB cap. Combat snapshot CAS + replay-hash integrity.</span></li>
-  <li><span class="new">User enumeration mitigation: signup unifies conflict cases to single generic 409 + constant-time lookups.</span></li>
+  <li><span class="new">User enumeration mitigation: signup unifies conflict cases to single generic 409 + constant-time lookups.</span> <span style="color:#2196F3;font-weight:bold">HIBP k-anonymity password breach check at signup + reset (soft-fail on network).</span></li>
   <li><span class="new">consoleMailer REFUSES to log in production (would leak reset tokens to stderr).</span></li>
   <li><span class="new">.env.prod permissions 0600. fail2ban + Hetzner Cloud Firewall (operator IP whitelist only on :22).</span></li>
 </ul>
