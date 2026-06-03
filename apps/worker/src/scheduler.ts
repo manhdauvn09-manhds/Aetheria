@@ -99,11 +99,17 @@ export const buildScheduler = (
 
   const startOne = (job: JobDefinition): void => {
     const start = (): void => {
+      // Node.js setInterval uses a 32-bit signed integer for the delay;
+      // values > 2^31-1 (~24.8 days) overflow and are set to 1ms,
+      // causing a tight loop. Cap at 24h — the cooldown key enforces
+      // the real cadence via Redis regardless of tick frequency.
+      const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+      const safeInterval = Math.min(job.intervalMs, MAX_INTERVAL_MS);
       const interval = setInterval(() => {
         void tick(job).catch((e: unknown) => {
           deps.log.error({ err: e, job: job.name }, "job tick crashed");
         });
-      }, job.intervalMs);
+      }, safeInterval);
       interval.unref();
       timers.push(interval);
     };
