@@ -85,6 +85,23 @@
 <tbody>
 
 <tr>
+  <td>2026-06-03 03:45</td>
+  <td><span class="hash">ad575d2</span></td>
+  <td><span class="badge b-fix">FIX</span></td>
+  <td>
+    <strong>Worker CPU 31% → 0.09%: fix setInterval 32-bit overflow + cooldown key.</strong>
+    <div class="diff-note">2 commits squashed:</div>
+    <details open><summary>Root cause + fix</summary><ul>
+      <li><strong>e6a348b</strong> — Cooldown key pattern: after job runs, SET Redis key with TTL=intervalMs so next ticks skip. Prevents lock-release→re-acquire tight loop.</li>
+      <li><strong>ad575d2</strong> — Real root cause: <code>seasonReset intervalMs=2,592,000,000</code> (30 days) exceeds Node.js 32-bit signed int limit (2^31-1=2,147,483,647). Node silently sets timeout to 1ms → 73 calls/second → 31% CPU constant. Fix: clamp setInterval to 24h max. cooldown key enforces real cadence.</li>
+      <li>Verified: worker CPU 31% → <strong>0.09%</strong> after fix.</li>
+    </ul></details>
+  </td>
+  <td class="target">worker only</td>
+  <td class="status-ok">✓ SUCCESS</td>
+</tr>
+
+<tr>
   <td>2026-05-30 07:00</td>
   <td><span class="hash">941c5e6</span></td>
   <td><span class="badge b-feat">FEAT</span></td>
