@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Redis } from "ioredis";
 
-export type LockRedisClient = Pick<Redis, "set" | "eval">;
+export type LockRedisClient = Pick<Redis, "set" | "eval" | "get">;
 
 export const lockKey = (name: string): string => `aetheria:worker:lock:${name}`;
 

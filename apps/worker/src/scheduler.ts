@@ -7,7 +7,7 @@
 
 import type { Logger } from "pino";
 
-import { runLocked, type LockRedisClient } from "./lock.js";
+import { lockKey, runLocked, type LockRedisClient } from "./lock.js";
 import type { JobContext, JobDefinition } from "./jobs/types.js";
 
 export interface SchedulerDeps {
@@ -69,10 +69,27 @@ export const buildScheduler = (
       }
       return;
     }
+
+    // "Cooldown lock" pattern:
+    // 1. Acquire a short execution lock (lockTtlMs) to prevent concurrent runs.
+    // 2. After the job completes, SET a cooldown key with TTL = intervalMs
+    //    so the next setInterval tick is a no-op until the interval elapses.
+    // This prevents the tight-loop bug where lock is released immediately and
+    // the next tick acquires it again (observed: ~73 calls/second in prod).
+    const cooldownKey = `${lockKey(job.name)}:cooldown`;
+    const cooldownActive = await deps.redis.get(cooldownKey);
+    if (cooldownActive) {
+      deps.log.debug({ job: job.name }, "job skipped (cooldown)");
+      return;
+    }
+
     const r = await runLocked(deps.redis, job.name, job.lockTtlMs, runWithTimeout);
     if (r.ran) {
+      // Set cooldown for the full interval so next ticks skip until then.
+      const cooldownTtlMs = Math.min(job.intervalMs, 7 * 24 * 60 * 60 * 1000); // cap 7d
+      await deps.redis.set(cooldownKey, "1", "PX", cooldownTtlMs);
       deps.log.debug(
-        { job: job.name, ms: Date.now() - start },
+        { job: job.name, ms: Date.now() - start, cooldownTtlMs },
         "job ran",
       );
     } else {
